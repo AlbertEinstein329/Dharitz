@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43871dfaba0ba8942ae26075d3a93707, type: 3}
+  m_Name: Variante_2
+  m_EditorClassIdentifier: 
+  nombreVariante: Diff Media
+  descripcion: Dificultad Media
+  patrones:
+  - {fileID: 11400000, guid: 5dc446c898958ab48803aeb8f04e9742, type: 2}
+  - {fileID: 11400000, guid: 2ea2856a0130dd84cbb75d6f61d073dd, type: 2}
+  - {fileID: 11400000, guid: 9f318da67705b6e4eaf37e6885d54a9a, type: 2}
+  - {fileID: 11400000, guid: 179366882c4210547a5f4fa9c174bdb5, type: 2}
+  - {fileID: 11400000, guid: 50fabfcd67b5ecf47b3ddfb39c101568, type: 2}
+  - {fileID: 11400000, guid: 34cd69c24a21d534aa107eec75e336ad, type: 2}
+  reservasDiagonalesPermitidas: 1

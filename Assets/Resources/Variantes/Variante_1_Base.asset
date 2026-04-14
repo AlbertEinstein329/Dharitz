@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43871dfaba0ba8942ae26075d3a93707, type: 3}
+  m_Name: Variante_1_Base
+  m_EditorClassIdentifier: 
+  nombreVariante: Diff Facil
+  descripcion: Variante dificultad facil
+  patrones:
+  - {fileID: 11400000, guid: 136ef66c3d107fb428204b046eb5c31b, type: 2}
+  - {fileID: 11400000, guid: 867c940ad25f95143bddc2923f46100c, type: 2}
+  - {fileID: 11400000, guid: 5716a29dbc7106543b1492fa36fd0e7d, type: 2}
+  - {fileID: 11400000, guid: 06fe45d4a977acc40a210c1bd1022b57, type: 2}
+  - {fileID: 11400000, guid: b77a4cdb04db9684398dcab8d0a73d8b, type: 2}
+  - {fileID: 11400000, guid: b32aff92dcad5794097f52e1b404e181, type: 2}
+  reservasDiagonalesPermitidas: 1

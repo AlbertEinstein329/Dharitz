@@ -14,7 +14,9 @@ public class GameManager : MonoBehaviour
     public GridManager gridManager;
 
     [Header("Configuracion de Partida")]
-    [Range(1, 4)] public int numPlayers = 2; // Por defecto 2 para ver al bot
+    public SessionConfig sesionActual;
+    [HideInInspector] public VariantData varianteActual;
+    [HideInInspector] public int numPlayers;
     public List<DieColor> diceBag = new List<DieColor>();
     public List<PlayerData> players = new List<PlayerData>();
 
@@ -32,18 +34,42 @@ public class GameManager : MonoBehaviour
 
     void Awake()
     {
-        // Esto asegura que los números sean diferentes cada vez que abres el juego
-        Random.InitState((int)System.DateTime.Now.Ticks);
-
+        // 1. EL ÚNICO Y VERDADERO SINGLETON
         if (Instance == null)
         {
             Instance = this;
-            InitializePlayers();
+        }
+        else if (Instance != this)
+        {
+            // Si ya existe OTRA instancia que no soy yo, me destruyo.
+            Destroy(gameObject);
+            return; // ¡Crucial! Evita que el resto del código se ejecute antes de morir.
+        }
+
+        // --- LECTURA DEL MALETÍN DE SESIÓN ---
+        if (sesionActual != null)
+        {
+            varianteActual = sesionActual.varianteSeleccionada;
+            numPlayers = sesionActual.numeroDeJugadores;
+
+            // Reconstruimos la lista de jugadores basada en la sesión
+            players = new List<PlayerData>();
+            for (int i = 0; i < numPlayers; i++)
+            {
+                PlayerSetup setup = sesionActual.jugadores[i];
+                players.Add(new PlayerData(i, setup.nombre, setup.esBot, setup.dificultadBot));
+            }
         }
         else
         {
-            Destroy(gameObject);
+            Debug.LogError("Falta el SessionConfig. Cargando configuraciones por defecto a prueba de fallos.");
         }
+
+        // Esto asegura que los números sean diferentes cada vez que abres el juego
+        Random.InitState((int)System.DateTime.Now.Ticks);
+
+        // Como ya pasamos el control de seguridad del Singleton con éxito, inicializamos:
+        InitializePlayers();
     }
 
     void Start()
@@ -197,11 +223,26 @@ public class GameManager : MonoBehaviour
 
         if (group.isClosed)
         {
-            if (PatternValidator.CheckPattern(group.occupiedCells, group.targetSize))
+            // 1. Obtenemos las reglas del patrón exacto desde nuestra Variante Actual
+            PatternData patronAsignado = varianteActual.ObtenerPatron(group.targetSize);
+
+            if (patronAsignado != null)
             {
-                currentPlayer.conteoPatrones[group.targetSize]++;
-                int bono = ScoreManager.Instance.GetPatternBonus(group.targetSize);
-                currentPlayer.score += bono;
+                // 2. Evaluamos la forma pasando las reglas geométricas
+                if (PatternValidator.CheckPattern(group.occupiedCells, patronAsignado))
+                {
+                    // REGISTRO DEL ÉXITO:
+                    currentPlayer.conteoPatrones[group.targetSize]++;
+
+                    int bono = ScoreManager.Instance.GetPatternBonus(group.targetSize);
+                    currentPlayer.score += bono;
+
+                    Debug.Log($"¡Patrón {group.targetSize} completado correctamente bajo las reglas de {varianteActual.nombreVariante}!");
+                }
+                else
+                {
+                    Debug.Log($"Grupo de {group.targetSize} cerrado, pero la forma no coincide con el patrón.");
+                }
             }
         }
 
@@ -295,5 +336,21 @@ public class GameManager : MonoBehaviour
         // 4. Volver a extraer un dado nuevo automáticamente
         DrawDie();
     }
+
+    // --- NAVEGACIÓN ---
+    public void VolverAlMenuPrincipal()
+    {
+        // BUENA PRÁCTICA SENIOR: Si en el futuro implementas un botón de "Pausa" 
+        // que ponga Time.timeScale = 0f, DEBES restaurarlo a 1f antes de cambiar 
+        // de escena, o tu Menú Principal cargará completamente congelado.
+        Time.timeScale = 1f;
+
+        // Limpiamos referencias estáticas si es necesario (el Singleton se destruirá solo, pero es buena práctica)
+        Instance = null;
+
+        // Cargamos la Escena 0 (Menú Principal)
+        SceneManager.LoadScene(0);
+    }
+
 
 }

@@ -119,8 +119,11 @@ public class UIManager : MonoBehaviour
 
         // 2. Obtener bonos por líneas completas
         GameManager.Instance.gridManager.ContarLineasCompletas(playerIndex, out int filas, out int columnas);
-        int bonoFilas = filas * 5;
-        int bonoColumnas = columnas * 7;
+        int bonoFilas = filas * 4;
+        int bonoColumnas = columnas * 5;
+
+        // --- NUEVO: Bonos de Variante ---
+        int bonoVariante = GameManager.Instance.gridManager.CalcularBonosDeVariante(playerIndex, out string desgloseVariante);
 
         // 3. Cálculos de puntaje base y patrones
         int puntosBase = player.dadosColocados;
@@ -147,14 +150,15 @@ public class UIManager : MonoBehaviour
         if (penalizacionHuecos > 0) textoPenalizaciones += $"<color=red>Huecos encerrados: -{penalizacionHuecos} pts</color>\n";
         if (penalizacionUnos > 0) textoPenalizaciones += $"<color=orange>Unos en contacto: -{penalizacionUnos} pts</color>\n";
 
-        // 5. Sumatoria final
-        int totalFinal = (puntosBase + totalBonosPatrones + bonoFilas + bonoColumnas) - totalPenalizaciones;
+        // Sumatoria final total (actualizada)
+        int totalFinal = (puntosBase + totalBonosPatrones + bonoFilas + bonoColumnas + bonoVariante) - totalPenalizaciones;
 
         // 6. Mostrar en la UI
         textoResultados.text =
             $"<size=120%>{player.name.ToUpper()}</size>\n\n" +
             $"Dados colocados: +{puntosBase} pts\n" +
             $"{desglose}" +
+            $"{desgloseVariante}" +
             $"{textoPenalizaciones}" +
             $"------------------------------\n" +
             $"<size=140%>TOTAL: {Mathf.Max(0, totalFinal)} PTS</size>";

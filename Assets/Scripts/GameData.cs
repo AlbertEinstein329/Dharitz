@@ -4,6 +4,19 @@ using System.Collections.Generic;
 // Definición global de colores [cite: 10-14]
 public enum DieColor { Rojo, Azul, Blanco, Negro }
 
+
+[System.Serializable]
+public class GroupData
+{
+    public int id;
+    public DieColor color;
+    public int targetSize;
+    public List<Vector2Int> occupiedCells = new List<Vector2Int>();
+
+    // Esta línea es VITAL: se cierra automáticamente al llegar al número
+    public bool isClosed => occupiedCells.Count >= targetSize;
+}
+
 [System.Serializable]
 public class PlayerData
 {
@@ -32,15 +45,5 @@ public class PlayerData
         this.conteoPatrones = new int[7];
     }
 
-    [System.Serializable]
-    public class GroupData
-    {
-        public int id;
-        public DieColor color;
-        public int targetSize;
-        public List<Vector2Int> occupiedCells = new List<Vector2Int>();
 
-        // Esta línea es VITAL: se cierra automáticamente al llegar al número
-        public bool isClosed => occupiedCells.Count >= targetSize;
-    }
 }

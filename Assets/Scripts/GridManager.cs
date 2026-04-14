@@ -149,10 +149,12 @@ public class GridManager : MonoBehaviour
     {
         DieData[,] currentLogic = allBoardsLogic[pIndex];
         PlayerData player = GameManager.Instance.players[pIndex];
-
         bool isBoardEmpty = (player.dadosColocados == 0);
 
-        // 1. ESTADO DEL GRUPO: ¿Ya hay dados de este patrón en el tablero?
+        // --- INYECCIÓN DE REGLAS ---
+        VariantData variante = GameManager.Instance.varianteActual;
+        PatternData patronActual = variante.ObtenerPatron(number);
+
         bool hasDiceInGroup = false;
         if (player.activeGroups.ContainsKey(color) && player.activeGroups[color] != null)
         {
@@ -162,7 +164,7 @@ public class GridManager : MonoBehaviour
         bool touchesOwnGroup = false;
         bool touchesAnyDie = false;
 
-        // --- 2. ESCANEO DEL ÁREA 3x3 ---
+        // Escaneo 3x3
         for (int i = -1; i <= 1; i++)
         {
             for (int j = -1; j <= 1; j++)
@@ -178,13 +180,18 @@ public class GridManager : MonoBehaviour
 
                     if (neighbor != null)
                     {
-                        // Regla estricta del 1 (Aislamiento penalizado por mismo color)
-                        if (number == 1 && neighbor.value == 1 && neighbor.color == color)
+                        // 1. REGLAS DEL NÚMERO 1 DINÁMICAS
+                        if (number == 1 && neighbor.value == 1)
                         {
-                            return false;
+                            // Si estamos jugando con la regla clásica (Variante 1), bloqueamos mismo color.
+                            // Si es Variante 2 o 3, permitimos el contacto físico para que luego sume puntos extra.
+                            if (patronActual.reglaEspecial == PatternData.ReglaEspecial.AislamientoPenalizado)
+                            {
+                                if (neighbor.color == color) return false;
+                            }
                         }
 
-                        // Verificamos si tocamos a un hermano del mismo patrón (Ortogonal o Diagonal)
+                        // 2. CONECTIVIDAD DEL GRUPO
                         if (neighbor.groupId == currentGroupId)
                         {
                             touchesOwnGroup = true;
@@ -212,26 +219,12 @@ public class GridManager : MonoBehaviour
             }
         }
 
-        // --- 3. RESOLUCIÓN DE CONECTIVIDAD ---
-
-        // Excepción A: Si el tablero está vacío, todo está permitido
+        // Resoluciones
         if (isBoardEmpty) return true;
+        if (hasDiceInGroup && !touchesOwnGroup) return false; // Obliga a seguir el patrón
+        if (!touchesAnyDie) return false;
 
-        // REGLA CRÍTICA NUEVA: Si el grupo ya empezó, DEBE tocar a su familia en el 3x3
-        if (hasDiceInGroup && !touchesOwnGroup)
-        {
-            Debug.Log("Movimiento inválido: El dado debe continuar la formación de su patrón (3x3).");
-            return false;
-        }
-
-        // Excepción B: Si el grupo es nuevo, debe anclarse a cualquier dado válido existente
-        if (!touchesAnyDie)
-        {
-            Debug.Log("Movimiento inválido: El dado debe estar en contacto con al menos otro dado.");
-            return false;
-        }
-
-        // --- 4. SISTEMA DE SUPERVIVENCIA (RESERVAS) ---
+        // --- SISTEMA DE SUPERVIVENCIA ---
         return ValidarSupervivencia(pIndex, r, c, color, currentGroupId, number, player);
     }
 
@@ -318,6 +311,17 @@ public class GridManager : MonoBehaviour
     // Escanea el tablero del jugador y aplica -1 por cada dado de valor 1 que toque a otro 1
     public int ObtenerPenalizacionesPorUnos(int pIndex)
     {
+        // --- INYECCIÓN DE VARIANTE ---
+        VariantData variante = GameManager.Instance.varianteActual;
+        PatternData patron1 = variante.ObtenerPatron(1);
+
+        // Si el patrón 1 tiene la regla de premiar el contacto, ANULAMOS la penalización.
+        if (patron1 != null && patron1.reglaEspecial == PatternData.ReglaEspecial.AislamientoPremiado)
+        {
+            return 0; // Se salva de la multa
+        }
+
+        
         DieData[,] logic = allBoardsLogic[pIndex];
         int penalizacionTotal = 0;
 
@@ -398,7 +402,7 @@ public class GridManager : MonoBehaviour
         }
 
         // 3. ANÁLISIS DE TOPOLOGÍA GLOBAL
-        bool esValido = AnalizarTopologia(pIndex, logic, dadosFaltantes);
+        bool esValido = AnalizarTopologia(pIndex, logic, dadosFaltantes, player); // <-- Añadimos 'player' al final
 
         // 4. REVERSIÓN DE LA SIMULACIÓN
         logic[r, c] = null;
@@ -406,10 +410,13 @@ public class GridManager : MonoBehaviour
         return esValido;
     }
 
-    private bool AnalizarTopologia(int pIndex, DieData[,] logic, Dictionary<int, int> dadosFaltantes)
+    private bool AnalizarTopologia(int pIndex, DieData[,] logic, Dictionary<int, int> dadosFaltantes, PlayerData player)
     {
-        int[] dr = { -1, 1, 0, 0 };
-        int[] dc = { 0, 0, -1, 1 };
+        VariantData variante = GameManager.Instance.varianteActual;
+
+        // Array de 8 direcciones (Primeros 4 ortogonales, últimos 4 diagonales)
+        int[] dr = { -1, 1, 0, 0, -1, -1, 1, 1 };
+        int[] dc = { 0, 0, -1, 1, -1, 1, -1, 1 };
 
         foreach (var kvp in dadosFaltantes)
         {
@@ -418,13 +425,21 @@ public class GridManager : MonoBehaviour
 
             if (requeridos <= 0) continue;
 
+            // Identificar qué patrón estamos evaluando para saber cómo busca espacio
+            GroupData grupoActivo = null;
+            foreach (var g in player.activeGroups.Values) { if (g != null && g.id == gId) { grupoActivo = g; break; } }
+
+            PatternData patronDelGrupo = variante.ObtenerPatron(grupoActivo.targetSize);
+
+            // ¿Tiene permiso este grupo para "saltar" bloqueos en diagonal?
+            bool puedeReservarDiagonal = patronDelGrupo.reglaEspecial == PatternData.ReglaEspecial.ContactoDiagonalExtra || variante.reservasDiagonalesPermitidas;
+            int direccionesDeBusqueda = puedeReservarDiagonal ? 8 : 4; // Cambia la potencia del escáner
+
             int vaciosAlcanzables = 0;
             bool[,] visitado = new bool[rows, cols];
             Queue<Vector2Int> cola = new Queue<Vector2Int>();
 
-            // NUEVO: Necesitamos extraer el color de este grupo para poder identificar sus "Zonas Muertas"
-            DieColor colorDelGrupo = DieColor.Blanco;
-            bool colorEncontrado = false;
+            DieColor colorDelGrupo = grupoActivo.color;
 
             // 1. Encontrar todos los dados de ESTE grupo
             for (int r = 0; r < rows; r++)
@@ -433,23 +448,19 @@ public class GridManager : MonoBehaviour
                 {
                     if (logic[r, c] != null && logic[r, c].groupId == gId)
                     {
-                        if (!colorEncontrado)
-                        {
-                            colorDelGrupo = logic[r, c].color;
-                            colorEncontrado = true;
-                        }
                         cola.Enqueue(new Vector2Int(r, c));
                         visitado[r, c] = true;
                     }
                 }
             }
 
-            // 2. Expandir el Flood-Fill con detección de colisión de color
+            // 2. Expandir el Flood-Fill con detección de colisión
             while (cola.Count > 0)
             {
                 Vector2Int actual = cola.Dequeue();
 
-                for (int d = 0; d < 4; d++)
+                // Usamos 4 u 8 direcciones según las reglas del patrón
+                for (int d = 0; d < direccionesDeBusqueda; d++)
                 {
                     int nr = actual.x + dr[d];
                     int nc = actual.y + dc[d];
@@ -458,10 +469,9 @@ public class GridManager : MonoBehaviour
                     {
                         if (logic[nr, nc] == null && !visitado[nr, nc])
                         {
-                            // --- LA NUEVA LÓGICA SENIOR: Detección de Zona Muerta ---
-                            // Antes de asumir que este espacio es útil, revisamos a SUS vecinos ortogonales
+                            // ZONA MUERTA: Verificamos los vecinos ortogonales del espacio vacío
                             bool esZonaMuerta = false;
-                            for (int d2 = 0; d2 < 4; d2++)
+                            for (int d2 = 0; d2 < 4; d2++) // Siempre 4 direcciones para zona muerta
                             {
                                 int nnr = nr + dr[d2];
                                 int nnc = nc + dc[d2];
@@ -469,18 +479,14 @@ public class GridManager : MonoBehaviour
                                 if (nnr >= 0 && nnr < rows && nnc >= 0 && nnc < cols)
                                 {
                                     DieData vecinoDelVacio = logic[nnr, nnc];
-
-                                    // Si el vecino existe, es de tu mismo color, pero pertenece a OTRA familia...
-                                    // Ese espacio es ilegal para ti.
                                     if (vecinoDelVacio != null && vecinoDelVacio.color == colorDelGrupo && vecinoDelVacio.groupId != gId)
                                     {
                                         esZonaMuerta = true;
-                                        break; // Rompemos el ciclo, ya sabemos que está bloqueado
+                                        break;
                                     }
                                 }
                             }
 
-                            // Solo encolamos y contamos el espacio si es seguro ocuparlo
                             if (!esZonaMuerta)
                             {
                                 visitado[nr, nc] = true;
@@ -495,7 +501,7 @@ public class GridManager : MonoBehaviour
             // 3. Veredicto Final
             if (vaciosAlcanzables < requeridos)
             {
-                Debug.Log($"Bloqueo Topológico: El grupo {gId} necesita {requeridos} espacios, pero choca con muros o Zonas Muertas de su propio color y solo alcanza {vaciosAlcanzables}.");
+                Debug.Log($"Bloqueo Topológico: El grupo {gId} necesita {requeridos} espacios, pero solo alcanza {vaciosAlcanzables} bajo reglas de {(puedeReservarDiagonal ? "búsqueda de 8 vías" : "búsqueda estricta de 4 vías")}.");
                 return false;
             }
         }
@@ -538,4 +544,90 @@ public class GridManager : MonoBehaviour
         }
     }
 
+    public int CalcularBonosDeVariante(int pIndex, out string desgloseBonos)
+    {
+        DieData[,] logic = allBoardsLogic[pIndex];
+        VariantData variante = GameManager.Instance.varianteActual;
+
+        int totalBono = 0;
+        desgloseBonos = "";
+
+        int bonoUnos = 0;
+        int contactosDiagonalesValidos = 0;
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                DieData dado = logic[r, c];
+                if (dado == null) continue;
+
+                PatternData patron = variante.ObtenerPatron(dado.value);
+                if (patron == null) continue;
+
+                // --- REGLA: Contacto Diagonal Extra (Variante 1 para el 2) ---
+                if (patron.reglaEspecial == PatternData.ReglaEspecial.ContactoDiagonalExtra)
+                {
+                    // Escaneamos solo las 4 diagonales
+                    int[] dr = { -1, -1, 1, 1 };
+                    int[] dc = { -1, 1, -1, 1 };
+
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int nr = r + dr[d];
+                        int nc = c + dc[d];
+                        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+                        {
+                            DieData vecino = logic[nr, nc];
+                            // Si toca a uno igual, de su mismo color pero de OTRA familia...
+                            if (vecino != null && vecino.value == dado.value && vecino.color == dado.color && vecino.groupId != dado.groupId)
+                            {
+                                contactosDiagonalesValidos++;
+                            }
+                        }
+                    }
+                }
+
+                // --- REGLA: Aislamiento Premiado (Variante 3 para el 1) ---
+                if (patron.reglaEspecial == PatternData.ReglaEspecial.AislamientoPremiado)
+                {
+                    bool tocaOtroUno = false;
+                    for (int i = -1; i <= 1; i++)
+                    {
+                        for (int j = -1; j <= 1; j++)
+                        {
+                            if (i == 0 && j == 0) continue;
+                            int nr = r + i, nc = c + j;
+                            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+                            {
+                                DieData vecino = logic[nr, nc];
+                                if (vecino != null && vecino.value == 1) tocaOtroUno = true;
+                            }
+                        }
+                    }
+                    if (tocaOtroUno) bonoUnos++;
+                }
+            }
+        }
+
+        // MATEMÁTICA SENIOR: Dividimos por 2 porque la topología contó cada conexión dos veces 
+        // (El dado A vio al B, y más tarde el dado B vio al A).
+        contactosDiagonalesValidos /= 2;
+
+        if (contactosDiagonalesValidos > 0)
+        {
+            // Sumamos los puntos extra como pediste en tu GDD
+            int pts = contactosDiagonalesValidos * 1;
+            totalBono += pts;
+            desgloseBonos += $"<color=green>Conexiones Diagonales (x{contactosDiagonalesValidos}): +{pts} pts</color>\n";
+        }
+
+        if (bonoUnos > 0)
+        {
+            totalBono += bonoUnos;
+            desgloseBonos += $"<color=green>Unos en contacto (x{bonoUnos}): +{bonoUnos} pts</color>\n";
+        }
+
+        return totalBono;
+    }
 }
