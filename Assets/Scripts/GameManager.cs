@@ -24,13 +24,15 @@ public class GameManager : MonoBehaviour
     public int currentPlayerIndex = 0;
 
     [Header("Referencias de UI")]
+    public GameObject botonCancelar;
     public Button drawButton;
-    public Button reDrawButton; // <-- NUEVO
+    public Button reDrawButton;
     public UnityEngine.UI.Text TextMeshProUGUI;
     public DieColor currentDrawnColor;
     public bool hasDrawn = false;
     public bool isGameOver = false;
     public GroupData activeGroup = null;
+    private Coroutine rutinaConfirmacion; // Variable para controlar la cuenta atrás
 
     void Awake()
     {
@@ -208,56 +210,142 @@ public class GameManager : MonoBehaviour
         if (drawButton != null) drawButton.interactable = true;
     }
 
-    public void RegisterPlacement(int r, int c)
-    {
-        PlayerData currentPlayer = players[currentPlayerIndex];
-        GroupData group = currentPlayer.activeGroups[currentDrawnColor];
+    // --- NUEVO SISTEMA DE COLOCACIÓN CON BÚFER DE 2 SEGUNDOS ---
 
-        if (group == null) return;
+    // Este método reemplaza a RegisterPlacement. Ahora CellComponent debe llamar a este.
+    public void IniciarColocacion(int r, int c)
+    {
+        GroupData group = players[currentPlayerIndex].activeGroups[currentDrawnColor];
+
+        // 1. Mostrar visualmente el dado fantasma
+        gridManager.ColocarDadoVisualTemporal(currentPlayerIndex, r, c, currentDrawnColor, group.targetSize);
+
+        // --- UX SENIOR: Apagamos el botón de Re-Draw inmediatamente ---
+        if (reDrawButton != null) reDrawButton.interactable = false;
+
+        // Mostramos el botón de cancelar
+        if (botonCancelar != null) botonCancelar.SetActive(true);
+
+        // Iniciar cuenta regresiva de 2 segundos
+        if (rutinaConfirmacion != null) StopCoroutine(rutinaConfirmacion);
+        rutinaConfirmacion = StartCoroutine(RutinaConfirmarJugada(r, c));
+
+        Debug.Log("Jugada pendiente... Tienes 2 segundos para cancelar.");
+    }
+
+    // Botón de cancelar / deshacer antes de los 2 segundos
+    public void CancelarColocacion()
+    {
+        if (rutinaConfirmacion != null)
+        {
+            StopCoroutine(rutinaConfirmacion);
+
+            // Borramos el fantasma
+            gridManager.RemoverDadoVisualTemporal();
+
+            // Ocultamos el botón de cancelar
+            if (botonCancelar != null) botonCancelar.SetActive(false);
+
+            // --- UX SENIOR: Le devolvemos el botón de Re-Draw (si aún le quedan usos) ---
+            PlayerData p = players[currentPlayerIndex];
+            if (reDrawButton != null) reDrawButton.interactable = (p.reDraws > 0);
+
+            Debug.Log("Jugada cancelada. Elige otra celda o haz un Re-Draw.");
+        }
+    }
+
+    private System.Collections.IEnumerator RutinaConfirmarJugada(int r, int c)
+    {
+        // ESPERA DE 2 SEGUNDOS
+        yield return new WaitForSeconds(2.0f);
+
+        // --- PASADOS LOS 2 SEGUNDOS: NO HAY VUELTA ATRÁS ---
+        ConfirmarYProcesarPuntos(r, c);
+    }
+
+    private void ConfirmarYProcesarPuntos(int r, int c)
+    {
+        // 1. Ocultamos botones
+        if (botonCancelar != null) botonCancelar.SetActive(false);
+        if (reDrawButton != null) reDrawButton.interactable = false;
+
+        PlayerData p = players[currentPlayerIndex];
+        GroupData group = p.activeGroups[currentDrawnColor];
+
+        // 2. Colocación física y lógica
+        gridManager.RemoverDadoVisualTemporal();
+        gridManager.FijarDadoEnLogica(currentPlayerIndex, r, c, currentDrawnColor, group.id, group.targetSize);
 
         group.occupiedCells.Add(new Vector2Int(r, c));
-        currentPlayer.dadosColocados++;
-
-        // Limpiamos los resaltados en cuanto el jugador hace su jugada
+        p.dadosColocados++;
         gridManager.LimpiarResaltados(currentPlayerIndex);
 
-        if (group.isClosed)
+        Vector3 posMundo = gridManager.ObtenerPosicionMundo(currentPlayerIndex, r, c);
+
+        // --- 3. INICIA EL CÁLCULO MATEMÁTICO ---
+
+        // A. Bono Base
+        PopUpManager.Instance.MostrarPopUp(posMundo, "+50", Color.white);
+        p.score += 50;
+
+        // B. Conexiones Extra (Variantes)
+        PatternData patronActual = sesionActual.varianteSeleccionada.ObtenerPatron(group.targetSize);
+        if (patronActual != null && patronActual.reglaEspecial == PatternData.ReglaEspecial.ContactoDiagonalExtra)
         {
-            // 1. Obtenemos las reglas del patrón exacto desde nuestra Variante Actual
-            PatternData patronAsignado = varianteActual.ObtenerPatron(group.targetSize);
-
-            if (patronAsignado != null)
+            int conexionesNuevas = gridManager.EscanearConexionesDiagonalesNuevas(currentPlayerIndex, r, c, currentDrawnColor, group.id);
+            if (conexionesNuevas > 0)
             {
-                // 2. Evaluamos la forma pasando las reglas geométricas
-                if (PatternValidator.CheckPattern(group.occupiedCells, patronAsignado))
-                {
-                    // REGISTRO DEL ÉXITO:
-                    currentPlayer.conteoPatrones[group.targetSize]++;
-
-                    int bono = ScoreManager.Instance.GetPatternBonus(group.targetSize);
-                    currentPlayer.score += bono;
-
-                    Debug.Log($"¡Patrón {group.targetSize} completado correctamente bajo las reglas de {varianteActual.nombreVariante}!");
-                }
-                else
-                {
-                    Debug.Log($"Grupo de {group.targetSize} cerrado, pero la forma no coincide con el patrón.");
-                }
+                int bono = conexionesNuevas * 100;
+                p.score += bono;
+                PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.up * 0.5f, $"+{bono}", Color.magenta);
             }
         }
 
+        // C. Combos de Estructura (Vuelve el texto COMBO!)
+        int puntosCombo = gridManager.EvaluarYCobrarCombosEnTiempoReal(currentPlayerIndex);
+        if (puntosCombo > 0)
+        {
+            p.score += puntosCombo;
+            PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.up * 1f, $"COMBO! +{puntosCombo}", Color.yellow);
+        }
+
+        // D. PENALIZACIÓN DE UNOS (Frío y directo: solo el número negativo)
+        int unosMalColocados = gridManager.ObtenerPenalizacionesPorUnos(currentPlayerIndex);
+        int multaTotalActual = unosMalColocados * 100;
+        int diferenciaMulta = multaTotalActual - p.penalizacionUnosAcumulada;
+
+        if (diferenciaMulta > 0)
+        {
+            p.score -= diferenciaMulta;
+            p.penalizacionUnosAcumulada = multaTotalActual;
+            PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.down * 0.5f, $"-{diferenciaMulta}", Color.red);
+        }
+
+        // E. Cierre de Patrón Perfecto (Texto PERFECT!)
+        if (group.isClosed)
+        {
+            if (PatternValidator.CheckPattern(group.occupiedCells, patronActual))
+            {
+                p.conteoPatrones[group.targetSize]++;
+                int bonoPatron = ScoreManager.Instance.GetPatternBonus(group.targetSize);
+                p.score += bonoPatron;
+                PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{bonoPatron}", Color.cyan);
+            }
+        }
+
+        // --- 4. ACTUALIZACIÓN VISUAL ---
         UIManager.Instance.ActualizarManoUI(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize);
+        UIManager.Instance.ActualizarScore(p.score);
+
         hasDrawn = false;
 
-        if (reDrawButton != null) reDrawButton.interactable = false;
-
+        // 5. Gestión de Turno
         if (diceBag.Count == 0 && !hasDrawn)
         {
             TerminarPartida();
         }
         else
         {
-            // Iniciamos la corrutina de retraso en lugar de saltar instantáneamente
             StartCoroutine(PausaCambioTurno());
         }
     }
@@ -351,6 +439,8 @@ public class GameManager : MonoBehaviour
         // Cargamos la Escena 0 (Menú Principal)
         SceneManager.LoadScene(0);
     }
+
+
 
 
 }

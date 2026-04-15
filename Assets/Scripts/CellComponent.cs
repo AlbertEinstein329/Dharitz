@@ -65,9 +65,9 @@ public class CellComponent : MonoBehaviour
 
             if (grupo != null && grupo.targetSize > 0)
             {
-                if (gridManager.TryPlaceDie(playerOwnerIndex, row, col, colorActual, grupo.id, grupo.targetSize))
+                if (gridManager.CanBotPlaceHere(playerOwnerIndex, row, col, colorActual, grupo.id, grupo.targetSize))
                 {
-                    GameManager.Instance.RegisterPlacement(row, col);
+                    GameManager.Instance.IniciarColocacion(row, col);
                 }
             }
         }

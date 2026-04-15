@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// Definición global de colores [cite: 10-14]
+// Definición global de colores
 public enum DieColor { Rojo, Azul, Blanco, Negro }
 
 
@@ -25,12 +25,14 @@ public class PlayerData
     public int score = 0;
     public int dadosColocados = 0;
     public int[] conteoPatrones = new int[7];
+    public int puntosEstructuraAcumulados = 0;
+    public int penalizacionUnosAcumulada = 0;
 
     public bool isBot = false;
     public int botDifficulty = 0;
 
     // --- NUEVO: Contador de Re-Draws permitidos ---
-    public int reDraws = 3;
+    public int reDraws = 300;
 
     public Dictionary<DieColor, GroupData> activeGroups = new Dictionary<DieColor, GroupData>();
 
@@ -40,7 +42,7 @@ public class PlayerData
         this.name = name;
         this.isBot = isBot;
         this.botDifficulty = difficulty;
-        this.reDraws = 300; // Inicializamos con 300 usos por partida
+        this.reDraws = 300; // Inicializamos con 3 usos por partida
         this.activeGroups = new Dictionary<DieColor, GroupData>();
         this.conteoPatrones = new int[7];
     }

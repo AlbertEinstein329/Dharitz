@@ -27,6 +27,7 @@ public class GridManager : MonoBehaviour
     private List<CellComponent[,]> allCellsVisual;
     private GameObject[] boardRoots; // Los objetos "Padre" de cada tablero
     public int currentlyViewedPlayer = 0;
+    private GameObject dadoTemporal;
 
     private float startX;
     private float startY;
@@ -240,72 +241,98 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    // Adaptado para calcular huecos por jugador específico
-    public int ObtenerPenalizacionesPorHuecos(int pIndex)
+    // --- NUEVO SISTEMA DE DETECCIÓN DE HUECOS POR CLUSTERS ---
+    public int CalcularPenalizacionHuecos(int pIndex, out int cantidadTotalHuecos)
     {
         DieData[,] currentLogic = allBoardsLogic[pIndex];
         bool[,] visitado = new bool[rows, cols];
-        int huecosEncerrados = 0;
 
+        cantidadTotalHuecos = 0;
+        int penalizacionTotal = 0;
+
+        // 1. INUNDAR DESDE LOS BORDES (Marcar el "Exterior")
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
                 if ((r == 0 || r == rows - 1 || c == 0 || c == cols - 1) && currentLogic[r, c] == null && !visitado[r, c])
                 {
-                    FloodFillBordes(r, c, visitado, currentLogic);
+                    MarcarExterior(r, c, visitado, currentLogic);
                 }
             }
         }
 
+        // 2. ESCANEAR EL INTERIOR (Detectar y medir cada "Cluster" aislado)
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
-                if (currentLogic[r, c] == null && !visitado[r, c]) huecosEncerrados++;
+                if (currentLogic[r, c] == null && !visitado[r, c])
+                {
+                    // Encontramos un hueco encerrado. Vamos a medir de qué tamaño es este cluster.
+                    int tamanoCluster = MedirClusterEncerrado(r, c, visitado, currentLogic);
+
+                    cantidadTotalHuecos += tamanoCluster;
+
+                    // Cobramos la multa exacta para el tamaño de ESTE cluster específico
+                    penalizacionTotal += ScoreManager.Instance.GetHolePenalty(tamanoCluster);
+                }
             }
         }
-        return huecosEncerrados * 5;
+
+        return penalizacionTotal;
     }
 
-    private void FloodFillBordes(int r, int c, bool[,] visitado, DieData[,] currentLogic)
+    private void MarcarExterior(int r, int c, bool[,] visitado, DieData[,] currentLogic)
     {
+        // El FloodFill de 8 direcciones (diagonal) evita que una pared de dados en diagonal 
+        // declare todo el tablero como "encerrado" erróneamente.
         if (r < 0 || r >= rows || c < 0 || c >= cols || visitado[r, c] || currentLogic[r, c] != null) return;
         visitado[r, c] = true;
-        FloodFillBordes(r + 1, c, visitado, currentLogic);
-        FloodFillBordes(r - 1, c, visitado, currentLogic);
-        FloodFillBordes(r, c + 1, visitado, currentLogic);
-        FloodFillBordes(r, c - 1, visitado, currentLogic);
+
+        // Búsqueda en 8 direcciones para que el "aire" se cuele por las esquinas
+        int[] dr = { -1, 1, 0, 0, -1, -1, 1, 1 };
+        int[] dc = { 0, 0, -1, 1, -1, 1, -1, 1 };
+        for (int i = 0; i < 8; i++)
+        {
+            MarcarExterior(r + dr[i], c + dc[i], visitado, currentLogic);
+        }
     }
 
-    // Añade este método en GridManager.cs
-    public void ContarLineasCompletas(int pIndex, out int filasCompletas, out int columnasCompletas)
+    private int MedirClusterEncerrado(int r, int c, bool[,] visitado, DieData[,] currentLogic)
     {
-        DieData[,] logic = allBoardsLogic[pIndex];
-        filasCompletas = 0;
-        columnasCompletas = 0;
+        // Los huecos interiores solo se conectan de forma ortogonal
+        if (r < 0 || r >= rows || c < 0 || c >= cols || visitado[r, c] || currentLogic[r, c] != null) return 0;
 
-        // 1. Revisar filas (Horizontales)
-        for (int r = 0; r < rows; r++)
-        {
-            bool estaLlena = true;
-            for (int c = 0; c < cols; c++)
-            {
-                if (logic[r, c] == null) { estaLlena = false; break; }
-            }
-            if (estaLlena) filasCompletas++;
-        }
+        visitado[r, c] = true;
+        int count = 1; // Este espacio cuenta como 1
 
-        // 2. Revisar columnas (Verticales)
-        for (int c = 0; c < cols; c++)
+        count += MedirClusterEncerrado(r + 1, c, visitado, currentLogic);
+        count += MedirClusterEncerrado(r - 1, c, visitado, currentLogic);
+        count += MedirClusterEncerrado(r, c + 1, visitado, currentLogic);
+        count += MedirClusterEncerrado(r, c - 1, visitado, currentLogic);
+
+        return count;
+    }
+
+    private int CalcularBonoLineas(bool[] lines, int baseBonus, bool isRow)
+    {
+        int total = 0;
+        int consecutive = 0;
+        for (int i = 0; i < lines.Length; i++)
         {
-            bool estaLlena = true;
-            for (int r = 0; r < rows; r++)
+            if (lines[i])
             {
-                if (logic[r, c] == null) { estaLlena = false; break; }
+                consecutive++;
+                float mult = isRow ? ScoreManager.Instance.GetConsecutiveRowMultiplier(consecutive) : ScoreManager.Instance.GetConsecutiveColMultiplier(consecutive);
+                total += Mathf.FloorToInt(baseBonus * mult);
             }
-            if (estaLlena) columnasCompletas++;
+            else
+            {
+                consecutive = 0; // Se rompe el combo si hay un hueco 
+            }
         }
+        return total;
     }
 
     // Escanea el tablero del jugador y aplica -1 por cada dado de valor 1 que toque a otro 1
@@ -630,4 +657,156 @@ public class GridManager : MonoBehaviour
 
         return totalBono;
     }
+
+    // 1. Fija el dado definitivamente en la lógica y lo instancia visualmente
+    public void FijarDadoEnLogica(int pIndex, int r, int c, DieColor color, int groupId, int number)
+    {
+        DieData[,] currentLogic = allBoardsLogic[pIndex];
+        currentLogic[r, c] = new DieData(color, groupId, number);
+
+        // Instanciamos el dado físico final en el tablero
+        GameObject prefabAUsar = GetPrefabByColor(color);
+        Vector3 position = new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2);
+
+        GameObject nuevoDado = Instantiate(prefabAUsar, position, Quaternion.identity, boardRoots[pIndex].transform);
+        nuevoDado.transform.localScale = new Vector3(cellSize, cellSize, 1f);
+
+        SpriteRenderer renderer = nuevoDado.GetComponent<SpriteRenderer>();
+        if (renderer != null) renderer.sprite = UIManager.Instance.GetSprite(color, number);
+    }
+
+    // 2. Escanea solo el dado recién puesto para ver si toca en diagonal a otro de su misma especie
+    public int EscanearConexionesDiagonalesNuevas(int pIndex, int r, int c, DieColor color, int groupId)
+    {
+        DieData[,] logic = allBoardsLogic[pIndex];
+        int conexionesNuevas = 0;
+
+        int[] dr = { -1, -1, 1, 1 };
+        int[] dc = { -1, 1, -1, 1 };
+
+        for (int d = 0; d < 4; d++)
+        {
+            int nr = r + dr[d];
+            int nc = c + dc[d];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+            {
+                DieData vecino = logic[nr, nc];
+                // Si hay vecino, es del mismo color, tiene el mismo número, PERO es de otra agrupación...
+                if (vecino != null && vecino.color == color && vecino.value == logic[r, c].value && vecino.groupId != groupId)
+                {
+                    conexionesNuevas++;
+                }
+            }
+        }
+        return conexionesNuevas;
+    }
+
+    // (Opcional, usado para obtener dónde spawnear el Pop-Up)
+    public Vector3 ObtenerPosicionMundo(int pIndex, int r, int c)
+    {
+        return new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2);
+    }
+
+    public void ColocarDadoVisualTemporal(int pIndex, int r, int c, DieColor color, int number)
+    {
+        // Por seguridad, si ya había un fantasma, lo destruimos
+        RemoverDadoVisualTemporal();
+
+        GameObject prefabAUsar = GetPrefabByColor(color);
+        Vector3 position = new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2.1f); // Un poco más adelante
+
+        dadoTemporal = Instantiate(prefabAUsar, position, Quaternion.identity, boardRoots[pIndex].transform);
+        dadoTemporal.transform.localScale = new Vector3(cellSize, cellSize, 1f);
+
+        SpriteRenderer renderer = dadoTemporal.GetComponent<SpriteRenderer>();
+        if (renderer != null)
+        {
+            renderer.sprite = UIManager.Instance.GetSprite(color, number);
+
+            // EFECTO VISUAL SENIOR: Lo hacemos 50% transparente para que el jugador sepa que "no es definitivo"
+            Color colorFantasma = renderer.color;
+            colorFantasma.a = 0.5f;
+            renderer.color = colorFantasma;
+        }
+    }
+
+    public void RemoverDadoVisualTemporal()
+    {
+        if (dadoTemporal != null)
+        {
+            Destroy(dadoTemporal);
+            dadoTemporal = null;
+        }
+    }
+
+    // --- NUEVO MOTOR DE COMBOS EN TIEMPO REAL ---
+    public int EvaluarYCobrarCombosEnTiempoReal(int pIndex)
+    {
+        DieData[,] logic = allBoardsLogic[pIndex];
+        PlayerData player = GameManager.Instance.players[pIndex];
+
+        int completasRows = 0;
+        int completasCols = 0;
+        int maxConsecutiveRows = 0;
+        int maxConsecutiveCols = 0;
+        int intersecciones = 0;
+
+        bool[] rowsFull = new bool[rows];
+        bool[] colsFull = new bool[cols];
+
+        // 1. Escaneo de líneas completas (Filas)
+        int currentConsecutive = 0;
+        for (int r = 0; r < rows; r++)
+        {
+            rowsFull[r] = true;
+            for (int c = 0; c < cols; c++) if (logic[r, c] == null) { rowsFull[r] = false; break; }
+            if (rowsFull[r]) { completasRows++; currentConsecutive++; maxConsecutiveRows = Mathf.Max(maxConsecutiveRows, currentConsecutive); }
+            else currentConsecutive = 0;
+        }
+
+        // 1.b Escaneo de líneas completas (Columnas)
+        currentConsecutive = 0;
+        for (int c = 0; c < cols; c++)
+        {
+            colsFull[c] = true;
+            for (int r = 0; r < rows; r++) if (logic[r, c] == null) { colsFull[c] = false; break; }
+            if (colsFull[c]) { completasCols++; currentConsecutive++; maxConsecutiveCols = Mathf.Max(maxConsecutiveCols, currentConsecutive); }
+            else currentConsecutive = 0;
+        }
+
+        // 2. Intersecciones
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                if (rowsFull[r] && colsFull[c]) intersecciones++;
+            }
+        }
+
+        // Si no hay líneas, no hay nada que calcular
+        if (completasRows == 0 && completasCols == 0) return 0;
+
+        // 3. Matemática del Cliente: Base * Suma de Multiplicadores
+        int basePuntos = (completasRows * ScoreManager.ROW_COMPLETE_BONUS) +
+                         (completasCols * ScoreManager.COL_COMPLETE_BONUS) +
+                         (intersecciones * ScoreManager.INTERSECTION_BONUS);
+
+        float multRow = completasRows > 0 ? ScoreManager.Instance.GetConsecutiveRowMultiplier(maxConsecutiveRows) : 0f;
+        float multCol = completasCols > 0 ? ScoreManager.Instance.GetConsecutiveColMultiplier(maxConsecutiveCols) : 0f;
+
+        float multTotal = multRow + multCol;
+        if (multTotal == 0f) multTotal = 1f; // Prevención de errores por si los multiplicadores fallan
+
+        int puntajeTotalEstructuraActual = Mathf.FloorToInt(basePuntos * multTotal);
+
+        // 4. Lógica Diferencial (Restamos lo que ya se le pagó en turnos anteriores para no cobrar doble)
+        int puntosNuevosAGanar = puntajeTotalEstructuraActual - player.puntosEstructuraAcumulados;
+
+        // Actualizamos la memoria del jugador
+        player.puntosEstructuraAcumulados = puntajeTotalEstructuraActual;
+
+        return puntosNuevosAGanar;
+    }
+
+
 }

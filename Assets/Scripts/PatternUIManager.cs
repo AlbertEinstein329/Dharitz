@@ -55,7 +55,7 @@ public class PatternUIManager : MonoBehaviour
             int maxY = formaNormalizada.Max(v => v.y);
 
             float offsetStep = tamanoDado + espaciado;
-            rectGrupo.sizeDelta = new Vector2((maxX + 1) * offsetStep, (maxY + 1) * offsetStep);
+            rectGrupo.sizeDelta = new Vector2((maxX + 2) * offsetStep, (maxY + 2) * offsetStep);
 
             // 3. Ensamblamos los "cuadritos" del dado
             foreach (Vector2Int pos in formaNormalizada)
