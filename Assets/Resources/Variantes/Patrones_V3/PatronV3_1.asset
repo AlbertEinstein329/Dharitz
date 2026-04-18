@@ -17,4 +17,4 @@ MonoBehaviour:
   - {x: 0, y: 0}
   permiteRotacion: 1
   permiteEspejo: 1
-  reglaEspecial: 1
+  reglaEspecial: 2

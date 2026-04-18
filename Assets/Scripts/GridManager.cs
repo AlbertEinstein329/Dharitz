@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-public class GridManager : MonoBehaviour
+public class GridManager : MonoBehaviour, IGridValidator
 {
     [System.Serializable]
     public class DieData
@@ -68,14 +68,15 @@ public class GridManager : MonoBehaviour
             for (int c = 0; c < cols; c++)
             {
                 Vector3 position = new Vector3(startX + (c * cellSize), startY + (r * cellSize), 0);
-                // Instanciamos la celda DENTRO del "boardRoot" del jugador correspondiente
                 GameObject newCell = Instantiate(cellPrefab, position, Quaternion.identity, boardRoots[playerIndex].transform);
 
                 CellComponent cellScript = newCell.GetComponent<CellComponent>();
                 if (cellScript != null)
                 {
-                    cellScript.Setup(r, c, playerIndex, this);
-                    allCellsVisual[playerIndex][r, c] = cellScript; // <-- Añade esto
+                    // INYECCIÓN DE DEPENDENCIAS (Dependency Injection)
+                    // Pasa las interfaces (this como IGridValidator, GameManager como ITurnProvider y IPlacementExecutor)
+                    cellScript.Setup(r, c, playerIndex, this, GameManager.Instance, GameManager.Instance);
+                    allCellsVisual[playerIndex][r, c] = cellScript;
                 }
             }
         }
@@ -93,11 +94,20 @@ public class GridManager : MonoBehaviour
             }
         }
 
-        // NUEVA LÓGICA: Si el juego ya terminó, actualiza el panel de puntajes 
-        // para que muestre la información del jugador que acabamos de poner en pantalla
-        if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+        if (GameManager.Instance != null)
         {
-            UIManager.Instance.MostrarResultadosFinales(playerIndex);
+            // --- NUEVO: Sincronizar el HUD de puntos al instante en tiempo real ---
+            if (!GameManager.Instance.isGameOver && GameManager.Instance.players.Count > playerIndex)
+            {
+                int scoreDelJugador = GameManager.Instance.players[playerIndex].score;
+                UIManager.Instance.ActualizarScore(scoreDelJugador);
+            }
+
+            // Si el juego ya terminó, actualiza el panel de puntajes finales
+            if (GameManager.Instance.isGameOver)
+            {
+                UIManager.Instance.MostrarResultadosFinales(playerIndex);
+            }
         }
     }
 

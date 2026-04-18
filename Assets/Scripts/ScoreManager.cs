@@ -8,9 +8,9 @@ public partial class ScoreManager : MonoBehaviour
     public const int POINTS_PER_DIE = 50; // Aumento de 1 a 50 
 
     [Header("Bonos de Estructura")]
-    public const int ROW_COMPLETE_BONUS = 250;
-    public const int COL_COMPLETE_BONUS = 350;
-    public const int INTERSECTION_BONUS = 200;
+    public const int ROW_COMPLETE_BONUS = 120;
+    public const int COL_COMPLETE_BONUS = 170;
+    public const int INTERSECTION_BONUS = 100;
 
     // Multiplicadores por líneas sucesivas 
     private readonly float[] rowMultipliers = { 1.0f, 2.0f, 2.5f, 3.0f, 3.5f, 5.0f };

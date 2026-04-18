@@ -1,20 +1,22 @@
 using UnityEngine;
-using static PlayerData;
 
 public class CellComponent : MonoBehaviour
 {
     private int row;
     private int col;
     private int playerOwnerIndex;
-    private GridManager gridManager;
 
-    // --- NUEVAS VARIABLES PARA EL RESALTADO ---
+    // Dependencies via Interfaces (ISP applied)
+    private IGridValidator gridValidator;
+    private ITurnProvider turnProvider;
+    private IPlacementExecutor placementExecutor;
+
     private SpriteRenderer spriteRenderer;
     private Color colorOriginal;
 
     void Awake()
     {
-        // Capturamos el renderer y su color original al iniciar
+        // Cache components to avoid GetComponent calls later
         spriteRenderer = GetComponent<SpriteRenderer>();
         if (spriteRenderer != null)
         {
@@ -22,52 +24,49 @@ public class CellComponent : MonoBehaviour
         }
     }
 
-    public void Setup(int r, int c, int pIndex, GridManager gm)
+    // Dependency Injection via Setup. 
+    // The cell receives its dependencies without knowing their concrete implementations.
+    public void Setup(int r, int c, int pIndex, IGridValidator validator, ITurnProvider turnInfo, IPlacementExecutor executor)
     {
         row = r;
         col = c;
         playerOwnerIndex = pIndex;
-        gridManager = gm;
+
+        gridValidator = validator;
+        turnProvider = turnInfo;
+        placementExecutor = executor;
     }
 
-    // --- NUEVA FUNCIÓN ---
     public void SetHighlight(bool highlight)
     {
         if (spriteRenderer == null) return;
-
-        if (highlight)
-        {
-            // Cambia este color por el que prefieras (ej. un verde semi-transparente)
-            spriteRenderer.color = new Color(0.5f, 1f, 0.5f, 1f);
-        }
-        else
-        {
-            spriteRenderer.color = colorOriginal;
-        }
+        // Optimization: Avoid new Color allocation in every call if possible, but fine for simple UI
+        spriteRenderer.color = highlight ? new Color(0.5f, 1f, 0.5f, 1f) : colorOriginal;
     }
 
     void OnMouseDown()
     {
-        if (GameManager.Instance.currentPlayerIndex != playerOwnerIndex)
+        // 1. Ask the Turn Provider if it's our turn
+        if (turnProvider.CurrentPlayerIndex != playerOwnerIndex)
         {
-            Debug.Log("¡Este no es tu tablero o no es tu turno!");
+            Debug.LogWarning("Invalid Turn or Board.");
             return;
         }
 
-        if (!GameManager.Instance.hasDrawn) return;
+        if (!turnProvider.HasDrawn) return;
 
-        DieColor colorActual = GameManager.Instance.currentDrawnColor;
-        PlayerData jugadorActual = GameManager.Instance.players[GameManager.Instance.currentPlayerIndex];
+        DieColor currentColor = turnProvider.CurrentDrawnColor;
+        PlayerData currentPlayer = turnProvider.GetCurrentPlayer();
 
-        if (jugadorActual.activeGroups.ContainsKey(colorActual))
+        if (currentPlayer.activeGroups.TryGetValue(currentColor, out GroupData group))
         {
-            GroupData grupo = jugadorActual.activeGroups[colorActual];
-
-            if (grupo != null && grupo.targetSize > 0)
+            if (group != null && group.targetSize > 0)
             {
-                if (gridManager.CanBotPlaceHere(playerOwnerIndex, row, col, colorActual, grupo.id, grupo.targetSize))
+                // 2. Ask the Grid Validator if the move is legal
+                if (gridValidator.CanBotPlaceHere(playerOwnerIndex, row, col, currentColor, group.id, group.targetSize))
                 {
-                    GameManager.Instance.IniciarColocacion(row, col);
+                    // 3. Ask the Executor to process the play
+                    placementExecutor.IniciarColocacion(row, col);
                 }
             }
         }

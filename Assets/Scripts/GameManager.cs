@@ -1,3 +1,4 @@
+using DG.Tweening;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -6,7 +7,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using static PlayerData;
 
-public class GameManager : MonoBehaviour
+public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 {
     public static GameManager Instance;
 
@@ -34,6 +35,15 @@ public class GameManager : MonoBehaviour
     public GroupData activeGroup = null;
     private Coroutine rutinaConfirmacion; // Variable para controlar la cuenta atrás
 
+    // --- ITurnProvider Implementation ---
+    public int CurrentPlayerIndex => currentPlayerIndex; // Exposes as read-only property
+    public bool HasDrawn => hasDrawn;
+    public DieColor CurrentDrawnColor => currentDrawnColor;
+
+    public PlayerData GetCurrentPlayer()
+    {
+        return players[currentPlayerIndex];
+    }
     void Awake()
     {
         // 1. EL ÚNICO Y VERDADERO SINGLETON
@@ -43,10 +53,12 @@ public class GameManager : MonoBehaviour
         }
         else if (Instance != this)
         {
-            // Si ya existe OTRA instancia que no soy yo, me destruyo.
             Destroy(gameObject);
-            return; // ¡Crucial! Evita que el resto del código se ejecute antes de morir.
+            return;
         }
+
+        // Esto asegura que los números sean diferentes cada vez que abres el juego
+        Random.InitState((int)System.DateTime.Now.Ticks);
 
         // --- LECTURA DEL MALETÍN DE SESIÓN ---
         if (sesionActual != null)
@@ -65,13 +77,9 @@ public class GameManager : MonoBehaviour
         else
         {
             Debug.LogError("Falta el SessionConfig. Cargando configuraciones por defecto a prueba de fallos.");
+            numPlayers = 2; // Default seguro
+            InitializeFallbackPlayers(); // Solo se llama si hubo un error crítico
         }
-
-        // Esto asegura que los números sean diferentes cada vez que abres el juego
-        Random.InitState((int)System.DateTime.Now.Ticks);
-
-        // Como ya pasamos el control de seguridad del Singleton con éxito, inicializamos:
-        InitializePlayers();
     }
 
     void Start()
@@ -82,14 +90,13 @@ public class GameManager : MonoBehaviour
         StartTurn();
     }
 
-    void InitializePlayers()
+    void InitializeFallbackPlayers()
     {
         players.Clear();
         for (int i = 0; i < numPlayers; i++)
         {
-            // Mantenemos la bandera isBot, la cual servirá para identificar qué jugador será controlado por ML-Agents
-            bool isBot = (i == 1);
-            players.Add(new PlayerData(i + 1, $"Jugador {i + 1}", isBot, 0));
+            // Solo para pruebas si no hay menú. Por defecto, todos humanos.
+            players.Add(new PlayerData(i, $"Jugador Fallback {i + 1}", false, 0));
         }
     }
 
@@ -210,27 +217,19 @@ public class GameManager : MonoBehaviour
         if (drawButton != null) drawButton.interactable = true;
     }
 
-    // --- NUEVO SISTEMA DE COLOCACIÓN CON BÚFER DE 2 SEGUNDOS ---
-
-    // Este método reemplaza a RegisterPlacement. Ahora CellComponent debe llamar a este.
-    public void IniciarColocacion(int r, int c)
+    // --- IPlacementExecutor Implementation ---
+    // (Asegúrate de tener la versión moderna que hicimos antes con la corrutina de 2 segundos)
+    public void IniciarColocacion(int row, int col)
     {
         GroupData group = players[currentPlayerIndex].activeGroups[currentDrawnColor];
 
-        // 1. Mostrar visualmente el dado fantasma
-        gridManager.ColocarDadoVisualTemporal(currentPlayerIndex, r, c, currentDrawnColor, group.targetSize);
+        gridManager.ColocarDadoVisualTemporal(currentPlayerIndex, row, col, currentDrawnColor, group.targetSize);
 
-        // --- UX SENIOR: Apagamos el botón de Re-Draw inmediatamente ---
         if (reDrawButton != null) reDrawButton.interactable = false;
-
-        // Mostramos el botón de cancelar
         if (botonCancelar != null) botonCancelar.SetActive(true);
 
-        // Iniciar cuenta regresiva de 2 segundos
         if (rutinaConfirmacion != null) StopCoroutine(rutinaConfirmacion);
-        rutinaConfirmacion = StartCoroutine(RutinaConfirmarJugada(r, c));
-
-        Debug.Log("Jugada pendiente... Tienes 2 segundos para cancelar.");
+        rutinaConfirmacion = StartCoroutine(RutinaConfirmarJugada(row, col));
     }
 
     // Botón de cancelar / deshacer antes de los 2 segundos
@@ -257,7 +256,7 @@ public class GameManager : MonoBehaviour
     private System.Collections.IEnumerator RutinaConfirmarJugada(int r, int c)
     {
         // ESPERA DE 2 SEGUNDOS
-        yield return new WaitForSeconds(2.0f);
+        yield return new WaitForSeconds(0.1f);
 
         // --- PASADOS LOS 2 SEGUNDOS: NO HAY VUELTA ATRÁS ---
         ConfirmarYProcesarPuntos(r, c);
@@ -282,11 +281,26 @@ public class GameManager : MonoBehaviour
 
         Vector3 posMundo = gridManager.ObtenerPosicionMundo(currentPlayerIndex, r, c);
 
-        // --- 3. INICIA EL CÁLCULO MATEMÁTICO ---
+        // --- 3. INICIA EL CÁLCULO MATEMÁTICO EXCLUYENTE ---
 
-        // A. Bono Base
-        PopUpManager.Instance.MostrarPopUp(posMundo, "+50", Color.white);
-        p.score += 50;
+        // A. EVALUACIÓN DE PENALIZACIÓN VS BONO BASE
+        int unosMalColocados = gridManager.ObtenerPenalizacionesPorUnos(currentPlayerIndex);
+        int multaTotalActual = unosMalColocados * 100;
+        int diferenciaMulta = multaTotalActual - p.penalizacionUnosAcumulada;
+
+        if (diferenciaMulta > 0)
+        {
+            // HUBO PENALIZACIÓN: Restamos la multa y NO damos los 50 puntos base
+            p.score -= diferenciaMulta;
+            p.penalizacionUnosAcumulada = multaTotalActual;
+            PopUpManager.Instance.MostrarPopUp(posMundo, $"-{diferenciaMulta}", Color.red);
+        }
+        else
+        {
+            // JUGADA LIMPIA: Damos los 50 puntos base normales
+            PopUpManager.Instance.MostrarPopUp(posMundo, "+50", Color.white);
+            p.score += 50;
+        }
 
         // B. Conexiones Extra (Variantes)
         PatternData patronActual = sesionActual.varianteSeleccionada.ObtenerPatron(group.targetSize);
@@ -301,7 +315,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // C. Combos de Estructura (Vuelve el texto COMBO!)
+        // C. Combos de Estructura 
         int puntosCombo = gridManager.EvaluarYCobrarCombosEnTiempoReal(currentPlayerIndex);
         if (puntosCombo > 0)
         {
@@ -309,19 +323,7 @@ public class GameManager : MonoBehaviour
             PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.up * 1f, $"COMBO! +{puntosCombo}", Color.yellow);
         }
 
-        // D. PENALIZACIÓN DE UNOS (Frío y directo: solo el número negativo)
-        int unosMalColocados = gridManager.ObtenerPenalizacionesPorUnos(currentPlayerIndex);
-        int multaTotalActual = unosMalColocados * 100;
-        int diferenciaMulta = multaTotalActual - p.penalizacionUnosAcumulada;
-
-        if (diferenciaMulta > 0)
-        {
-            p.score -= diferenciaMulta;
-            p.penalizacionUnosAcumulada = multaTotalActual;
-            PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.down * 0.5f, $"-{diferenciaMulta}", Color.red);
-        }
-
-        // E. Cierre de Patrón Perfecto (Texto PERFECT!)
+        // D. Cierre de Patrón Perfecto
         if (group.isClosed)
         {
             if (PatternValidator.CheckPattern(group.occupiedCells, patronActual))
@@ -352,13 +354,18 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator PausaCambioTurno()
     {
-        // Esperamos 1 segundos
-        yield return new WaitForSeconds(1);
+        // Evaluamos dinámicamente la cantidad de jugadores para definir el retraso
+        float tiempoDeEspera = (numPlayers == 1) ? 0f : 1.5f;
+
+        // Solo pausamos si el tiempo es mayor a 0 para no perder ni un frame innecesario
+        if (tiempoDeEspera > 0f)
+        {
+            yield return new WaitForSeconds(tiempoDeEspera);
+        }
 
         // Ejecutamos el cambio de turno
         EndTurn();
     }
-
     public void EndTurn()
     {
         hasDrawn = false;
@@ -391,6 +398,13 @@ public class GameManager : MonoBehaviour
     public void ReiniciarJuego()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+
+        // Destruye todas las animaciones activas en la escena actual 
+        // antes de cargar la siguiente, evitando fugas de memoria.
+        DOTween.KillAll();
+
+        UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+
     }
 
     public void UsarReDraw()
