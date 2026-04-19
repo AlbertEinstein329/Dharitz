@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using DG.Tweening;
 
 public class UIManager : MonoBehaviour
 {
@@ -14,8 +15,6 @@ public class UIManager : MonoBehaviour
     public GameObject panelDados;
     public Image imagenDadoActual;
     public TextMeshProUGUI textoProgreso;
-
-    // --- NUEVO: Para mostrar los puntos en tiempo real ---
     public TextMeshProUGUI textoScoreHUD;
 
     [Header("Base de Datos de Sprites")]
@@ -27,31 +26,83 @@ public class UIManager : MonoBehaviour
     [Header("Contador de Bolsa")]
     public TextMeshProUGUI textoDadosRestantes;
 
+    [Header("Animation Settings")]
+    [SerializeField] private float rollDuration = 0.5f; // Duración total de la animación en segundos
+    [SerializeField] private int rollAnimationSteps = 6; // Cuántas veces cambiará de sprite
+    //[SerializeField] private Sprite emptySlotSprite; // OPCIONAL: Asigna aquí la imagen de fondo vacía si la tienes, si no, déjalo en null
+    
+    private Sprite originalSlotSprite;
+    private Sequence rollSequence; // Guarda la referencia de DOTween
+
     void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        // CACHÉ: Guardamos la "Source Image" que configuraste en el editor de Unity
+        if (imagenDadoActual != null)
+        {
+            originalSlotSprite = imagenDadoActual.sprite;
+        }
     }
 
-    public void ActualizarManoUI(DieColor color, int numeroLanzado, int dadosColocados, int totalDados)
+    public void UpdateHandUI(DieColor color, int numeroLanzado, int dadosColocados, int totalDados)
     {
         if (panelDados != null) panelDados.SetActive(true);
 
-        Sprite spriteAUsar = null;
-        int indiceSprite = numeroLanzado - 1;
+        Sprite finalSprite = GetSprite(color, numeroLanzado);
 
-        switch (color)
+        // 1. Prevent animation overlap (Spam protection)
+        rollSequence?.Kill();
+
+        // 2. Ensure the image is visible (Alpha = 1) in case it was hidden
+        imagenDadoActual.color = Color.white;
+
+        // 3. Create the DOTween Sequence for the rolling effect
+        rollSequence = DOTween.Sequence();
+        float intervalDuration = rollDuration / rollAnimationSteps;
+
+        // Loop to create rapid random sprite changes
+        for (int i = 0; i < rollAnimationSteps; i++)
         {
-            case DieColor.Rojo: spriteAUsar = spritesRojos[indiceSprite]; break;
-            case DieColor.Azul: spriteAUsar = spritesAzules[indiceSprite]; break;
-            case DieColor.Blanco: spriteAUsar = spritesBlancos[indiceSprite]; break;
-            case DieColor.Negro: spriteAUsar = spritesNegros[indiceSprite]; break;
+            rollSequence.AppendCallback(() =>
+            {
+                // Select a random number between 1 and 6 to simulate the roll
+                int randomFace = UnityEngine.Random.Range(1, 7);
+                imagenDadoActual.sprite = GetSprite(color, randomFace);
+
+                // [OPEN PLACEHOLDER FOR AUDIO]
+                // AudioManager.Instance.PlayTickSound();
+            });
+            rollSequence.AppendInterval(intervalDuration);
         }
 
-        if (spriteAUsar != null) imagenDadoActual.sprite = spriteAUsar;
+        // 4. Final step: Show the actual rolled die
+        rollSequence.AppendCallback(() =>
+        {
+            imagenDadoActual.sprite = finalSprite;
+            // [OPEN PLACEHOLDER FOR AUDIO]
+            // AudioManager.Instance.PlayDingSound();
+        });
 
         int dadosFaltantes = totalDados - dadosColocados;
         textoProgreso.text = $"{color.ToString().ToUpper()} {numeroLanzado} / Faltan: {dadosFaltantes}";
+    }
+
+    /// <summary>
+    /// Clears the current die from the UI, restoring the original default source image.
+    /// </summary>
+    public void ClearDieUI()
+    {
+        // 1. Kill animation to prevent overlaps
+        rollSequence?.Kill();
+
+        // 2. Restore the cached default sprite
+        if (imagenDadoActual != null)
+        {
+            imagenDadoActual.sprite = originalSlotSprite;
+            imagenDadoActual.color = Color.white; // Ensures visibility
+        }
     }
 
     public Sprite GetSprite(DieColor color, int number)
@@ -163,4 +214,7 @@ public class UIManager : MonoBehaviour
         // --- Volvemos a encender el HUD para poder ver el tablero ---
         if (textoScoreHUD != null) textoScoreHUD.gameObject.SetActive(true);
     }
+
+
+
 }

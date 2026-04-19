@@ -1,4 +1,5 @@
 using UnityEngine;
+using DG.Tweening;
 
 public class CellComponent : MonoBehaviour
 {
@@ -11,16 +12,26 @@ public class CellComponent : MonoBehaviour
     private ITurnProvider turnProvider;
     private IPlacementExecutor placementExecutor;
 
-    private SpriteRenderer spriteRenderer;
-    private Color colorOriginal;
+    [Header("Visual Configuration")]
+    [Tooltip("Drag the child object containing the SpriteRenderer here.")]
+    [SerializeField] private SpriteRenderer childSpriteRenderer; // Asignar el hijo aquí
+    private Color originalColor;
 
     void Awake()
     {
-        // Cache components to avoid GetComponent calls later
-        spriteRenderer = GetComponent<SpriteRenderer>();
-        if (spriteRenderer != null)
+        // Fallback: If not assigned in Inspector, search in children automatically
+        if (childSpriteRenderer == null)
         {
-            colorOriginal = spriteRenderer.color;
+            childSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        }
+
+        if (childSpriteRenderer != null)
+        {
+            originalColor = childSpriteRenderer.color;
+        }
+        else
+        {
+            Debug.LogError($"CellComponent on {gameObject.name} is missing a SpriteRenderer in its children!");
         }
     }
 
@@ -39,9 +50,11 @@ public class CellComponent : MonoBehaviour
 
     public void SetHighlight(bool highlight)
     {
-        if (spriteRenderer == null) return;
-        // Optimization: Avoid new Color allocation in every call if possible, but fine for simple UI
-        spriteRenderer.color = highlight ? new Color(0.5f, 1f, 0.5f, 1f) : colorOriginal;
+        if (childSpriteRenderer == null) return;
+
+        // El resaltado normal de movimientos ocurre en celdas vacías, no necesita superponerse a un dado
+        childSpriteRenderer.color = highlight ? new Color(0.5f, 1f, 0.5f, 1f) : originalColor;
+        childSpriteRenderer.sortingOrder = 0; // Orden base
     }
 
     void OnMouseDown()
@@ -71,4 +84,39 @@ public class CellComponent : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// Triggers the visual feedback when a pattern is successfully completed using DOTween.
+    /// </summary>
+    public void TriggerPatternSuccessVisuals()
+    {
+        if (childSpriteRenderer == null) return;
+
+        // 1. Kill any active tween on this object to prevent animation overlaps (Spam protection)
+        childSpriteRenderer.DOKill();
+
+        // 2. Set initial state: Golden color with 80% opacity and high sorting order
+        Color flashColor = new Color(1f, 0.84f, 0f, 0.8f);
+        childSpriteRenderer.color = flashColor;
+        childSpriteRenderer.sortingOrder = 10;
+
+        // 3. DOTween Animation: Fade from flashColor to originalColor over 1.5 seconds
+        // Ease.OutQuad makes the animation start fast and slow down at the end
+        childSpriteRenderer.DOColor(originalColor, 1.5f)
+            .SetEase(Ease.OutQuad)
+            .OnComplete(() =>
+            {
+                // Reset the sorting order when the animation finishes
+                childSpriteRenderer.sortingOrder = 0;
+            });
+
+        // [OPEN PLACEHOLDER FOR PARTICLES]
+        // In the future, call your ParticleManager or VFXManager here.
+        // Example: VFXManager.Instance.PlaySuccessParticles(transform.position);
+    }
+
+
+
+
+
 }

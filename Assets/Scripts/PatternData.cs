@@ -18,14 +18,14 @@ public class PatternData : ScriptableObject
 
     [Header("Reglas Especiales (Variantes)")]
     [Tooltip("Define si este patrón tiene un comportamiento especial de puntaje o reserva")]
-    public ReglaEspecial reglaEspecial = ReglaEspecial.Ninguna;
+    public SpecialRule reglaEspecial = SpecialRule.None;
 
-    public enum ReglaEspecial
+    public enum SpecialRule
     {
-        Ninguna,
-        AislamientoPenalizado, // Regla actual del 1
-        AislamientoPremiado,   // Regla Variante 3 del 1
-        ContactoDiagonalExtra, // Regla Variante 1 del 2, y Variante 2 del 3
-        ContactoUnoDiagonal    // Regla Variante 2 del 1
+        None,
+        PenalizeOnContact, // Regla actual del 1
+        RewardOnContact,   // Regla Variante 3 del 1
+        ExtraDiagonalContact, // Regla Variante 1 del dado 2, y Variante 2 del dado 3
+        DiagonalOneContact    // Regla Variante 2 del 1
     }
 }

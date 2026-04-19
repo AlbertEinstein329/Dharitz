@@ -57,4 +57,8 @@ public partial class ScoreManager : MonoBehaviour
         if (holeSize == 2) return 350; // 
         return 500 * holeSize;        // 3 o más: 500 por cada uno 
     }
+
+
+
+
 }

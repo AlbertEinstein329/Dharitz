@@ -193,12 +193,13 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             currentPlayer.activeGroups[currentDrawnColor] = group;
         }
 
-        UIManager.Instance.ActualizarManoUI(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize);
+        UIManager.Instance.UpdateHandUI(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize);
 
         // Si es un humano quien sacó el dado, resaltamos sus opciones
         if (!currentPlayer.isBot)
         {
-            gridManager.MostrarMovimientosValidos(currentPlayerIndex, group.color, group.id, group.targetSize);
+            // Cuando el jugador saca o lanza el dado y ya sabemos qué debe colocar:
+            gridManager.MostrarMovimientosValidos(currentPlayerIndex, currentDrawnColor, group.id, group.targetSize);
 
             // Evaluamos si puede usar el Re-Draw
             if (reDrawButton != null)
@@ -218,7 +219,6 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     }
 
     // --- IPlacementExecutor Implementation ---
-    // (Asegúrate de tener la versión moderna que hicimos antes con la corrutina de 2 segundos)
     public void IniciarColocacion(int row, int col)
     {
         GroupData group = players[currentPlayerIndex].activeGroups[currentDrawnColor];
@@ -230,7 +230,11 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
         if (rutinaConfirmacion != null) StopCoroutine(rutinaConfirmacion);
         rutinaConfirmacion = StartCoroutine(RutinaConfirmarJugada(row, col));
+
+
     }
+
+
 
     // Botón de cancelar / deshacer antes de los 2 segundos
     public void CancelarColocacion()
@@ -260,6 +264,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
         // --- PASADOS LOS 2 SEGUNDOS: NO HAY VUELTA ATRÁS ---
         ConfirmarYProcesarPuntos(r, c);
+
+        UIManager.Instance.ClearDieUI();
     }
 
     private void ConfirmarYProcesarPuntos(int r, int c)
@@ -275,36 +281,48 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         gridManager.RemoverDadoVisualTemporal();
         gridManager.FijarDadoEnLogica(currentPlayerIndex, r, c, currentDrawnColor, group.id, group.targetSize);
 
+
         group.occupiedCells.Add(new Vector2Int(r, c));
         p.dadosColocados++;
+        // Cuando el jugador hace clic en la celda y confirma la jugada:
         gridManager.LimpiarResaltados(currentPlayerIndex);
 
         Vector3 posMundo = gridManager.ObtenerPosicionMundo(currentPlayerIndex, r, c);
 
+
         // --- 3. INICIA EL CÁLCULO MATEMÁTICO EXCLUYENTE ---
 
-        // A. EVALUACIÓN DE PENALIZACIÓN VS BONO BASE
-        int unosMalColocados = gridManager.ObtenerPenalizacionesPorUnos(currentPlayerIndex);
-        int multaTotalActual = unosMalColocados * 100;
-        int diferenciaMulta = multaTotalActual - p.penalizacionUnosAcumulada;
+        PatternData patronActual = sesionActual.varianteSeleccionada.ObtenerPatron(group.targetSize);
 
-        if (diferenciaMulta > 0)
+        // A. EVALUACIÓN DE PENALIZACIÓN VS BONO BASE
+        int contactosDiagonales = 0;
+        int contactosTotales = gridManager.ContarContactosEn3x3(currentPlayerIndex, r, c, group.targetSize, out contactosDiagonales);
+
+        SpecialRule reglaActiva = (SpecialRule)(int)patronActual.reglaEspecial;
+
+        // NUEVO: Verificamos si es el primerísimo dado en el tablero del jugador.
+        // (Como p.dadosColocados ya se incrementó en el paso 2, si vale 1, es el primer dado).
+        bool isFirstDie = (p.dadosColocados == 1);
+
+        // Pasamos el nuevo parámetro 'isFirstDie' a la evaluación
+        RuleEvaluationResult result = SpecialRuleEvaluator.EvaluatePlacement(reglaActiva, contactosTotales, contactosDiagonales, isFirstDie);
+
+        if (result.ScoreDelta < 0)
         {
-            // HUBO PENALIZACIÓN: Restamos la multa y NO damos los 50 puntos base
-            p.score -= diferenciaMulta;
-            p.penalizacionUnosAcumulada = multaTotalActual;
-            PopUpManager.Instance.MostrarPopUp(posMundo, $"-{diferenciaMulta}", Color.red);
+            // HUBO PENALIZACIÓN: Restamos la multa y NO damos puntos base
+            p.score += result.ScoreDelta;
+            PopUpManager.Instance.MostrarPopUp(posMundo, $"{result.ScoreDelta}", Color.red);
         }
         else
         {
-            // JUGADA LIMPIA: Damos los 50 puntos base normales
-            PopUpManager.Instance.MostrarPopUp(posMundo, "+50", Color.white);
-            p.score += 50;
+            // JUGADA LIMPIA o EXCEPCIÓN (Primer dado): Damos los 50 puntos base + el bono del contacto (si lo hay)
+            int puntosGanados = 50 + result.ScoreDelta;
+            p.score += puntosGanados;
+            PopUpManager.Instance.MostrarPopUp(posMundo, $"+{puntosGanados}", Color.white);
         }
 
-        // B. Conexiones Extra (Variantes)
-        PatternData patronActual = sesionActual.varianteSeleccionada.ObtenerPatron(group.targetSize);
-        if (patronActual != null && patronActual.reglaEspecial == PatternData.ReglaEspecial.ContactoDiagonalExtra)
+        // B. Conexiones Extra (Variantes del dado 2 y 3)
+        if (patronActual != null && reglaActiva == SpecialRule.ExtraDiagonalContact)
         {
             int conexionesNuevas = gridManager.EscanearConexionesDiagonalesNuevas(currentPlayerIndex, r, c, currentDrawnColor, group.id);
             if (conexionesNuevas > 0)
@@ -326,17 +344,20 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         // D. Cierre de Patrón Perfecto
         if (group.isClosed)
         {
-            if (PatternValidator.CheckPattern(group.occupiedCells, patronActual))
+            if (result.IsPatternValid && PatternValidator.CheckPattern(group.occupiedCells, patronActual))
             {
                 p.conteoPatrones[group.targetSize]++;
                 int bonoPatron = ScoreManager.Instance.GetPatternBonus(group.targetSize);
                 p.score += bonoPatron;
                 PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{bonoPatron}", Color.cyan);
+
+                // NUEVO: Disparamos la iluminación y futuros efectos de partículas
+                gridManager.HighlightCompletedPattern(currentPlayerIndex, group.occupiedCells);
             }
         }
 
         // --- 4. ACTUALIZACIÓN VISUAL ---
-        UIManager.Instance.ActualizarManoUI(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize);
+        UIManager.Instance.UpdateHandUI(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize);
         UIManager.Instance.ActualizarScore(p.score);
 
         hasDrawn = false;

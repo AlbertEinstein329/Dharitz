@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3458564322734092930}
   - component: {fileID: 5774768005698010528}
   m_Layer: 0
-  m_Name: GameObject
+  m_Name: TableDesign
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -97,7 +97,7 @@ GameObject:
   - component: {fileID: 1068770387011260156}
   - component: {fileID: 6991642977535654867}
   m_Layer: 0
-  m_Name: Tablero
+  m_Name: CellPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -228,3 +228,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bfb051b6030a8ed42aa10de4fac9b073, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  childSpriteRenderer: {fileID: 5774768005698010528}

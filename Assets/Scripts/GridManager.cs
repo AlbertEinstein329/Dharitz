@@ -196,7 +196,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                         {
                             // Si estamos jugando con la regla clásica (Variante 1), bloqueamos mismo color.
                             // Si es Variante 2 o 3, permitimos el contacto físico para que luego sume puntos extra.
-                            if (patronActual.reglaEspecial == PatternData.ReglaEspecial.AislamientoPenalizado)
+                            if (patronActual.reglaEspecial == PatternData.SpecialRule.PenalizeOnContact)
                             {
                                 if (neighbor.color == color) return false;
                             }
@@ -353,7 +353,7 @@ public class GridManager : MonoBehaviour, IGridValidator
         PatternData patron1 = variante.ObtenerPatron(1);
 
         // Si el patrón 1 tiene la regla de premiar el contacto, ANULAMOS la penalización.
-        if (patron1 != null && patron1.reglaEspecial == PatternData.ReglaEspecial.AislamientoPremiado)
+        if (patron1 != null && patron1.reglaEspecial == PatternData.SpecialRule.RewardOnContact)
         {
             return 0; // Se salva de la multa
         }
@@ -469,7 +469,7 @@ public class GridManager : MonoBehaviour, IGridValidator
             PatternData patronDelGrupo = variante.ObtenerPatron(grupoActivo.targetSize);
 
             // ¿Tiene permiso este grupo para "saltar" bloqueos en diagonal?
-            bool puedeReservarDiagonal = patronDelGrupo.reglaEspecial == PatternData.ReglaEspecial.ContactoDiagonalExtra || variante.reservasDiagonalesPermitidas;
+            bool puedeReservarDiagonal = patronDelGrupo.reglaEspecial == PatternData.SpecialRule.ExtraDiagonalContact || variante.reservasDiagonalesPermitidas;
             int direccionesDeBusqueda = puedeReservarDiagonal ? 8 : 4; // Cambia la potencia del escáner
 
             int vaciosAlcanzables = 0;
@@ -603,7 +603,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                 if (patron == null) continue;
 
                 // --- REGLA: Contacto Diagonal Extra (Variante 1 para el 2) ---
-                if (patron.reglaEspecial == PatternData.ReglaEspecial.ContactoDiagonalExtra)
+                if (patron.reglaEspecial == PatternData.SpecialRule.ExtraDiagonalContact)
                 {
                     // Escaneamos solo las 4 diagonales
                     int[] dr = { -1, -1, 1, 1 };
@@ -626,7 +626,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                 }
 
                 // --- REGLA: Aislamiento Premiado (Variante 3 para el 1) ---
-                if (patron.reglaEspecial == PatternData.ReglaEspecial.AislamientoPremiado)
+                if (patron.reglaEspecial == PatternData.SpecialRule.RewardOnContact)
                 {
                     bool tocaOtroUno = false;
                     for (int i = -1; i <= 1; i++)
@@ -817,6 +817,64 @@ public class GridManager : MonoBehaviour, IGridValidator
 
         return puntosNuevosAGanar;
     }
+
+    // Cuenta cuántos dados tocan en 3x3 y cuántos de esos toques fueron en diagonal
+    public int ContarContactosEn3x3(int pIndex, int r, int c, int valorDado, out int contactosDiagonales)
+    {
+        DieData[,] logic = allBoardsLogic[pIndex];
+        int contactosTotales = 0;
+        contactosDiagonales = 0;
+
+        for (int i = -1; i <= 1; i++)
+        {
+            for (int j = -1; j <= 1; j++)
+            {
+                if (i == 0 && j == 0) continue; // Ignoramos el centro
+
+                int nr = r + i;
+                int nc = c + j;
+
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+                {
+                    DieData vecino = logic[nr, nc];
+
+                    if (vecino != null && vecino.value == valorDado)
+                    {
+                        contactosTotales++;
+
+                        // Si nos movimos en X y también en Y, es un movimiento diagonal
+                        if (i != 0 && j != 0)
+                        {
+                            contactosDiagonales++;
+                        }
+                    }
+                }
+            }
+        }
+        return contactosTotales;
+    }
+
+    /// <summary>
+    /// Highlights all cells that are part of a successfully completed pattern.
+    /// </summary>
+    public void HighlightCompletedPattern(int pIndex, IEnumerable<Vector2Int> occupiedCells)
+    {
+        foreach (Vector2Int pos in occupiedCells)
+        {
+            // Boundary safety check
+            if (pos.x >= 0 && pos.x < rows && pos.y >= 0 && pos.y < cols)
+            {
+                CellComponent cell = allCellsVisual[pIndex][pos.x, pos.y];
+                if (cell != null)
+                {
+                    cell.TriggerPatternSuccessVisuals();
+                }
+            }
+        }
+    }
+
+
+
 
 
 }
