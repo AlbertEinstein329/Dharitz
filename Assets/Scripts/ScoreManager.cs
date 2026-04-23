@@ -13,8 +13,8 @@ public partial class ScoreManager : MonoBehaviour
     public const int INTERSECTION_BONUS = 100;
 
     // Multiplicadores por líneas sucesivas 
-    private readonly float[] rowMultipliers = { 1.0f, 2.0f, 2.5f, 3.0f, 3.5f, 5.0f };
-    private readonly float[] colMultipliers = { 1.0f, 2.5f, 3.0f, 3.5f, 5.0f, 6.0f };
+    private readonly float[] rowMultipliers = { 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 4.0f };
+    private readonly float[] colMultipliers = { 1.0f, 2.0f, 3.0f, 3.5f, 5.0f, 6.0f };
 
     void Awake()
     {
@@ -27,11 +27,11 @@ public partial class ScoreManager : MonoBehaviour
         switch (targetSize)
         {
             case 1:
-            case 2: return 50;
-            case 3: return 100; 
-            case 4: return 150;
-            case 5: return 200;
-            case 6: return 250;
+            case 2: return 100;
+            case 3: return 200; 
+            case 4: return 300;
+            case 5: return 400;
+            case 6: return 500;
             default: return 0;
         }
     }
@@ -53,9 +53,9 @@ public partial class ScoreManager : MonoBehaviour
     public int GetHolePenalty(int holeSize)
     {
         if (holeSize <= 0) return 0;
-        if (holeSize == 1) return 250; // 
-        if (holeSize == 2) return 350; // 
-        return 500 * holeSize;        // 3 o más: 500 por cada uno 
+        if (holeSize == 1) return 500; // 
+        if (holeSize == 2) return 700; // 
+        return 1000 * holeSize;        // 3 o más: 1000 por cada uno 
     }
 
 

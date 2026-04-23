@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Collections;
 
 public class GridManager : MonoBehaviour, IGridValidator
 {
@@ -160,7 +161,7 @@ public class GridManager : MonoBehaviour, IGridValidator
     {
         DieData[,] currentLogic = allBoardsLogic[pIndex];
         PlayerData player = GameManager.Instance.players[pIndex];
-        bool isBoardEmpty = (player.dadosColocados == 0);
+        bool isBoardEmpty = (player.placedDice == 0);
 
         // --- INYECCIÓN DE REGLAS ---
         VariantData variante = GameManager.Instance.varianteActual;
@@ -243,55 +244,177 @@ public class GridManager : MonoBehaviour, IGridValidator
     {
         switch (color)
         {
-            case DieColor.Rojo: return prefabRojo;
-            case DieColor.Azul: return prefabAzul;
-            case DieColor.Blanco: return prefabBlanco;
-            case DieColor.Negro: return prefabNegro;
+            case DieColor.Red: return prefabRojo;
+            case DieColor.Blue: return prefabAzul;
+            case DieColor.White: return prefabBlanco;
+            case DieColor.Black: return prefabNegro;
             default: return prefabBlanco;
         }
     }
 
-    // --- NUEVO SISTEMA DE DETECCIÓN DE HUECOS POR CLUSTERS ---
-    public int CalcularPenalizacionHuecos(int pIndex, out int cantidadTotalHuecos)
+    /// <summary>
+    /// Evaluates enclosed gaps using a 4-way Orthogonal Flood Fill.
+    /// Diagonals are ignored. Escaping to the board edges means the gap is NOT enclosed.
+    /// </summary>
+    public int CalculateGapPenalty(int pIndex, bool showPopups = false)
     {
-        DieData[,] currentLogic = allBoardsLogic[pIndex];
-        bool[,] visitado = new bool[rows, cols];
+        DieData[,] logic = allBoardsLogic[pIndex];
+        bool[,] visited = new bool[rows, cols];
+        int totalPenalty = 0;
 
-        cantidadTotalHuecos = 0;
-        int penalizacionTotal = 0;
+        // Solo 4 direcciones: Arriba, Abajo, Izquierda, Derecha. (Evita la fuga diagonal)
+        Vector2Int[] orthogonalDirections = new Vector2Int[] {
+            Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
+        };
 
-        // 1. INUNDAR DESDE LOS BORDES (Marcar el "Exterior")
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
-                if ((r == 0 || r == rows - 1 || c == 0 || c == cols - 1) && currentLogic[r, c] == null && !visitado[r, c])
+                if (logic[r, c] == null && !visited[r, c])
                 {
-                    MarcarExterior(r, c, visitado, currentLogic);
+                    int gapSize = 0;
+                    bool isEnclosed = true; // Asumimos que está encerrado hasta encontrar una salida
+                    Queue<Vector2Int> queue = new Queue<Vector2Int>();
+
+                    //Lista para recordar qué celdas forman este hueco
+                    System.Collections.Generic.List<Vector2Int> gapCells = new System.Collections.Generic.List<Vector2Int>();
+
+                    queue.Enqueue(new Vector2Int(r, c));
+                    visited[r, c] = true;
+
+                    while (queue.Count > 0)
+                    {
+                        Vector2Int current = queue.Dequeue();
+                        gapSize++;
+                        gapCells.Add(current);
+
+                        foreach (Vector2Int dir in orthogonalDirections)
+                        {
+                            int nextR = current.x + dir.x;
+                            int nextC = current.y + dir.y;
+
+                            //Si la coordenada se sale del tablero, encontró aire libre. NO es un hueco.
+                            if (nextR < 0 || nextR >= rows || nextC < 0 || nextC >= cols)
+                            {
+                                isEnclosed = false;
+                            }
+                            // Si la casilla vecina está dentro del tablero, está vacía y no la hemos visitado, se suma a la isla
+                            else if (logic[nextR, nextC] == null && !visited[nextR, nextC])
+                            {
+                                visited[nextR, nextC] = true;
+                                queue.Enqueue(new Vector2Int(nextR, nextC));
+                            }
+                        }
+                    }
+
+                    //Si es una isla central y nunca tocó un borde, se cobra la penalización
+                    if (isEnclosed)
+                    {
+                        int penalty = GetPenaltyForGapSize(gapSize);
+                        totalPenalty += penalty;
+  
+                    }
                 }
             }
         }
 
-        // 2. ESCANEAR EL INTERIOR (Detectar y medir cada "Cluster" aislado)
-        for (int r = 0; r < rows; r++)
-        {
-            for (int c = 0; c < cols; c++)
-            {
-                if (currentLogic[r, c] == null && !visitado[r, c])
-                {
-                    // Encontramos un hueco encerrado. Vamos a medir de qué tamaño es este cluster.
-                    int tamanoCluster = MedirClusterEncerrado(r, c, visitado, currentLogic);
-
-                    cantidadTotalHuecos += tamanoCluster;
-
-                    // Cobramos la multa exacta para el tamaño de ESTE cluster específico
-                    penalizacionTotal += ScoreManager.Instance.GetHolePenalty(tamanoCluster);
-                }
-            }
-        }
-
-        return penalizacionTotal;
+        return totalPenalty;
     }
+
+    private int GetPenaltyForGapSize(int size)
+    {
+        if (size == 1) return -500;
+        if (size == 2) return -700;
+        if (size == 3) return -1000;
+
+        return -(250 + ((size - 1) * 100)); //Si se penaliza por agrupacion
+
+        // return -(size * 500); //Penalización por cada espacio adicional en el hueco
+    }
+
+    /// <summary>
+    /// Animates the gap penalties sequentially. Colors cells red, spawns popups every 0.5s, 
+    /// and triggers a callback when completely finished.
+    /// </summary>
+    public IEnumerator AnimateGapPenaltiesFlow(int pIndex, System.Action onComplete)
+    {
+        DieData[,] logic = allBoardsLogic[pIndex];
+        bool[,] visited = new bool[rows, cols];
+        bool foundAnyGap = false;
+
+        Vector2Int[] orthogonalDirections = new Vector2Int[] {
+            Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
+        };
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                if (logic[r, c] == null && !visited[r, c])
+                {
+                    int gapSize = 0;
+                    bool isEnclosed = true;
+                    System.Collections.Generic.List<Vector2Int> gapCells = new System.Collections.Generic.List<Vector2Int>();
+
+                    Queue<Vector2Int> queue = new Queue<Vector2Int>();
+                    queue.Enqueue(new Vector2Int(r, c));
+                    visited[r, c] = true;
+
+                    // Expandimos para encontrar la isla (Flood Fill)
+                    while (queue.Count > 0)
+                    {
+                        Vector2Int current = queue.Dequeue();
+                        gapSize++;
+                        gapCells.Add(current);
+
+                        foreach (Vector2Int dir in orthogonalDirections)
+                        {
+                            int nextR = current.x + dir.x;
+                            int nextC = current.y + dir.y;
+
+                            if (nextR < 0 || nextR >= rows || nextC < 0 || nextC >= cols) isEnclosed = false;
+                            else if (logic[nextR, nextC] == null && !visited[nextR, nextC])
+                            {
+                                visited[nextR, nextC] = true;
+                                queue.Enqueue(new Vector2Int(nextR, nextC));
+                            }
+                        }
+                    }
+
+                    // Si es un hueco válido, lo animamos
+                    if (isEnclosed && gapCells.Count > 0)
+                    {
+                        foundAnyGap = true;
+                        int penalty = GetPenaltyForGapSize(gapSize);
+
+                        // 1. Pintar todas las casillas del hueco en ROJO
+                        foreach (Vector2Int cell in gapCells)
+                        {
+                            CellComponent cellVisual = allCellsVisual[pIndex][cell.x, cell.y];
+                            if (cellVisual != null) cellVisual.HighlightGapColor();
+                        }
+
+                        // 2. Mostrar el PopUp en el centro del hueco
+                        Vector2Int centerCell = gapCells[gapCells.Count / 2];
+                        Vector3 popupPos = allCellsVisual[pIndex][centerCell.x, centerCell.y].transform.position;
+                        PopUpManager.Instance.MostrarPopUp(popupPos, $"{penalty}", Color.red);
+
+                        // 3. Esperar 0.5 segundos ANTES de buscar el siguiente hueco
+                        yield return new WaitForSeconds(0.5f);
+                    }
+                }
+            }
+        }
+
+        // Si se mostró al menos un hueco, esperamos 0.5s extra antes de mostrar el panel final
+        if (foundAnyGap) yield return new WaitForSeconds(0.5f);
+
+        // Finalizamos la secuencia llamando al GameManager
+        onComplete?.Invoke();
+    }
+
+
 
     private void MarcarExterior(int r, int c, bool[,] visitado, DieData[,] currentLogic)
     {
@@ -300,7 +423,7 @@ public class GridManager : MonoBehaviour, IGridValidator
         if (r < 0 || r >= rows || c < 0 || c >= cols || visitado[r, c] || currentLogic[r, c] != null) return;
         visitado[r, c] = true;
 
-        // Búsqueda en 8 direcciones para que el "aire" se cuele por las esquinas
+
         int[] dr = { -1, 1, 0, 0, -1, -1, 1, 1 };
         int[] dc = { 0, 0, -1, 1, -1, 1, -1, 1 };
         for (int i = 0; i < 8; i++)
@@ -408,6 +531,17 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     private bool ValidarSupervivencia(int pIndex, int r, int c, DieColor color, int newGroupId, int newTargetSize, PlayerData player)
     {
+        // FAST-EXIT FÍSICO. Escaneamos la matriz real del jugador.
+        // Si no hay ningún dado de plástico en su tablero, es imposible que se encierre.
+        bool tableroVacio = true;
+        foreach (DieData dado in allBoardsLogic[pIndex])
+        {
+            if (dado != null) { tableroVacio = false; break; }
+        }
+
+        if (tableroVacio) return true;
+
+
         DieData[,] logic = allBoardsLogic[pIndex];
 
         // 1. MAPEO DE NECESIDADES: ¿Cuántos dados le faltan a cada grupo del tablero?
@@ -466,7 +600,17 @@ public class GridManager : MonoBehaviour, IGridValidator
             GroupData grupoActivo = null;
             foreach (var g in player.activeGroups.Values) { if (g != null && g.id == gId) { grupoActivo = g; break; } }
 
-            PatternData patronDelGrupo = variante.ObtenerPatron(grupoActivo.targetSize);
+            // --- BLINDAJE CONTRA NULOS (Grupo Hipotético) ---
+            int sizeDelPatron = (grupoActivo != null) ? grupoActivo.targetSize : (requeridos + 1);
+
+            PatternData patronDelGrupo = variante.ObtenerPatron(sizeDelPatron);
+
+            // Si el Inspector de Unity está incompleto, abortamos limpiamente sin crashear.
+            if (patronDelGrupo == null)
+            {
+                Debug.LogError($"CRÍTICO: El juego intentó leer el patrón {sizeDelPatron}, pero NO EXISTE en la Variante '{variante.nombreVariante}'. ¡Revisa tu ScriptableObject en el Inspector de Unity y asegúrate de asignar los 6 patrones!");
+                return false;
+            }
 
             // ¿Tiene permiso este grupo para "saltar" bloqueos en diagonal?
             bool puedeReservarDiagonal = patronDelGrupo.reglaEspecial == PatternData.SpecialRule.ExtraDiagonalContact || variante.reservasDiagonalesPermitidas;
@@ -476,7 +620,8 @@ public class GridManager : MonoBehaviour, IGridValidator
             bool[,] visitado = new bool[rows, cols];
             Queue<Vector2Int> cola = new Queue<Vector2Int>();
 
-            DieColor colorDelGrupo = grupoActivo.color;
+            // Si el grupo es nuevo (null), atraparemos su color real leyendo el tablero hipotético más abajo
+            DieColor colorDelGrupo = (grupoActivo != null) ? grupoActivo.color : DieColor.White;
 
             // 1. Encontrar todos los dados de ESTE grupo
             for (int r = 0; r < rows; r++)
@@ -485,11 +630,16 @@ public class GridManager : MonoBehaviour, IGridValidator
                 {
                     if (logic[r, c] != null && logic[r, c].groupId == gId)
                     {
+                        // Si era un grupo hipotético, aquí descubrimos de qué color era
+                        colorDelGrupo = logic[r, c].color;
+
                         cola.Enqueue(new Vector2Int(r, c));
                         visitado[r, c] = true;
                     }
                 }
             }
+
+            // ... (A partir de aquí, el paso "2. Expandir el Flood-Fill" se mantiene exactamente igual que tu código original)
 
             // 2. Expandir el Flood-Fill con detección de colisión
             while (cola.Count > 0)
@@ -547,7 +697,7 @@ public class GridManager : MonoBehaviour, IGridValidator
     }
 
     // Evalúa todo el tablero y resalta las celdas válidas
-    public void MostrarMovimientosValidos(int pIndex, DieColor color, int groupId, int targetSize)
+    public void ShowValidMoves(int pIndex, DieColor color, int groupId, int targetSize)
     {
         for (int r = 0; r < rows; r++)
         {
@@ -750,72 +900,91 @@ public class GridManager : MonoBehaviour, IGridValidator
     }
 
     // --- NUEVO MOTOR DE COMBOS EN TIEMPO REAL ---
-    public int EvaluarYCobrarCombosEnTiempoReal(int pIndex)
+    public int EvaluateAndApplyCombos(int pIndex)
     {
         DieData[,] logic = allBoardsLogic[pIndex];
         PlayerData player = GameManager.Instance.players[pIndex];
 
-        int completasRows = 0;
-        int completasCols = 0;
+        int completedRows = 0;
+        int completedCols = 0;
         int maxConsecutiveRows = 0;
         int maxConsecutiveCols = 0;
-        int intersecciones = 0;
+        int intersections = 0;
 
         bool[] rowsFull = new bool[rows];
         bool[] colsFull = new bool[cols];
 
-        // 1. Escaneo de líneas completas (Filas)
+        // 1. Scan for completed lines (Rows)
         int currentConsecutive = 0;
         for (int r = 0; r < rows; r++)
         {
             rowsFull[r] = true;
             for (int c = 0; c < cols; c++) if (logic[r, c] == null) { rowsFull[r] = false; break; }
-            if (rowsFull[r]) { completasRows++; currentConsecutive++; maxConsecutiveRows = Mathf.Max(maxConsecutiveRows, currentConsecutive); }
+
+            if (rowsFull[r])
+            {
+                completedRows++;
+                currentConsecutive++;
+                maxConsecutiveRows = Mathf.Max(maxConsecutiveRows, currentConsecutive);
+            }
             else currentConsecutive = 0;
         }
 
-        // 1.b Escaneo de líneas completas (Columnas)
+        // 1.b Scan for completed lines (Columns)
         currentConsecutive = 0;
         for (int c = 0; c < cols; c++)
         {
             colsFull[c] = true;
             for (int r = 0; r < rows; r++) if (logic[r, c] == null) { colsFull[c] = false; break; }
-            if (colsFull[c]) { completasCols++; currentConsecutive++; maxConsecutiveCols = Mathf.Max(maxConsecutiveCols, currentConsecutive); }
+
+            if (colsFull[c])
+            {
+                completedCols++;
+                currentConsecutive++;
+                maxConsecutiveCols = Mathf.Max(maxConsecutiveCols, currentConsecutive);
+            }
             else currentConsecutive = 0;
         }
 
-        // 2. Intersecciones
+        // 2. Intersections
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
-                if (rowsFull[r] && colsFull[c]) intersecciones++;
+                if (rowsFull[r] && colsFull[c]) intersections++;
             }
         }
 
         // Si no hay líneas, no hay nada que calcular
-        if (completasRows == 0 && completasCols == 0) return 0;
+        if (completedRows == 0 && completedCols == 0) return 0;
 
-        // 3. Matemática del Cliente: Base * Suma de Multiplicadores
-        int basePuntos = (completasRows * ScoreManager.ROW_COMPLETE_BONUS) +
-                         (completasCols * ScoreManager.COL_COMPLETE_BONUS) +
-                         (intersecciones * ScoreManager.INTERSECTION_BONUS);
+        // 3. Client Math: Base * Multipliers (POINT 9: Intersections separated)
+        int rowBasePoints = completedRows * ScoreManager.ROW_COMPLETE_BONUS;
+        int colBasePoints = completedCols * ScoreManager.COL_COMPLETE_BONUS;
 
-        float multRow = completasRows > 0 ? ScoreManager.Instance.GetConsecutiveRowMultiplier(maxConsecutiveRows) : 0f;
-        float multCol = completasCols > 0 ? ScoreManager.Instance.GetConsecutiveColMultiplier(maxConsecutiveCols) : 0f;
+        // Aislar los puntos de intersección
+        int intersectionPoints = intersections * ScoreManager.INTERSECTION_BONUS;
 
-        float multTotal = multRow + multCol;
-        if (multTotal == 0f) multTotal = 1f; // Prevención de errores por si los multiplicadores fallan
+        float multRow = completedRows > 0 ? ScoreManager.Instance.GetConsecutiveRowMultiplier(maxConsecutiveRows) : 0f;
+        float multCol = completedCols > 0 ? ScoreManager.Instance.GetConsecutiveColMultiplier(maxConsecutiveCols) : 0f;
 
-        int puntajeTotalEstructuraActual = Mathf.FloorToInt(basePuntos * multTotal);
+        float totalMultiplier = multRow + multCol;
+        if (totalMultiplier == 0f) totalMultiplier = 1f; // Prevención de errores
 
-        // 4. Lógica Diferencial (Restamos lo que ya se le pagó en turnos anteriores para no cobrar doble)
-        int puntosNuevosAGanar = puntajeTotalEstructuraActual - player.puntosEstructuraAcumulados;
+        // APLICACIÓN DE REGLA 9: El multiplicador solo afecta a Filas y Columnas
+        int lineScoreWithMultiplier = Mathf.FloorToInt((rowBasePoints + colBasePoints) * totalMultiplier);
+
+        // Las intersecciones se suman planas (sin multiplicar)
+        int currentTotalStructureScore = lineScoreWithMultiplier + intersectionPoints;
+
+        // 4. Differential Logic (Restamos lo que ya se pagó en turnos anteriores)
+        // NOTA: Asegúrate de renombrar 'accumulatedStructurePoints' a 'accumulatedStructurePoints' en PlayerData.cs
+        int newPointsToEarn = currentTotalStructureScore - player.accumulatedStructurePoints;
 
         // Actualizamos la memoria del jugador
-        player.puntosEstructuraAcumulados = puntajeTotalEstructuraActual;
+        player.accumulatedStructurePoints = currentTotalStructureScore;
 
-        return puntosNuevosAGanar;
+        return newPointsToEarn;
     }
 
     // Cuenta cuántos dados tocan en 3x3 y cuántos de esos toques fueron en diagonal

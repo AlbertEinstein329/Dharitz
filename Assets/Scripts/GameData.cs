@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 
 // Definición global de colores
-public enum DieColor { Rojo, Azul, Blanco, Negro }
+public enum DieColor { Red, Blue, White, Black }
 
 
 [System.Serializable]
@@ -23,9 +23,9 @@ public class PlayerData
     public int id;
     public string name;
     public int score = 0;
-    public int dadosColocados = 0;
+    public int placedDice = 0;
     public int[] conteoPatrones = new int[7];
-    public int puntosEstructuraAcumulados = 0;
+    public int accumulatedStructurePoints = 0;
     public int penalizacionUnosAcumulada = 0;
 
     public bool isBot = false;

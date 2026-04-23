@@ -24,7 +24,7 @@ public struct RuleEvaluationResult
 public static class SpecialRuleEvaluator
 {
     private const int MULTA_POR_AISLAMIENTO = -250;
-    private const int BONO_POR_CONTACTO = 50;
+    private const int BONO_POR_CONTACTO = 100;
 
     // NUEVO: Añadimos 'bool isFirstDieOnBoard' a la función
     public static RuleEvaluationResult EvaluatePlacement(SpecialRule activeRule, int totalContactos, int contactosDiagonales, bool isFirstDieOnBoard)

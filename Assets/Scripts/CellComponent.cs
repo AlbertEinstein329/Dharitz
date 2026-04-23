@@ -115,7 +115,25 @@ public class CellComponent : MonoBehaviour
         // Example: VFXManager.Instance.PlaySuccessParticles(transform.position);
     }
 
-
+    /// <summary>
+    /// Colors the empty cell red to indicate a gap penalty.
+    /// </summary>
+    public void HighlightGapColor()
+    {
+        // Si tu tablero usa SpriteRenderer (2D World)
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr != null)
+        {
+            // Usamos un rojo semitransparente/claro para que no sea muy agresivo
+            sr.color = new Color(1f, 0.3f, 0.3f, 1f);
+        }
+        else
+        {
+            // Si por algún motivo tu tablero está hecho de UI Images (Canvas)
+            UnityEngine.UI.Image img = GetComponent<UnityEngine.UI.Image>();
+            if (img != null) img.color = new Color(1f, 0.3f, 0.3f, 1f);
+        }
+    }
 
 
 

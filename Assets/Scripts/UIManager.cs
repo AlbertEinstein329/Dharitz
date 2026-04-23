@@ -5,6 +5,13 @@ using DG.Tweening;
 
 public class UIManager : MonoBehaviour
 {
+    [System.Serializable]
+    public struct DiceCounterUI
+    {
+        public Image dieIcon;
+        public TextMeshProUGUI countText;
+    }
+
     public static UIManager Instance;
 
     [Header("Paneles Principales")]
@@ -23,8 +30,11 @@ public class UIManager : MonoBehaviour
     public Sprite[] spritesBlancos;
     public Sprite[] spritesNegros;
 
-    [Header("Contador de Bolsa")]
-    public TextMeshProUGUI textoDadosRestantes;
+    [Header("Dice Counters")]
+    public DiceCounterUI redCounter;
+    public DiceCounterUI blueCounter;
+    public DiceCounterUI whiteCounter;
+    public DiceCounterUI blackCounter;
 
     [Header("Animation Settings")]
     [SerializeField] private float rollDuration = 0.5f; // Duración total de la animación en segundos
@@ -44,49 +54,72 @@ public class UIManager : MonoBehaviour
         {
             originalSlotSprite = imagenDadoActual.sprite;
         }
+
+        InitializeCounters();
+
     }
 
-    public void UpdateHandUI(DieColor color, int numeroLanzado, int dadosColocados, int totalDados)
+    /// <summary>
+    /// Locks or unlocks the draw area to prevent inputs during turn transitions.
+    /// </summary>
+    public void SetDrawInputLock(bool isLocked)
+    {
+        if (imagenDadoActual != null)
+        {
+            UIDieInteractor interactor = imagenDadoActual.GetComponent<UIDieInteractor>();
+            if (interactor != null) interactor.isInputLocked = isLocked;
+        }
+    }
+
+
+    /// <summary>
+    /// Updates the UI with a rolling animation, randomizing both color and number.
+    /// Executes the onComplete callback only when the animation finishes.
+    /// </summary>
+    public void UpdateHandUI(DieColor finalColor, int finalNumber, int placedDice, int totalDice, System.Action onCompleteCallback)
     {
         if (panelDados != null) panelDados.SetActive(true);
 
-        Sprite finalSprite = GetSprite(color, numeroLanzado);
-
-        // 1. Prevent animation overlap (Spam protection)
+        Sprite finalSprite = GetSprite(finalColor, finalNumber);
         rollSequence?.Kill();
-
-        // 2. Ensure the image is visible (Alpha = 1) in case it was hidden
         imagenDadoActual.color = Color.white;
 
-        // 3. Create the DOTween Sequence for the rolling effect
+        // Bloqueamos el espacio de interacción
+        UIDieInteractor interactor = imagenDadoActual.GetComponent<UIDieInteractor>();
+        if (interactor != null) interactor.IsSlotEmpty = false;
+
         rollSequence = DOTween.Sequence();
         float intervalDuration = rollDuration / rollAnimationSteps;
 
-        // Loop to create rapid random sprite changes
+        // Bucle de animación
         for (int i = 0; i < rollAnimationSteps; i++)
         {
             rollSequence.AppendCallback(() =>
             {
-                // Select a random number between 1 and 6 to simulate the roll
+                DieColor randomColor = (DieColor)UnityEngine.Random.Range(0, 4);
                 int randomFace = UnityEngine.Random.Range(1, 7);
-                imagenDadoActual.sprite = GetSprite(color, randomFace);
 
-                // [OPEN PLACEHOLDER FOR AUDIO]
-                // AudioManager.Instance.PlayTickSound();
+                imagenDadoActual.sprite = GetSprite(randomColor, randomFace);
+                AudioManager.Instance.PlayTickSound();
             });
             rollSequence.AppendInterval(intervalDuration);
         }
 
-        // 4. Final step: Show the actual rolled die
+        // Finalización de la animación
         rollSequence.AppendCallback(() =>
         {
             imagenDadoActual.sprite = finalSprite;
-            // [OPEN PLACEHOLDER FOR AUDIO]
-            // AudioManager.Instance.PlayDingSound();
-        });
 
-        int dadosFaltantes = totalDados - dadosColocados;
-        textoProgreso.text = $"{color.ToString().ToUpper()} {numeroLanzado} / Faltan: {dadosFaltantes}";
+            // Ahora las variables sí existen en la cabecera y la resta funcionará
+            int missingDice = totalDice - placedDice;
+            if (textoProgreso != null)
+            {
+                textoProgreso.text = $"{finalColor.ToString().ToUpper()} {finalNumber} / Faltan: {missingDice}";
+            }
+
+            // Disparamos el callback hacia el GameManager
+            onCompleteCallback?.Invoke();
+        });
     }
 
     /// <summary>
@@ -103,6 +136,14 @@ public class UIManager : MonoBehaviour
             imagenDadoActual.sprite = originalSlotSprite;
             imagenDadoActual.color = Color.white; // Ensures visibility
         }
+
+        UIDieInteractor interactor = imagenDadoActual.GetComponent<UIDieInteractor>();
+        if (interactor != null)
+        {
+            // Desbloqueamos el espacio: Vuelve a estar vacío, permitiendo el "Tap" para extraer el siguiente.
+            interactor.IsSlotEmpty = true;
+        }
+
     }
 
     public Sprite GetSprite(DieColor color, int number)
@@ -114,10 +155,10 @@ public class UIManager : MonoBehaviour
 
         switch (color)
         {
-            case DieColor.Rojo: listaSeleccionada = spritesRojos; break;
-            case DieColor.Azul: listaSeleccionada = spritesAzules; break;
-            case DieColor.Blanco: listaSeleccionada = spritesBlancos; break;
-            case DieColor.Negro: listaSeleccionada = spritesNegros; break;
+            case DieColor.Red: listaSeleccionada = spritesRojos; break;
+            case DieColor.Blue: listaSeleccionada = spritesAzules; break;
+            case DieColor.White: listaSeleccionada = spritesBlancos; break;
+            case DieColor.Black: listaSeleccionada = spritesNegros; break;
         }
 
         if (listaSeleccionada == null || listaSeleccionada.Length < 6) return null;
@@ -125,7 +166,7 @@ public class UIManager : MonoBehaviour
         return listaSeleccionada[index];
     }
 
-    // --- NUEVA FUNCIÓN: Actualiza el texto en la pantalla durante el juego ---
+    //Actualiza el texto en la pantalla durante el juego
     public void ActualizarScore(int nuevoScore)
     {
         if (textoScoreHUD != null)
@@ -147,7 +188,7 @@ public class UIManager : MonoBehaviour
         int puntosTiempoReal = player.score;
 
         // --- DESGLOSE VISUAL (No se suman al total, solo se calculan para mostrar en texto) ---
-        int puntosBase = player.dadosColocados * ScoreManager.POINTS_PER_DIE;
+        int puntosBase = player.placedDice * ScoreManager.POINTS_PER_DIE;
 
         int totalBonosPatrones = 0;
         string desglosePatrones = "";
@@ -162,30 +203,33 @@ public class UIManager : MonoBehaviour
             }
         }
 
-        int puntosEstructura = player.puntosEstructuraAcumulados;
+        int puntosEstructura = player.accumulatedStructurePoints;
 
         // Puntos Exóticos: Lo que "sobra" del score total tras restar lo básico, son los combos de variantes.
         int puntosVariante = puntosTiempoReal - (puntosBase + totalBonosPatrones + puntosEstructura);
 
         // 2. PENALIZACIONES DE FIN DE PARTIDA (AHORA SOLO HUECOS)
         // Recordatorio: Debes usar la función que creamos para contar huecos agrupados
-        int penalizacionHuecos = GameManager.Instance.gridManager.CalcularPenalizacionHuecos(playerIndex, out int cantidadHuecos);
+        int penalizacionHuecos = GameManager.Instance.gridManager.CalculateGapPenalty(playerIndex, false);
+
 
         // Los unos ya fueron restados del 'puntosTiempoReal' durante la partida. 
         // Solo los obtenemos para mostrarlos como información al jugador.
         int cantidadUnos = GameManager.Instance.gridManager.ObtenerPenalizacionesPorUnos(playerIndex);
-        int puntosRestadosPorUnos = cantidadUnos * 100;
+        int puntosRestadosPorUnos = cantidadUnos * 200;
 
-        // 3. CÁLCULO FINAL (Score Real - Multa de Huecos)
-        int totalFinal = puntosTiempoReal - penalizacionHuecos;
+        // 2. CORRECCIÓN: El Score real YA TIENE la multa aplicada. ¡Están sincronizados!
+        int totalFinal = player.score;
 
         // 4. CONSTRUCCIÓN DE LA INTERFAZ
         string textoCombos = puntosEstructura > 0 ? $"Combos Estructura: +{puntosEstructura} pts\n" : "";
         string textoVariantes = puntosVariante > 0 ? $"Bonos de Variante: +{puntosVariante} pts\n" : "";
 
         string textoPenalizaciones = "";
-        if (penalizacionHuecos > 0) textoPenalizaciones += $"<color=red>Huecos encerrados: -{penalizacionHuecos} pts</color>\n";
-        if (puntosRestadosPorUnos > 0) textoPenalizaciones += $"<color=orange>1s mal colocados (Cobrado en juego): -{puntosRestadosPorUnos} pts</color>\n";
+        if (penalizacionHuecos < 0)
+        {
+            textoPenalizaciones += $"<color=red>Huecos encerrados: {penalizacionHuecos} pts</color>\n";
+        }
 
         textoResultados.text =
             $"<size=120%>{player.name.ToUpper()}</size>\n\n" +
@@ -198,14 +242,29 @@ public class UIManager : MonoBehaviour
             $"<size=140%>TOTAL: {Mathf.Max(0, totalFinal)} PTS</size>";
     }
 
-    public void ActualizarContadorBolsa(int cantidad)
+    /// <summary>
+    /// Updates the 4 individual counters for remaining dice.
+    /// </summary>
+    public void UpdateDiceCounters(int redLeft, int blueLeft, int whiteLeft, int blackLeft)
     {
-        if (textoDadosRestantes != null)
-        {
-            textoDadosRestantes.text = $"DADOS: {cantidad}";
-            textoDadosRestantes.color = cantidad <= 10 ? Color.red : Color.black;
-        }
+        if (redCounter.countText != null) redCounter.countText.text = redLeft.ToString();
+        if (blueCounter.countText != null) blueCounter.countText.text = blueLeft.ToString();
+        if (whiteCounter.countText != null) whiteCounter.countText.text = whiteLeft.ToString();
+        if (blackCounter.countText != null) blackCounter.countText.text = blackLeft.ToString();
     }
+
+    /// <summary>
+    /// Initializes the counter icons with the base sprite (face 1) of each color.
+    /// Ensures UI matches the current active skin automatically.
+    /// </summary>
+    public void InitializeCounters()
+    {
+        if (redCounter.dieIcon != null) redCounter.dieIcon.sprite = GetSprite(DieColor.Red, 1);
+        if (blueCounter.dieIcon != null) blueCounter.dieIcon.sprite = GetSprite(DieColor.Blue, 1);
+        if (whiteCounter.dieIcon != null) whiteCounter.dieIcon.sprite = GetSprite(DieColor.White, 1);
+        if (blackCounter.dieIcon != null) blackCounter.dieIcon.sprite = GetSprite(DieColor.Black, 1);
+    }
+
 
     public void OcultarPanelResultados()
     {
@@ -215,6 +274,17 @@ public class UIManager : MonoBehaviour
         if (textoScoreHUD != null) textoScoreHUD.gameObject.SetActive(true);
     }
 
-
+    /// <summary>
+    /// Updates only the progress text without triggering the roll animation.
+    /// Used after placing a die on the board.
+    /// </summary>
+    public void UpdateProgressText(DieColor finalColor, int finalNumber, int placedDice, int totalDice)
+    {
+        int missingDice = totalDice - placedDice;
+        if (textoProgreso != null)
+        {
+            textoProgreso.text = $"{finalColor.ToString().ToUpper()} {finalNumber} / Faltan: {missingDice}";
+        }
+    }
 
 }
