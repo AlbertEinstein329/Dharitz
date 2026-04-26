@@ -80,8 +80,8 @@ public class MainMenuManager : MonoBehaviour
     public void IniciarModoLibre()
     {
         configuracionSesion.esModoCampana = false;
-        // Asume que tu escena de juego es la número 1 en los Build Settings
-        SceneManager.LoadScene(1);
+        // Asume que tu escena de juego es la número 2 en los Build Settings
+        SceneManager.LoadScene(2);
     }
 
     public void IniciarModoCampana()

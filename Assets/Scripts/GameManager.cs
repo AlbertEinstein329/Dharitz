@@ -88,9 +88,14 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     {
         InitializeBag();
 
-        // ¡CRÍTICO! Arrancamos el ciclo de turnos al iniciar la partida
+        //Arrancamos el ciclo de turnos al iniciar la partida
         StartTurn();
+
     }
+
+
+
+
 
     void InitializeFallbackPlayers()
     {
@@ -515,6 +520,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         DrawDie();
     }
 
+
+
     // --- NAVEGACIÓN ---
     public void VolverAlMenuPrincipal()
     {
@@ -527,7 +534,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         Instance = null;
 
         // Cargamos la Escena 0 (Menú Principal)
-        SceneManager.LoadScene(0);
+        SceneManager.LoadScene(1);
     }
 
     /// <summary>
@@ -541,6 +548,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         }
         return true;
     }
+
+
 
     /// <summary>
     /// Master Coroutine that orchestrates the end-game feedback loop.
@@ -568,10 +577,25 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             yield return new WaitForSeconds(1.0f);
         }
 
-        // 3. Una vez que TODOS los tableros fueron animados, mostramos la pantalla final.
-        // (Si tienes una función que muestra al ganador global, llámala aquí. 
-        // Por ahora llamaremos a la tuya con el jugador 0 o el que corresponda).
+        // Supongamos que el jugador 0 es el jugador principal (el dueño del teléfono)
+        PlayerData jugadorLocal = players[0];
+
+        // Ejemplo de lógica: Gana 1 moneda por cada 10 puntos que hizo
+        int monedasGanadas = Mathf.Max(0, jugadorLocal.score / 10);
+        int nuevoNivel = 1; // Aquí pondrías tu variable real de nivel de campaña
+
+        // Llamamos al guardado en la nube. 
+        // Usamos "_ =" para decirle a Unity: "Guarda esto en segundo plano, no congeles el juego esperando a que termine".
+        _ = CloudSaveManager.Instance.GuardarProgresoMeta(nuevoNivel, monedasGanadas);
+
+        // -----------------------------------------------------------
+
+        // 3. Finalmente, le decimos al UIManager que dibuje la pantalla final
         UIManager.Instance.MostrarResultadosFinales(0);
     }
+
+
+
+
 
 }

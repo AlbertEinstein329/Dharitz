@@ -13,7 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: Gabriel Corp
-  productName: Darithz
+  productName: Dharitz
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b: 0.1254902, a: 1}
@@ -163,7 +163,7 @@ PlayerSettings:
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
-    Android: com.GabrielCorp.Darithz
+    Android: com.GabrielCorp.Dharitz
   buildNumber:
     Standalone: 0
     VisionOS: 0
@@ -267,8 +267,8 @@ PlayerSettings:
   AndroidTargetDevices: 0
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
-  AndroidKeystoreName: 
-  AndroidKeyaliasName: 
+  AndroidKeystoreName: D:/Programacion/UnityProyect/Dharitz/user.keystore
+  AndroidKeyaliasName: darithz
   AndroidEnableArmv9SecurityFeatures: 0
   AndroidBuildApkPerCpuArchitecture: 0
   AndroidTVCompatibility: 0
@@ -276,7 +276,7 @@ PlayerSettings:
   AndroidEnableTango: 0
   androidEnableBanner: 1
   androidUseLowAccuracyLocation: 0
-  androidUseCustomKeystore: 0
+  androidUseCustomKeystore: 1
   m_AndroidBanners:
   - width: 320
     height: 180
@@ -887,7 +887,7 @@ PlayerSettings:
   cloudProjectId: 26034601-b6ca-479d-ae9c-3cd706aaebac
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: My project
+  projectName: Dharitz
   organizationId: gabrielguillendyck1999
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
