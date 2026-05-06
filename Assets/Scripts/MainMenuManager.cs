@@ -81,7 +81,7 @@ public class MainMenuManager : MonoBehaviour
     {
         configuracionSesion.esModoCampana = false;
         // Asume que tu escena de juego es la número 2 en los Build Settings
-        SceneManager.LoadScene(2);
+        SceneManager.LoadScene(1);
     }
 
     public void IniciarModoCampana()

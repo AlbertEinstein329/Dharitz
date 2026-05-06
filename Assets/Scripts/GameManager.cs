@@ -534,7 +534,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         Instance = null;
 
         // Cargamos la Escena 0 (Menú Principal)
-        SceneManager.LoadScene(1);
+        SceneManager.LoadScene(0);
     }
 
     /// <summary>

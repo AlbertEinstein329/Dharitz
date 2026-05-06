@@ -172,13 +172,14 @@ namespace GooglePlayGames.BasicApi
       /// <param name="callback">Callback for response.</param>
       void GetPlayerStats(Action<CommonStatusCodes, PlayerStats> callback);
 
-      /// <summary>
-      /// Loads the users specified.  This is mainly used by the leaderboard
-      /// APIs to get the information of a high scorer.
-      /// </summary>
-      /// <param name="userIds">User identifiers.</param>
-      /// <param name="callback">Callback.</param>
-      void LoadUsers(string[] userIds, Action<IUserProfile[]> callback);
+        /// <summary>
+        /// Loads the users specified.  This is mainly used by the leaderboard
+        /// APIs to get the information of a high scorer.
+        /// </summary>
+        /// <param name="userIds">User identifiers.</param>
+        /// <param name="callback">Callback.</param>
+        [Obsolete]
+        void LoadUsers(string[] userIds, Action<IUserProfile[]> callback);
 
       /// <summary>
       /// Loads the achievements for the current signed in user and invokes
@@ -401,7 +402,8 @@ namespace GooglePlayGames.BasicApi
       /// <returns>The events client.</returns>
       Events.IEventsClient GetEventsClient();
 
-      IUserProfile[] GetFriends();
+        [Obsolete]
+        IUserProfile[] GetFriends();
     }
 }
 #endif
