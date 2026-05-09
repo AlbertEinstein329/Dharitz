@@ -1,4 +1,4 @@
-using DG.Tweening;
+Ôªøusing DG.Tweening;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,8 +16,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     public GridManager gridManager;
 
     [Header("Configuracion de Partida")]
-    public SessionConfig sesionActual;
-    [HideInInspector] public VariantData varianteActual;
+    public SessionConfig currentSession;
+    [HideInInspector] public VariantData currentVariant;
     [HideInInspector] public int numPlayers;
     public int maxDicePerPlayer = 52;
     public List<DieColor> diceBag = new List<DieColor>();
@@ -27,7 +27,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     public int currentPlayerIndex = 0;
 
     [Header("UI Elements")]
-    public GameObject botonCancelar;
+    public GameObject cancelButton;
     public Button drawButton;
     public UnityEngine.UI.Button reDrawButton;
     public TMPro.TextMeshProUGUI reDrawText;
@@ -35,7 +35,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     public bool hasDrawn = false;
     public bool isGameOver = false;
     public GroupData activeGroup = null;
-    private Coroutine rutinaConfirmacion; // Variable para controlar la cuenta atr·s
+    private Coroutine confirmationRoutine; // Variable para controlar la cuenta atr√°s
 
     // --- ITurnProvider Implementation ---
     public int CurrentPlayerIndex => currentPlayerIndex; // Exposes as read-only property
@@ -48,7 +48,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     }
     void Awake()
     {
-        // 1. EL ⁄NICO Y VERDADERO SINGLETON
+        // 1. EL √öNICO Y VERDADERO SINGLETON
         if (Instance == null)
         {
             Instance = this;
@@ -59,28 +59,28 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             return;
         }
 
-        // Esto asegura que los n˙meros sean diferentes cada vez que abres el juego
+        // Esto asegura que los n√∫meros sean diferentes cada vez que abres el juego
         Random.InitState((int)System.DateTime.Now.Ticks);
 
-        // --- LECTURA DEL MALETÕN DE SESI”N ---
-        if (sesionActual != null)
+        // --- LECTURA DEL MALET√çN DE SESI√ìN ---
+        if (currentSession != null)
         {
-            varianteActual = sesionActual.varianteSeleccionada;
-            numPlayers = sesionActual.numeroDeJugadores;
+            currentVariant = currentSession.selectedVariant;
+            numPlayers = currentSession.playerCount;
 
-            // Reconstruimos la lista de jugadores basada en la sesiÛn
+            // Reconstruimos la lista de players basada en la sesi√≥n
             players = new List<PlayerData>();
             for (int i = 0; i < numPlayers; i++)
             {
-                PlayerSetup setup = sesionActual.jugadores[i];
-                players.Add(new PlayerData(i, setup.nombre, setup.esBot, setup.dificultadBot));
+                PlayerSetup setup = currentSession.players[i];
+                players.Add(new PlayerData(i, setup.playerName, setup.isBot, setup.botDifficulty));
             }
         }
         else
         {
             Debug.LogError("Falta el SessionConfig. Cargando configuraciones por defecto a prueba de fallos.");
             numPlayers = 2; // Default seguro
-            InitializeFallbackPlayers(); // Solo se llama si hubo un error crÌtico
+            InitializeFallbackPlayers(); // Solo se llama si hubo un error cr√≠tico
         }
     }
 
@@ -102,7 +102,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         players.Clear();
         for (int i = 0; i < numPlayers; i++)
         {
-            // Solo para pruebas si no hay men˙. Por defecto, todos humanos.
+            // Solo para pruebas si no hay men√∫. Por defecto, todos humanos.
             players.Add(new PlayerData(i, $"Jugador Fallback {i + 1}", false, 0));
         }
     }
@@ -115,17 +115,17 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
         if (currentPlayer.isBot)
         {
-            // Bloqueamos el botÛn de extraer para que el humano no interact˙e en turno del agente
+            // Bloqueamos el bot√≥n de extraer para que el humano no interact√∫e en turno del agente
             UIManager.Instance.SetDrawInputLock(true);
 
             // --- ESPACIO PREPARADO PARA ML-AGENTS ---
-            // AquÌ enlazaremos la solicitud de decisiÛn del agente neuronal.
+            // Aqu√≠ enlazaremos la solicitud de decisi√≥n del agente neuronal.
             // Ejemplo futuro: mlAgentComponent.RequestDecision();
             Debug.Log($"Turno de ML-Agent ({currentPlayer.name}). Esperando red neuronal...");
         }
         else
         {
-            // Es turno del humano, habilitamos el botÛn
+            // Es turno del humano, habilitamos el bot√≥n
             UIManager.Instance.SetDrawInputLock(false);
         }
 
@@ -147,9 +147,9 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         }
 
         ShuffleBag();
-        Debug.Log($"Bolsa creada con {diceBag.Count} dados para {numPlayers} jugadores.");
+        Debug.Log($"Bolsa creada con {diceBag.Count} dados para {numPlayers} players.");
 
-        // 1. Contamos cu·ntos dados quedan de cada color en la bolsa
+        // 1. Contamos cu√°ntos dados quedan de cada color en la bolsa
         int redLeft = diceBag.Count(d => d == DieColor.Red);
         int blueLeft = diceBag.Count(d => d == DieColor.Blue);
         int whiteLeft = diceBag.Count(d => d == DieColor.White);
@@ -175,7 +175,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     {
         if (diceBag == null || diceBag.Count == 0)
         {
-            Debug.Log("Bolsa vacÌa. °Es tu ˙ltimo movimiento!");
+            Debug.Log("Bolsa vac√≠a. ¬°Es tu √∫ltimo movimiento!");
             if (drawButton != null) drawButton.interactable = false;
             return;
         }
@@ -212,7 +212,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             currentPlayer.activeGroups[currentDrawnColor] = group;
         }
 
-        // Llamamos a la UI pasando los par·metros completos y abrimos el Callback (Lambda)
+        // Llamamos a la UI pasando los par√°metros completos y abrimos el Callback (Lambda)
         UIManager.Instance.UpdateHandUI(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize, () =>
         {
 
@@ -227,7 +227,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
             if (!currentPlayer.isBot)
             {
-                // Mostramos opciones v·lidas
+                // Mostramos opciones v√°lidas
                 gridManager.ShowValidMoves(currentPlayerIndex, currentDrawnColor, group.id, group.targetSize);
 
                 // Habilitamos el uso del Re-Draw solo cuando el dado final es visible
@@ -236,8 +236,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
                     reDrawButton.interactable = (currentPlayer.reDraws > 0);
                 }
 
-                // NOTA ARQUITECT”NICA: Renombra tu variable "TextMeshProUGUI" a "reDrawText" 
-                // Usar el nombre de la clase como nombre de variable rompe los est·ndares de C#
+                // NOTA ARQUITECT√ìNICA: Renombra tu variable "TextMeshProUGUI" a "reDrawText" 
+                // Usar el playerName de la clase como playerName de variable rompe los est√°ndares de C#
                 if (reDrawText != null)
                 {
                     reDrawText.text = $"Re-Draw ({currentPlayer.reDraws})";
@@ -245,49 +245,49 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             }
             else
             {
-                // [PREPARACI”N PARA VERSI”N 0.4 - ML AGENTS]
-                // Si es el bot, aquÌ es donde le darÌamos la seÒal de que ya puede jugar su turno.
+                // [PREPARACI√ìN PARA VERSI√ìN 0.4 - ML AGENTS]
+                // Si es el bot, aqu√≠ es donde le dar√≠amos la se√±al de que ya puede jugar su turno.
             }
         });
     }
 
-    public void HabilitarBotonExtraer()
+    public void EnableDrawButton()
     {
         if (drawButton != null) drawButton.interactable = true;
     }
 
     // --- IPlacementExecutor Implementation ---
-    public void IniciarColocacion(int row, int col)
+    public void BeginPlacement(int row, int col)
     {
         GroupData group = players[currentPlayerIndex].activeGroups[currentDrawnColor];
 
-        gridManager.ColocarDadoVisualTemporal(currentPlayerIndex, row, col, currentDrawnColor, group.targetSize);
+        gridManager.PlaceTemporaryDieVisual(currentPlayerIndex, row, col, currentDrawnColor, group.targetSize);
 
         if (reDrawButton != null) reDrawButton.interactable = false;
-        if (botonCancelar != null) botonCancelar.SetActive(true);
+        if (cancelButton != null) cancelButton.SetActive(true);
 
-        if (rutinaConfirmacion != null) StopCoroutine(rutinaConfirmacion);
-        rutinaConfirmacion = StartCoroutine(RutinaConfirmarJugada(row, col));
+        if (confirmationRoutine != null) StopCoroutine(confirmationRoutine);
+        confirmationRoutine = StartCoroutine(RutinaConfirmarJugada(row, col));
 
 
     }
 
 
 
-    // BotÛn de cancelar / deshacer antes de los 2 segundos
+    // Bot√≥n de cancelar / deshacer antes de los 2 segundos
     public void CancelarColocacion()
     {
-        if (rutinaConfirmacion != null)
+        if (confirmationRoutine != null)
         {
-            StopCoroutine(rutinaConfirmacion);
+            StopCoroutine(confirmationRoutine);
 
             // Borramos el fantasma
-            gridManager.RemoverDadoVisualTemporal();
+            gridManager.RemoveTemporaryDieVisual();
 
-            // Ocultamos el botÛn de cancelar
-            if (botonCancelar != null) botonCancelar.SetActive(false);
+            // Ocultamos el bot√≥n de cancelar
+            if (cancelButton != null) cancelButton.SetActive(false);
 
-            // --- UX SENIOR: Le devolvemos el botÛn de Re-Draw (si a˙n le quedan usos) ---
+            // --- UX SENIOR: Le devolvemos el bot√≥n de Re-Draw (si a√∫n le quedan usos) ---
             PlayerData p = players[currentPlayerIndex];
             if (reDrawButton != null) reDrawButton.interactable = (p.reDraws > 0);
 
@@ -300,77 +300,77 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         // ESPERA DE 2 SEGUNDOS
         yield return new WaitForSeconds(0.1f);
 
-        // --- PASADOS LOS 2 SEGUNDOS: NO HAY VUELTA ATR¡S ---
-        ConfirmarYProcesarPuntos(r, c);
+        // --- PASADOS LOS 2 SEGUNDOS: NO HAY VUELTA ATR√ÅS ---
+        ConfirmAndProcessScore(r, c);
 
         UIManager.Instance.ClearDieUI();
     }
 
-    public void ConfirmarYProcesarPuntos(int r, int c)
+    public void ConfirmAndProcessScore(int r, int c)
     {
-        //Evita que el jugador saque otro dado r·pido
+        //Evita que el jugador saque otro dado r√°pido
         UIManager.Instance.SetDrawInputLock(true);
 
         // 1. Ocultamos botones
-        if (botonCancelar != null) botonCancelar.SetActive(false);
+        if (cancelButton != null) cancelButton.SetActive(false);
         if (reDrawButton != null) reDrawButton.interactable = false;
 
         PlayerData p = players[currentPlayerIndex];
         GroupData group = p.activeGroups[currentDrawnColor];
 
-        // 2. ColocaciÛn fÌsica y lÛgica
-        gridManager.RemoverDadoVisualTemporal();
-        gridManager.FijarDadoEnLogica(currentPlayerIndex, r, c, currentDrawnColor, group.id, group.targetSize);
+        // 2. Colocaci√≥n f√≠sica y l√≥gica
+        gridManager.RemoveTemporaryDieVisual();
+        gridManager.CommitDieToLogic(currentPlayerIndex, r, c, currentDrawnColor, group.id, group.targetSize);
 
 
         group.occupiedCells.Add(new Vector2Int(r, c));
         p.placedDice++;
         // Cuando el jugador hace clic en la celda y confirma la jugada:
-        gridManager.LimpiarResaltados(currentPlayerIndex);
+        gridManager.ClearHighlights(currentPlayerIndex);
 
-        Vector3 posMundo = gridManager.ObtenerPosicionMundo(currentPlayerIndex, r, c);
+        Vector3 posMundo = gridManager.GetWorldPosition(currentPlayerIndex, r, c);
 
 
-        // --- 3. INICIA EL C¡LCULO MATEM¡TICO EXCLUYENTE ---
+        // --- 3. INICIA EL C√ÅLCULO MATEM√ÅTICO EXCLUYENTE ---
 
-        PatternData patronActual = sesionActual.varianteSeleccionada.ObtenerPatron(group.targetSize);
+        PatternData currentPattern = currentSession.selectedVariant.GetPattern(group.targetSize);
 
-        // A. EVALUACI”N DE PENALIZACI”N VS BONO BASE
+        // A. EVALUACI√ìN DE PENALIZACI√ìN VS BONO BASE
         int contactosDiagonales = 0;
-        int contactosTotales = gridManager.ContarContactosEn3x3(currentPlayerIndex, r, c, group.targetSize, out contactosDiagonales);
+        int contactosTotales = gridManager.Count3x3Contacts(currentPlayerIndex, r, c, group.targetSize, out contactosDiagonales);
 
-        SpecialRule reglaActiva = (SpecialRule)(int)patronActual.reglaEspecial;
+        SpecialRule reglaActiva = (SpecialRule)(int)currentPattern.specialRule;
 
-        // NUEVO: Verificamos si es el primerÌsimo dado en el tablero del jugador.
-        // (Como p.dadosColocados ya se incrementÛ en el paso 2, si vale 1, es el primer dado).
+        // NUEVO: Verificamos si es el primer√≠simo dado en el tablero del jugador.
+        // (Como p.dadosColocados ya se increment√≥ en el paso 2, si vale 1, es el primer dado).
         bool isFirstDie = (p.placedDice == 1);
 
-        // Pasamos el nuevo par·metro 'isFirstDie' a la evaluaciÛn
+        // Pasamos el nuevo par√°metro 'isFirstDie' a la evaluaci√≥n
         RuleEvaluationResult result = SpecialRuleEvaluator.EvaluatePlacement(reglaActiva, contactosTotales, contactosDiagonales, isFirstDie);
 
         if (result.ScoreDelta < 0)
         {
-            // HUBO PENALIZACI”N: Restamos la multa y NO damos puntos base
+            // HUBO PENALIZACI√ìN: Restamos la multa y NO damos puntos base
             p.score += result.ScoreDelta;
-            PopUpManager.Instance.MostrarPopUp(posMundo, $"{result.ScoreDelta}", Color.red);
+            PopUpManager.Instance.ShowPopUp(posMundo, $"{result.ScoreDelta}", Color.red);
         }
         else
         {
-            // JUGADA LIMPIA o EXCEPCI”N (Primer dado): Damos los 50 puntos base + el bono del contacto (si lo hay)
+            // JUGADA LIMPIA o EXCEPCI√ìN (Primer dado): Damos los 50 puntos base + el bono del contacto (si lo hay)
             int puntosGanados = 50 + result.ScoreDelta;
             p.score += puntosGanados;
-            PopUpManager.Instance.MostrarPopUp(posMundo, $"+{puntosGanados}", Color.white);
+            PopUpManager.Instance.ShowPopUp(posMundo, $"+{puntosGanados}", Color.white);
         }
 
         // B. Conexiones Extra (Variantes del dado 2 y 3)
-        if (patronActual != null && reglaActiva == SpecialRule.ExtraDiagonalContact)
+        if (currentPattern != null && reglaActiva == SpecialRule.ExtraDiagonalContact)
         {
-            int conexionesNuevas = gridManager.EscanearConexionesDiagonalesNuevas(currentPlayerIndex, r, c, currentDrawnColor, group.id);
+            int conexionesNuevas = gridManager.ScanNewDiagonalConnections(currentPlayerIndex, r, c, currentDrawnColor, group.id);
             if (conexionesNuevas > 0)
             {
                 int bono = conexionesNuevas * 200;
                 p.score += bono;
-                PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.up * 0.5f, $"+{bono}", Color.magenta);
+                PopUpManager.Instance.ShowPopUp(posMundo + Vector3.up * 0.5f, $"+{bono}", Color.magenta);
             }
         }
 
@@ -379,30 +379,29 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         if (puntosCombo > 0)
         {
             p.score += puntosCombo;
-            PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.up * 1f, $"COMBO! +{puntosCombo}", Color.yellow);
+            PopUpManager.Instance.ShowPopUp(posMundo + Vector3.up * 1f, $"COMBO! +{puntosCombo}", Color.yellow);
         }
 
-        // D. Cierre de PatrÛn Perfecto
+        // D. Cierre de Patr√≥n Perfecto
         if (group.isClosed)
         {
-            if (result.IsPatternValid && PatternValidator.CheckPattern(group.occupiedCells, patronActual))
+            if (result.IsPatternValid && PatternValidator.CheckPattern(group.occupiedCells, currentPattern))
             {
-                p.conteoPatrones[group.targetSize]++;
+                p.patternCounts[group.targetSize]++;
                 int bonoPatron = ScoreManager.Instance.GetPatternBonus(group.targetSize);
                 p.score += bonoPatron;
-                PopUpManager.Instance.MostrarPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{bonoPatron}", Color.cyan);
+                PopUpManager.Instance.ShowPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{bonoPatron}", Color.cyan);
 
-                // NUEVO: Disparamos la iluminaciÛn y futuros efectos de partÌculas
-                gridManager.HighlightCompletedPattern(currentPlayerIndex, group.occupiedCells);
+                // NUEVO: Disparamos la iluminaci√≥n y futuros efectos de part√≠culas
             }
         }
 
-        // --- 4. ACTUALIZACI”N VISUAL ---
+        // --- 4. ACTUALIZACI√ìN VISUAL ---
 
-        // Al final de ConfirmarYProcesarPuntos...
+        // Al final de ConfirmAndProcessScore...
         UIManager.Instance.UpdateProgressText(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize);
 
-        // NUEVO: Verificamos si toda la mesa ya terminÛ
+        // NUEVO: Verificamos si toda la mesa ya termin√≥
         if (AreAllPlayersFinished())
         {
             // Iniciamos el Director de Secuencia Final
@@ -411,28 +410,28 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         else
         {
             // Si el juego sigue en curso (alguien no ha terminado), actualizamos el HUD normal
-            UIManager.Instance.ActualizarScore(p.score);
+            UIManager.Instance.UpdateScore(p.score);
 
-            // [AQUÕ VA TU C”DIGO DE PASAR DE TURNO AL SIGUIENTE JUGADOR]
+            // [AQU√ç VA TU C√ìDIGO DE PASAR DE TURNO AL SIGUIENTE JUGADOR]
             // CambiarTurno();
         }
 
         hasDrawn = false;
 
-        // 5. GestiÛn de Turno
+        // 5. Gesti√≥n de Turno
         if (diceBag.Count == 0 && !hasDrawn)
         {
-            TerminarPartida();
+            EndMatch();
         }
         else
         {
-            StartCoroutine(PausaCambioTurno());
+            StartCoroutine(TurnTransitionPause());
         }
     }
 
-    private IEnumerator PausaCambioTurno()
+    private IEnumerator TurnTransitionPause()
     {
-        // Evaluamos din·micamente la cantidad de jugadores para definir el retraso
+        // Evaluamos din√°micamente la cantidad de players para definir el retraso
         float tiempoDeEspera = (numPlayers == 1) ? 0f : 1.5f;
 
         // Solo pausamos si el tiempo es mayor a 0 para no perder ni un frame innecesario
@@ -451,61 +450,57 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
         Debug.Log($"Turno finalizado. Ahora es el turno del Jugador {currentPlayerIndex + 1}");
 
-        // SOLUCI”N 3: Cambiamos la c·mara al tablero de quien le toca
+        // SOLUCI√ìN 3: Cambiamos la c√°mara al tablero de quien le toca
         if (gridManager != null)
         {
             gridManager.SwitchViewTo(currentPlayerIndex);
         }
 
-        // °El tablero ya est· listo! Desbloqueamos la UI para que saque su dado.
+        // ¬°El tablero ya est√° listo! Desbloqueamos la UI para que saque su dado.
         UIManager.Instance.SetDrawInputLock(false);
 
-        // °Le avisamos al juego que iniciÛ el turno para que el bot pueda jugar!
+        // ¬°Le avisamos al juego que inici√≥ el turno para que el bot pueda jugar!
         StartTurn();
     }
 
-    private void TerminarPartida()
+    private void EndMatch()
     {
         Debug.Log("Fin de la bolsa. Calculando resultados...");
 
-        // 1. Marcamos que el juego terminÛ
+        // 1. Marcamos que el juego termin√≥
         isGameOver = true;
 
         // 2. Le decimos a la UI que muestre los resultados del jugador que estamos viendo ahora mismo
         int viewedPlayer = gridManager.currentlyViewedPlayer;
-        UIManager.Instance.MostrarResultadosFinales(viewedPlayer);
+        UIManager.Instance.ShowFinalResults(viewedPlayer);
     }
 
-    public void ReiniciarJuego()
+    public void RestartGame()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-
-        // Destruye todas las animaciones activas en la escena actual 
-        // antes de cargar la siguiente, evitando fugas de memoria.
+        // Kill all active DOTween animations before reloading to prevent memory leaks
         DOTween.KillAll();
 
-        UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
-
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
-    public void UsarReDraw()
+    public void UseReDraw()
     {
         PlayerData p = players[currentPlayerIndex];
 
-        // Validaciones de seguridad
+        // Security validations
         if (!hasDrawn || p.reDraws <= 0 || p.isBot) return;
 
-        // 1. Limpiar la memoria del grupo si estaba reciÈn creado (vacÌo)
+        // 1. Limpiar la memoria del grupo si estaba reci√©n creado (vac√≠o)
         if (p.activeGroups.ContainsKey(currentDrawnColor))
         {
             GroupData group = p.activeGroups[currentDrawnColor];
             if (group != null && group.occupiedCells.Count == 0)
             {
-                p.activeGroups[currentDrawnColor] = null; // Destruimos el grupo para forzar un re-roll numÈrico luego
+                p.activeGroups[currentDrawnColor] = null; // Destruimos el grupo para forzar un re-roll num√©rico luego
             }
         }
 
-        // 2. Devolver el dado a la bolsa en una posiciÛn ALEATORIA
+        // 2. Devolver el dado a la bolsa en una posici√≥n ALEATORIA
         int randomIndex = Random.Range(0, diceBag.Count + 1);
         diceBag.Insert(randomIndex, currentDrawnColor);
 
@@ -513,27 +508,27 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         p.reDraws--;
         hasDrawn = false;
 
-        // Apagamos las luces del tablero que se habÌan encendido para el dado anterior
-        gridManager.LimpiarResaltados(currentPlayerIndex);
+        // Apagamos las luces del tablero que se hab√≠an encendido para el dado anterior
+        gridManager.ClearHighlights(currentPlayerIndex);
 
-        // 4. Volver a extraer un dado nuevo autom·ticamente
+        // 4. Volver a extraer un dado nuevo autom√°ticamente
         DrawDie();
     }
 
 
 
-    // --- NAVEGACI”N ---
-    public void VolverAlMenuPrincipal()
+    // --- NAVEGACI√ìN ---
+    public void ReturnToMainMenu()
     {
-        // BUENA PR¡CTICA SENIOR: Si en el futuro implementas un botÛn de "Pausa" 
+        // BUENA PR√ÅCTICA SENIOR: Si en el futuro implementas un bot√≥n de "Pausa" 
         // que ponga Time.timeScale = 0f, DEBES restaurarlo a 1f antes de cambiar 
-        // de escena, o tu Men˙ Principal cargar· completamente congelado.
+        // de escena, o tu Men√∫ Principal cargar√° completamente congelado.
         Time.timeScale = 1f;
 
-        // Limpiamos referencias est·ticas si es necesario (el Singleton se destruir· solo, pero es buena pr·ctica)
+        // Limpiamos referencias est√°ticas si es necesario (el Singleton se destruir√° solo, pero es buena pr√°ctica)
         Instance = null;
 
-        // Cargamos la Escena 0 (Men˙ Principal)
+        // Cargamos la Escena 0 (Men√∫ Principal)
         SceneManager.LoadScene(0);
     }
 
@@ -562,36 +557,36 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         {
             PlayerData p = players[i];
 
-            // Calculamos la penalizaciÛn matem·ticamente y aplicamos al score de inmediato
+            // Calculamos la penalizaci√≥n matem√°ticamente y aplicamos al score de inmediato
             int gapPenalties = gridManager.CalculateGapPenalty(i);
             p.score += gapPenalties;
 
-            // 2. Ejecutamos la animaciÛn de ESTE jugador y ESPERAMOS a que termine
+            // 2. Ejecutamos la animaci√≥n de ESTE jugador y ESPERAMOS a que termine
             // Pasamos 'null' al callback porque el 'yield return' ya se encarga de la pausa
             yield return StartCoroutine(gridManager.AnimateGapPenaltiesFlow(i, null));
 
             // Actualizamos el HUD para que el jugador vea el golpe a sus puntos
-            UIManager.Instance.ActualizarScore(p.score);
+            UIManager.Instance.UpdateScore(p.score);
 
-            // PequeÒa pausa dram·tica antes de pasar al tablero del siguiente jugador
+            // Peque√±a pausa dram√°tica antes de pasar al tablero del siguiente jugador
             yield return new WaitForSeconds(1.0f);
         }
 
-        // Supongamos que el jugador 0 es el jugador principal (el dueÒo del telÈfono)
+        // Supongamos que el jugador 0 es el jugador principal (el due√±o del tel√©fono)
         PlayerData jugadorLocal = players[0];
 
-        // Ejemplo de lÛgica: Gana 1 moneda por cada 10 puntos que hizo
+        // Ejemplo de l√≥gica: Gana 1 moneda por cada 10 puntos que hizo
         int monedasGanadas = Mathf.Max(0, jugadorLocal.score / 10);
-        int nuevoNivel = 1; // AquÌ pondrÌas tu variable real de nivel de campaÒa
+        int nuevoNivel = 1; // Aqu√≠ pondr√≠as tu variable real de nivel de campa√±a
 
         // Llamamos al guardado en la nube. 
         // Usamos "_ =" para decirle a Unity: "Guarda esto en segundo plano, no congeles el juego esperando a que termine".
-        _ = CloudSaveManager.Instance.GuardarProgresoMeta(nuevoNivel, monedasGanadas);
+        _ = CloudSaveManager.Instance.SaveMetaProgress(nuevoNivel, monedasGanadas);
 
         // -----------------------------------------------------------
 
         // 3. Finalmente, le decimos al UIManager que dibuje la pantalla final
-        UIManager.Instance.MostrarResultadosFinales(0);
+        UIManager.Instance.ShowFinalResults(0);
     }
 
 

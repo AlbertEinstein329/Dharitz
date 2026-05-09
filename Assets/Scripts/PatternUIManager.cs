@@ -1,71 +1,71 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Linq;
-using DG.Tweening; // Esencial para la animaciÛn fluida
+using DG.Tweening; // Esencial para la animaci√≥n fluida
 
 public class PatternUIManager : MonoBehaviour
 {
-    [Header("Sistema Retr·ctil")]
-    [Tooltip("El RectTransform del panel completo que se deslizar·")]
-    public RectTransform panelAnimable;
-    public float posicionExpandida = 0f; // PosiciÛn Y cuando est· a la vista
-    public float posicionRetraida = 250f; // PosiciÛn Y cuando se esconde hacia arriba (aj˙stalo seg˙n tu panel)
+    [Header("Sistema Retr√°ctil")]
+    [Tooltip("El RectTransform del panel completo que se deslizar√°")]
+    public RectTransform animatablePanel;
+    public float expandedPosition = 0f; // Posici√≥n Y cuando est√° a la vista
+    public float retractedPosition = 250f; // Posici√≥n Y cuando se esconde hacia arriba (aj√∫stalo seg√∫n tu panel)
     private bool isExpanded = false; // El panel arranca cerrado por defecto
 
     [Header("Contenedores (2 Filas)")]
-    public Transform contenedorFila1; // Para patrones 1, 2 y 3
-    public Transform contenedorFila2; // Para patrones 4, 5 y 6
+    public Transform row1Container; // Para patrones 1, 2 y 3
+    public Transform row2Container; // Para patrones 4, 5 y 6
 
     [Header("Prefabs y Ajustes")]
-    public GameObject prefabContenedorPatron;
-    public GameObject prefabDadoUI;
-    public float tamanoDado = 30f;
-    public float espaciado = 2f;
-    public Sprite[] spritesDados;
+    public GameObject patternContainerPrefab;
+    public GameObject dieUIPrefab;
+    public float dieSize = 30f;
+    public float spacing = 2f;
+    public Sprite[] diceSprites;
 
     void Start()
     {
-        Invoke(nameof(GenerarPanel), 0.1f);
+        Invoke(nameof(GeneratePanel), 0.1f);
 
-        // Colocamos el panel en su estado inicial (retraÌdo) inmediatamente
-        if (panelAnimable != null)
+        // Colocamos el panel en su estado inicial (retra√≠do) inmediatamente
+        if (animatablePanel != null)
         {
-            panelAnimable.anchoredPosition = new Vector2(panelAnimable.anchoredPosition.x, posicionRetraida);
+            animatablePanel.anchoredPosition = new Vector2(animatablePanel.anchoredPosition.x, retractedPosition);
         }
     }
 
-    // Llama a esta funciÛn desde el botÛn de "Abrir/Cerrar"
+    // Llama a esta funci√≥n desde el bot√≥n de "Abrir/Cerrar"
     public void TogglePanel()
     {
-        if (panelAnimable == null) return;
+        if (animatablePanel == null) return;
 
         isExpanded = !isExpanded;
-        float targetY = isExpanded ? posicionExpandida : posicionRetraida;
+        float targetY = isExpanded ? expandedPosition : retractedPosition;
 
-        // AnimaciÛn suave con DOTween
-        panelAnimable.DOAnchorPosY(targetY, 0.4f).SetEase(Ease.OutCubic);
+        // Animaci√≥n suave con DOTween
+        animatablePanel.DOAnchorPosY(targetY, 0.4f).SetEase(Ease.OutCubic);
     }
 
-    public void GenerarPanel()
+    public void GeneratePanel()
     {
-        VariantData variante = GameManager.Instance.varianteActual;
+        VariantData variante = GameManager.Instance.currentVariant;
         if (variante == null) return;
 
         // Limpiamos ambas filas
-        foreach (Transform child in contenedorFila1) Destroy(child.gameObject);
-        foreach (Transform child in contenedorFila2) Destroy(child.gameObject);
+        foreach (Transform child in row1Container) Destroy(child.gameObject);
+        foreach (Transform child in row2Container) Destroy(child.gameObject);
 
         for (int i = 1; i <= 6; i++)
         {
-            PatternData patron = variante.ObtenerPatron(i);
+            PatternData patron = variante.GetPattern(i);
             if (patron == null || patron.baseShape.Count == 0) continue;
 
-            // --- L”GICA DE 2 FILAS ---
+            // --- L√ìGICA DE 2 FILAS ---
             // Patrones del 1 al 3 van a la Fila 1, del 4 al 6 van a la Fila 2
-            Transform padreCorrespondiente = (i <= 3) ? contenedorFila1 : contenedorFila2;
+            Transform padreCorrespondiente = (i <= 3) ? row1Container : row2Container;
 
-            GameObject grupoPatron = Instantiate(prefabContenedorPatron, padreCorrespondiente);
+            GameObject grupoPatron = Instantiate(patternContainerPrefab, padreCorrespondiente);
             RectTransform rectGrupo = grupoPatron.GetComponent<RectTransform>();
 
             List<Vector2Int> formaNormalizada = Normalize(patron.baseShape);
@@ -73,21 +73,21 @@ public class PatternUIManager : MonoBehaviour
             int maxX = formaNormalizada.Max(v => v.x);
             int maxY = formaNormalizada.Max(v => v.y);
 
-            float offsetStep = tamanoDado + espaciado;
+            float offsetStep = dieSize + spacing;
             rectGrupo.sizeDelta = new Vector2((maxX + 1) * offsetStep, (maxY + 1) * offsetStep);
 
             foreach (Vector2Int pos in formaNormalizada)
             {
-                GameObject dadoInst = Instantiate(prefabDadoUI, grupoPatron.transform);
+                GameObject dadoInst = Instantiate(dieUIPrefab, grupoPatron.transform);
                 RectTransform rectDado = dadoInst.GetComponent<RectTransform>();
                 Image imgDado = dadoInst.GetComponent<Image>();
 
-                if (spritesDados.Length >= i && spritesDados[i - 1] != null)
+                if (diceSprites.Length >= i && diceSprites[i - 1] != null)
                 {
-                    imgDado.sprite = spritesDados[i - 1];
+                    imgDado.sprite = diceSprites[i - 1];
                 }
 
-                rectDado.sizeDelta = new Vector2(tamanoDado, tamanoDado);
+                rectDado.sizeDelta = new Vector2(dieSize, dieSize);
 
                 float posX = pos.x * offsetStep;
                 float posY = pos.y * offsetStep;

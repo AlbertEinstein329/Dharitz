@@ -1,4 +1,4 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 
 /// <summary>
 /// Handles all sound effects (SFX) in the game. 
@@ -14,7 +14,7 @@ public class AudioManager : MonoBehaviour
     [Header("Audio Clips")]
     [SerializeField] private AudioClip drawDieClip;
     [SerializeField] private AudioClip placeDieClip;
-    [SerializeField] private AudioClip rollTickClip; // Sonido r·pido para la animaciÛn
+    [SerializeField] private AudioClip rollTickClip; // Sonido r√°pido para la animaci√≥n
 
     void Awake()
     {

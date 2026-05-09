@@ -1,4 +1,4 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using TMPro;
 using DG.Tweening;
 
@@ -10,24 +10,24 @@ public class PopUpManager : MonoBehaviour
     public GameObject popUpPrefab;
     public Transform canvasParaPopUps;
 
-    [Header("Ajustes Din·micos")]
-    [Tooltip("Margen en pÌxeles desde el borde fÌsico de la pantalla")]
-    public float paddingEnPixeles = 20f;
+    [Header("Ajustes Din√°micos")]
+    [Tooltip("Margen en p√≠xeles desde el borde f√≠sico de la pantalla")]
+    public float paddingInPixels = 20f;
 
     private Camera mainCam;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
-        mainCam = Camera.main; // CachÈ vital para el rendimiento
+        mainCam = Camera.main; // Cach√© vital para el rendimiento
     }
 
-    public void MostrarPopUp(Vector3 worldPosition, string mensaje, Color colorTexto)
+    public void ShowPopUp(Vector3 worldPosition, string mensaje, Color colorTexto)
     {
         if (popUpPrefab == null || canvasParaPopUps == null) return;
         if (mainCam == null) mainCam = Camera.main;
 
-        // 1. PosiciÛn cruda inicial
+        // 1. Posici√≥n cruda inicial
         Vector3 rawSpawnPos = worldPosition + new Vector3(0, 0.5f, -1f);
 
         // 2. Instanciamos el objeto ANTES de moverlo, para poder medir su texto
@@ -42,12 +42,12 @@ public class PopUpManager : MonoBehaviour
             textoUI.color = colorTexto;
 
             // --- MAGIA SENIOR ---
-            // Forzamos a TextMeshPro a recalcular su tamaÒo inmediatamente en este frame
+            // Forzamos a TextMeshPro a recalcular su tama√±o inmediatamente en este frame
             textoUI.ForceMeshUpdate();
         }
 
-        // 3. Clamping Din·mico (Basado en la masa real del objeto)
-        Vector3 safeSpawnPos = ClampConFisicaDePantalla(rectTransform, rawSpawnPos);
+        // 3. Clamping Din√°mico (Basado en la masa real del objeto)
+        Vector3 safeSpawnPos = ClampWithScreenPhysics(rectTransform, rawSpawnPos);
         popUp.transform.position = safeSpawnPos;
 
         // 4. Animation and Lifecycle Management
@@ -66,25 +66,25 @@ public class PopUpManager : MonoBehaviour
 
     /// <summary>
     /// Calcula el ancho real del UI, lo proyecta a la pantalla del dispositivo
-    /// y evita matem·ticamente que los bordes del RectTransform crucen el Screen.width
+    /// y evita matem√°ticamente que los bordes del RectTransform crucen el Screen.width
     /// </summary>
-    private Vector3 ClampConFisicaDePantalla(RectTransform rt, Vector3 targetWorldPos)
+    private Vector3 ClampWithScreenPhysics(RectTransform rt, Vector3 targetWorldPos)
     {
         if (mainCam == null) return targetWorldPos;
 
-        // Traducimos el centro del objeto de 3D a pÌxeles 2D en la pantalla
+        // Traducimos el centro del objeto de 3D a p√≠xeles 2D en la pantalla
         Vector3 screenPos = mainCam.WorldToScreenPoint(targetWorldPos);
 
-        // Calculamos cu·nto mide la MITAD del texto en unidades del mundo...
+        // Calculamos cu√°nto mide la MITAD del texto en unidades del mundo...
         float worldHalfWidth = (rt.rect.width * rt.lossyScale.x) / 2f;
 
-        // ...y lo convertimos a un tamaÒo en pÌxeles de pantalla
+        // ...y lo convertimos a un tama√±o en p√≠xeles de pantalla
         Vector3 rightEdgeScreen = mainCam.WorldToScreenPoint(targetWorldPos + Vector3.right * worldHalfWidth);
         float widthInPixels = Mathf.Abs(rightEdgeScreen.x - screenPos.x);
 
         // Definimos las paredes de la pantalla del celular de este jugador
-        float screenLeftWall = paddingEnPixeles;
-        float screenRightWall = Screen.width - paddingEnPixeles;
+        float screenLeftWall = paddingInPixels;
+        float screenRightWall = Screen.width - paddingInPixels;
 
         // Si el "hombro izquierdo" del texto choca la pared izquierda, lo empujamos a la derecha
         if (screenPos.x - widthInPixels < screenLeftWall)
@@ -97,8 +97,8 @@ public class PopUpManager : MonoBehaviour
             screenPos.x = screenRightWall - widthInPixels;
         }
 
-        // Convertimos la coordenada de pÌxeles corregida de vuelta al mundo 3D
-        // ScreenToWorldPoint mantiene intacta la profundidad Z, °es matem·ticamente perfecto!
+        // Convertimos la coordenada de p√≠xeles corregida de vuelta al mundo 3D
+        // ScreenToWorldPoint mantiene intacta la profundidad Z, ¬°es matem√°ticamente perfecto!
         return mainCam.ScreenToWorldPoint(screenPos);
     }
 }

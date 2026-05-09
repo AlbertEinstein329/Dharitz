@@ -1,33 +1,33 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "ConfiguracionDeSesion", menuName = "Dharitz/Configuracion de Sesion")]
+[CreateAssetMenu(fileName = "SessionConfig", menuName = "Dharitz/Session Config")]
 public class SessionConfig : ScriptableObject
 {
-    [Header("Modo de Juego")]
-    public bool esModoCampana = false;
+    [Header("Game Mode")]
+    public bool isCampaignMode = false;
 
-    [Header("Reglas Seleccionadas")]
-    public VariantData varianteSeleccionada;
+    [Header("Selected Rules")]
+    public VariantData selectedVariant;
 
-    [Header("Configuración de Jugadores")]
-    public int numeroDeJugadores = 1;
-    public List<PlayerSetup> jugadores = new List<PlayerSetup>();
+    [Header("Player Settings")]
+    public int playerCount = 1;
+    public List<PlayerSetup> players = new List<PlayerSetup>();
 
-    // Inicializa la lista por defecto
-    public void ResetearSesion()
+    // Initialize default list
+    public void ResetSession()
     {
-        esModoCampana = false;
-        numeroDeJugadores = 1;
-        jugadores.Clear();
-        // Por defecto preparamos 4 espacios
+        isCampaignMode = false;
+        playerCount = 1;
+        players.Clear();
+        // Prepare 4 slots by default
         for (int i = 0; i < 4; i++)
         {
-            jugadores.Add(new PlayerSetup
+            players.Add(new PlayerSetup
             {
-                nombre = $"Jugador {i + 1}",
-                esBot = false,
-                dificultadBot = 0
+                playerName = $"Player {i + 1}",
+                isBot = false,
+                botDifficulty = 0
             });
         }
     }
@@ -36,7 +36,7 @@ public class SessionConfig : ScriptableObject
 [System.Serializable]
 public class PlayerSetup
 {
-    public string nombre;
-    public bool esBot;
-    public int dificultadBot;
+    public string playerName;
+    public bool isBot;
+    public int botDifficulty;
 }

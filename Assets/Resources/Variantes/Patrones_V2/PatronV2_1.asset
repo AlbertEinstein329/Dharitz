@@ -15,6 +15,7 @@ MonoBehaviour:
   targetNumber: 1
   baseShape:
   - {x: 0, y: 0}
-  permiteRotacion: 1
-  permiteEspejo: 1
-  reglaEspecial: 4
+  allowRotation: 1
+  allowMirror: 1
+  specialRule: 4
+  allowDiagonalReservation: 0

@@ -21,14 +21,16 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     [Header("Prefabs y Referencias")]
     public GameObject cellPrefab;
-    public GameObject prefabRojo, prefabAzul, prefabBlanco, prefabNegro;
+    public GameObject redPrefab, bluePrefab, whitePrefab, blackPrefab;
+
+    private Dictionary<DieColor, GameObject> prefabDict;
 
     // --- SISTEMA MULTITABLERO ---
     private List<DieData[,]> allBoardsLogic;
     private List<CellComponent[,]> allCellsVisual;
     private GameObject[] boardRoots; // Los objetos "Padre" de cada tablero
     public int currentlyViewedPlayer = 0;
-    private GameObject dadoTemporal;
+    private GameObject temporaryDie;
 
     private float startX;
     private float startY;
@@ -37,6 +39,14 @@ public class GridManager : MonoBehaviour, IGridValidator
     {
         allBoardsLogic = new List<DieData[,]>();
         allCellsVisual = new List<CellComponent[,]>();
+
+        prefabDict = new Dictionary<DieColor, GameObject>
+        {
+            { DieColor.Red, redPrefab },
+            { DieColor.Blue, bluePrefab },
+            { DieColor.White, whitePrefab },
+            { DieColor.Black, blackPrefab }
+        };
     }
 
     void Start()
@@ -50,7 +60,7 @@ public class GridManager : MonoBehaviour, IGridValidator
         for (int p = 0; p < numPlayers; p++)
         {
             allBoardsLogic.Add(new DieData[rows, cols]);
-            allCellsVisual.Add(new CellComponent[rows, cols]); // <-- AÒade esto
+            allCellsVisual.Add(new CellComponent[rows, cols]); // <-- A√±ade esto
 
             boardRoots[p] = new GameObject($"Tablero_Jugador_{p + 1}");
             boardRoots[p].transform.SetParent(this.transform);
@@ -74,7 +84,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                 CellComponent cellScript = newCell.GetComponent<CellComponent>();
                 if (cellScript != null)
                 {
-                    // INYECCI”N DE DEPENDENCIAS (Dependency Injection)
+                    // INYECCI√ìN DE DEPENDENCIAS (Dependency Injection)
                     // Pasa las interfaces (this como IGridValidator, GameManager como ITurnProvider y IPlacementExecutor)
                     cellScript.Setup(r, c, playerIndex, this, GameManager.Instance, GameManager.Instance);
                     allCellsVisual[playerIndex][r, c] = cellScript;
@@ -83,7 +93,7 @@ public class GridManager : MonoBehaviour, IGridValidator
         }
     }
 
-    // --- FUNCIONES DE C¡MARA / VISTA ---
+    // --- FUNCIONES DE C√ÅMARA / VISTA ---
     public void SwitchViewTo(int playerIndex)
     {
         currentlyViewedPlayer = playerIndex;
@@ -101,31 +111,41 @@ public class GridManager : MonoBehaviour, IGridValidator
             if (!GameManager.Instance.isGameOver && GameManager.Instance.players.Count > playerIndex)
             {
                 int scoreDelJugador = GameManager.Instance.players[playerIndex].score;
-                UIManager.Instance.ActualizarScore(scoreDelJugador);
+                UIManager.Instance.UpdateScore(scoreDelJugador);
             }
 
-            // Si el juego ya terminÛ, actualiza el panel de puntajes finales
+            // Si el juego ya termin√≥, actualiza el panel de puntajes finales
             if (GameManager.Instance.isGameOver)
             {
-                UIManager.Instance.MostrarResultadosFinales(playerIndex);
+                UIManager.Instance.ShowFinalResults(playerIndex);
             }
         }
     }
 
-    public void VerSiguienteTablero()
+        private bool IsValidPlayerIndex(int pIndex)
+    {
+        if (allBoardsLogic == null || pIndex < 0 || pIndex >= allBoardsLogic.Count)
+        {
+            Debug.LogError($"Invalid player index: {pIndex}");
+            return false;
+        }
+        return true;
+    }
+
+    public void ViewNextBoard()
     {
         int next = (currentlyViewedPlayer + 1) % GameManager.Instance.numPlayers;
         SwitchViewTo(next);
     }
 
-    public void VerTableroAnterior()
+    public void ViewPreviousBoard()
     {
         int prev = currentlyViewedPlayer - 1;
         if (prev < 0) prev = GameManager.Instance.numPlayers - 1;
         SwitchViewTo(prev);
     }
 
-    // --- L”GICA MULTIJUGADOR ---
+    // --- L√ìGICA MULTIJUGADOR ---
     public bool TryPlaceDie(int pIndex, int r, int c, DieColor color, int groupId, int number)
     {
         if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
@@ -135,15 +155,7 @@ public class GridManager : MonoBehaviour, IGridValidator
         if (currentLogic[r, c] != null) return false;
         if (!IsValidPlacement(pIndex, r, c, color, groupId, number)) return false;
 
-        GameObject prefabAUsar = GetPrefabByColor(color);
-        Vector3 position = new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2);
-
-        // El dado se instancia dentro del tablero de este jugador
-        GameObject nuevoDado = Instantiate(prefabAUsar, position, Quaternion.identity, boardRoots[pIndex].transform);
-        nuevoDado.transform.localScale = new Vector3(cellSize, cellSize, 1f);
-
-        SpriteRenderer renderer = nuevoDado.GetComponent<SpriteRenderer>();
-        if (renderer != null) renderer.sprite = UIManager.Instance.GetSprite(color, number);
+        InstantiateDieVisual(pIndex, r, c, color, number);
 
         currentLogic[r, c] = new DieData(color, groupId, number);
         return true;
@@ -163,9 +175,9 @@ public class GridManager : MonoBehaviour, IGridValidator
         PlayerData player = GameManager.Instance.players[pIndex];
         bool isBoardEmpty = (player.placedDice == 0);
 
-        // --- INYECCI”N DE REGLAS ---
-        VariantData variante = GameManager.Instance.varianteActual;
-        PatternData patronActual = variante.ObtenerPatron(number);
+        // --- RULES INJECTION ---
+        VariantData variante = GameManager.Instance.currentVariant;
+        PatternData currentPattern = variante.GetPattern(number);
 
         bool hasDiceInGroup = false;
         if (player.activeGroups.ContainsKey(color) && player.activeGroups[color] != null)
@@ -192,12 +204,12 @@ public class GridManager : MonoBehaviour, IGridValidator
 
                     if (neighbor != null)
                     {
-                        // 1. REGLAS DEL N⁄MERO 1 DIN¡MICAS
+                        // 1. REGLAS DEL N√öMERO 1 DIN√ÅMICAS
                         if (number == 1 && neighbor.value == 1)
                         {
-                            // Si estamos jugando con la regla cl·sica (Variante 1), bloqueamos mismo color.
-                            // Si es Variante 2 o 3, permitimos el contacto fÌsico para que luego sume puntos extra.
-                            if (patronActual.reglaEspecial == PatternData.SpecialRule.PenalizeOnContact)
+                            // Si estamos jugando con la regla cl√°sica (Variante 1), bloqueamos mismo color.
+                            // Si es Variante 2 o 3, permitimos el contacto f√≠sico para que luego sume puntos extra.
+                            if (currentPattern.specialRule == SpecialRule.PenalizeOnContact)
                             {
                                 if (neighbor.color == color) return false;
                             }
@@ -214,13 +226,13 @@ public class GridManager : MonoBehaviour, IGridValidator
                         if (esOrtogonal)
                         {
                             touchesAnyDie = true;
-                            // ProhibiciÛn estricta de tocar otro grupo del mismo color ortogonalmente
+                            // Prohibici√≥n estricta de tocar otro grupo del mismo color ortogonalmente
                             if (neighbor.color == color && neighbor.groupId != currentGroupId)
                                 return false;
                         }
                         else
                         {
-                            // Contacto diagonal v·lido SOLO si pertenece a tu misma agrupaciÛn
+                            // Contacto diagonal v√°lido SOLO si pertenece a tu misma agrupaci√≥n
                             if (neighbor.groupId == currentGroupId)
                             {
                                 touchesAnyDie = true;
@@ -233,36 +245,28 @@ public class GridManager : MonoBehaviour, IGridValidator
 
         // Resoluciones
         if (isBoardEmpty) return true;
-        if (hasDiceInGroup && !touchesOwnGroup) return false; // Obliga a seguir el patrÛn
+        if (hasDiceInGroup && !touchesOwnGroup) return false; // Obliga a seguir el patr√≥n
         if (!touchesAnyDie) return false;
 
         // --- SISTEMA DE SUPERVIVENCIA ---
-        return ValidarSupervivencia(pIndex, r, c, color, currentGroupId, number, player);
+        return ValidateSurvival(pIndex, r, c, color, currentGroupId, number, player);
     }
 
     private GameObject GetPrefabByColor(DieColor color)
     {
-        switch (color)
+        if (prefabDict.TryGetValue(color, out GameObject prefab))
         {
-            case DieColor.Red: return prefabRojo;
-            case DieColor.Blue: return prefabAzul;
-            case DieColor.White: return prefabBlanco;
-            case DieColor.Black: return prefabNegro;
-            default: return prefabBlanco;
+            return prefab;
         }
+        return whitePrefab; // Fallback
     }
 
-    /// <summary>
-    /// Evaluates enclosed gaps using a 4-way Orthogonal Flood Fill.
-    /// Diagonals are ignored. Escaping to the board edges means the gap is NOT enclosed.
-    /// </summary>
-    public int CalculateGapPenalty(int pIndex, bool showPopups = false)
+    private System.Collections.Generic.List<System.Collections.Generic.List<Vector2Int>> FindEnclosedGaps(int pIndex)
     {
         DieData[,] logic = allBoardsLogic[pIndex];
         bool[,] visited = new bool[rows, cols];
-        int totalPenalty = 0;
+        var enclosedGaps = new System.Collections.Generic.List<System.Collections.Generic.List<Vector2Int>>();
 
-        // Solo 4 direcciones: Arriba, Abajo, Izquierda, Derecha. (Evita la fuga diagonal)
         Vector2Int[] orthogonalDirections = new Vector2Int[] {
             Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
         };
@@ -273,12 +277,9 @@ public class GridManager : MonoBehaviour, IGridValidator
             {
                 if (logic[r, c] == null && !visited[r, c])
                 {
-                    int gapSize = 0;
-                    bool isEnclosed = true; // Asumimos que est· encerrado hasta encontrar una salida
-                    Queue<Vector2Int> queue = new Queue<Vector2Int>();
-
-                    //Lista para recordar quÈ celdas forman este hueco
-                    System.Collections.Generic.List<Vector2Int> gapCells = new System.Collections.Generic.List<Vector2Int>();
+                    bool isEnclosed = true;
+                    var gapCells = new System.Collections.Generic.List<Vector2Int>();
+                    System.Collections.Generic.Queue<Vector2Int> queue = new System.Collections.Generic.Queue<Vector2Int>();
 
                     queue.Enqueue(new Vector2Int(r, c));
                     visited[r, c] = true;
@@ -286,7 +287,6 @@ public class GridManager : MonoBehaviour, IGridValidator
                     while (queue.Count > 0)
                     {
                         Vector2Int current = queue.Dequeue();
-                        gapSize++;
                         gapCells.Add(current);
 
                         foreach (Vector2Int dir in orthogonalDirections)
@@ -294,12 +294,10 @@ public class GridManager : MonoBehaviour, IGridValidator
                             int nextR = current.x + dir.x;
                             int nextC = current.y + dir.y;
 
-                            //Si la coordenada se sale del tablero, encontrÛ aire libre. NO es un hueco.
                             if (nextR < 0 || nextR >= rows || nextC < 0 || nextC >= cols)
                             {
                                 isEnclosed = false;
                             }
-                            // Si la casilla vecina est· dentro del tablero, est· vacÌa y no la hemos visitado, se suma a la isla
                             else if (logic[nextR, nextC] == null && !visited[nextR, nextC])
                             {
                                 visited[nextR, nextC] = true;
@@ -308,15 +306,30 @@ public class GridManager : MonoBehaviour, IGridValidator
                         }
                     }
 
-                    //Si es una isla central y nunca tocÛ un borde, se cobra la penalizaciÛn
-                    if (isEnclosed)
+                    if (isEnclosed && gapCells.Count > 0)
                     {
-                        int penalty = GetPenaltyForGapSize(gapSize);
-                        totalPenalty += penalty;
-  
+                        enclosedGaps.Add(gapCells);
                     }
                 }
             }
+        }
+
+        return enclosedGaps;
+    }
+
+    /// <summary>
+    /// Evaluates enclosed gaps using a 4-way Orthogonal Flood Fill.
+    /// Diagonals are ignored. Escaping to the board edges means the gap is NOT enclosed.
+    /// </summary>
+    public int CalculateGapPenalty(int pIndex, bool showPopups = false)
+    {
+        if (!IsValidPlayerIndex(pIndex)) return 0;
+        int totalPenalty = 0;
+        var enclosedGaps = FindEnclosedGaps(pIndex);
+
+        foreach (var gapCells in enclosedGaps)
+        {
+            totalPenalty += GetPenaltyForGapSize(gapCells.Count);
         }
 
         return totalPenalty;
@@ -328,86 +341,40 @@ public class GridManager : MonoBehaviour, IGridValidator
         if (size == 2) return -700;
         if (size == 3) return -1000;
 
-        return -(250 + ((size - 1) * 100)); //Si se penaliza por agrupacion
-
-        // return -(size * 500); //PenalizaciÛn por cada espacio adicional en el hueco
+        return -(250 + ((size - 1) * 100)); // Si se penaliza por agrupacion
     }
 
     /// <summary>
     /// Animates the gap penalties sequentially. Colors cells red, spawns popups every 0.5s, 
     /// and triggers a callback when completely finished.
     /// </summary>
-    public IEnumerator AnimateGapPenaltiesFlow(int pIndex, System.Action onComplete)
+    public System.Collections.IEnumerator AnimateGapPenaltiesFlow(int pIndex, System.Action onComplete)
     {
-        DieData[,] logic = allBoardsLogic[pIndex];
-        bool[,] visited = new bool[rows, cols];
-        bool foundAnyGap = false;
+        if (!IsValidPlayerIndex(pIndex)) yield break;
+        var enclosedGaps = FindEnclosedGaps(pIndex);
+        bool foundAnyGap = enclosedGaps.Count > 0;
 
-        Vector2Int[] orthogonalDirections = new Vector2Int[] {
-            Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
-        };
-
-        for (int r = 0; r < rows; r++)
+        foreach (var gapCells in enclosedGaps)
         {
-            for (int c = 0; c < cols; c++)
+            int penalty = GetPenaltyForGapSize(gapCells.Count);
+
+            // 1. Pintar todas las casillas del hueco en ROJO
+            foreach (Vector2Int cell in gapCells)
             {
-                if (logic[r, c] == null && !visited[r, c])
-                {
-                    int gapSize = 0;
-                    bool isEnclosed = true;
-                    System.Collections.Generic.List<Vector2Int> gapCells = new System.Collections.Generic.List<Vector2Int>();
-
-                    Queue<Vector2Int> queue = new Queue<Vector2Int>();
-                    queue.Enqueue(new Vector2Int(r, c));
-                    visited[r, c] = true;
-
-                    // Expandimos para encontrar la isla (Flood Fill)
-                    while (queue.Count > 0)
-                    {
-                        Vector2Int current = queue.Dequeue();
-                        gapSize++;
-                        gapCells.Add(current);
-
-                        foreach (Vector2Int dir in orthogonalDirections)
-                        {
-                            int nextR = current.x + dir.x;
-                            int nextC = current.y + dir.y;
-
-                            if (nextR < 0 || nextR >= rows || nextC < 0 || nextC >= cols) isEnclosed = false;
-                            else if (logic[nextR, nextC] == null && !visited[nextR, nextC])
-                            {
-                                visited[nextR, nextC] = true;
-                                queue.Enqueue(new Vector2Int(nextR, nextC));
-                            }
-                        }
-                    }
-
-                    // Si es un hueco v·lido, lo animamos
-                    if (isEnclosed && gapCells.Count > 0)
-                    {
-                        foundAnyGap = true;
-                        int penalty = GetPenaltyForGapSize(gapSize);
-
-                        // 1. Pintar todas las casillas del hueco en ROJO
-                        foreach (Vector2Int cell in gapCells)
-                        {
-                            CellComponent cellVisual = allCellsVisual[pIndex][cell.x, cell.y];
-                            if (cellVisual != null) cellVisual.HighlightGapColor();
-                        }
-
-                        // 2. Mostrar el PopUp en el centro del hueco
-                        Vector2Int centerCell = gapCells[gapCells.Count / 2];
-                        Vector3 popupPos = allCellsVisual[pIndex][centerCell.x, centerCell.y].transform.position;
-                        PopUpManager.Instance.MostrarPopUp(popupPos, $"{penalty}", Color.red);
-
-                        // 3. Esperar 0.5 segundos ANTES de buscar el siguiente hueco
-                        yield return new WaitForSeconds(0.5f);
-                    }
-                }
+                CellComponent cellVisual = allCellsVisual[pIndex][cell.x, cell.y];
+                if (cellVisual != null) cellVisual.HighlightGapColor();
             }
+
+            // 2. Mostrar el PopUp en el centro del hueco
+            Vector2Int centerCell = gapCells[gapCells.Count / 2];
+            Vector3 popupPos = allCellsVisual[pIndex][centerCell.x, centerCell.y].transform.position;
+            PopUpManager.Instance.ShowPopUp(popupPos, "${penalty}", Color.red);
+
+            // 3. Esperar 0.5 segundos ANTES de buscar el siguiente hueco
+            yield return new WaitForSeconds(0.5f);
         }
 
-        // Si se mostrÛ al menos un hueco, esperamos 0.5s extra antes de mostrar el panel final
+        // Si se mostro al menos un hueco, esperamos 0.5s extra antes de mostrar el panel final
         if (foundAnyGap) yield return new WaitForSeconds(0.5f);
 
         // Finalizamos la secuencia llamando al GameManager
@@ -416,67 +383,16 @@ public class GridManager : MonoBehaviour, IGridValidator
 
 
 
-    private void MarcarExterior(int r, int c, bool[,] visitado, DieData[,] currentLogic)
-    {
-        // El FloodFill de 8 direcciones (diagonal) evita que una pared de dados en diagonal 
-        // declare todo el tablero como "encerrado" errÛneamente.
-        if (r < 0 || r >= rows || c < 0 || c >= cols || visitado[r, c] || currentLogic[r, c] != null) return;
-        visitado[r, c] = true;
-
-
-        int[] dr = { -1, 1, 0, 0, -1, -1, 1, 1 };
-        int[] dc = { 0, 0, -1, 1, -1, 1, -1, 1 };
-        for (int i = 0; i < 8; i++)
-        {
-            MarcarExterior(r + dr[i], c + dc[i], visitado, currentLogic);
-        }
-    }
-
-    private int MedirClusterEncerrado(int r, int c, bool[,] visitado, DieData[,] currentLogic)
-    {
-        // Los huecos interiores solo se conectan de forma ortogonal
-        if (r < 0 || r >= rows || c < 0 || c >= cols || visitado[r, c] || currentLogic[r, c] != null) return 0;
-
-        visitado[r, c] = true;
-        int count = 1; // Este espacio cuenta como 1
-
-        count += MedirClusterEncerrado(r + 1, c, visitado, currentLogic);
-        count += MedirClusterEncerrado(r - 1, c, visitado, currentLogic);
-        count += MedirClusterEncerrado(r, c + 1, visitado, currentLogic);
-        count += MedirClusterEncerrado(r, c - 1, visitado, currentLogic);
-
-        return count;
-    }
-
-    private int CalcularBonoLineas(bool[] lines, int baseBonus, bool isRow)
-    {
-        int total = 0;
-        int consecutive = 0;
-        for (int i = 0; i < lines.Length; i++)
-        {
-            if (lines[i])
-            {
-                consecutive++;
-                float mult = isRow ? ScoreManager.Instance.GetConsecutiveRowMultiplier(consecutive) : ScoreManager.Instance.GetConsecutiveColMultiplier(consecutive);
-                total += Mathf.FloorToInt(baseBonus * mult);
-            }
-            else
-            {
-                consecutive = 0; // Se rompe el combo si hay un hueco 
-            }
-        }
-        return total;
-    }
-
     // Escanea el tablero del jugador y aplica -1 por cada dado de valor 1 que toque a otro 1
-    public int ObtenerPenalizacionesPorUnos(int pIndex)
+    public int GetOnesPenalties(int pIndex)
     {
-        // --- INYECCI”N DE VARIANTE ---
-        VariantData variante = GameManager.Instance.varianteActual;
-        PatternData patron1 = variante.ObtenerPatron(1);
+        if (!IsValidPlayerIndex(pIndex)) return 0;
+        // --- VARIANT INJECTION ---
+        VariantData variante = GameManager.Instance.currentVariant;
+        PatternData patron1 = variante.GetPattern(1);
 
-        // Si el patrÛn 1 tiene la regla de premiar el contacto, ANULAMOS la penalizaciÛn.
-        if (patron1 != null && patron1.reglaEspecial == PatternData.SpecialRule.RewardOnContact)
+        // Si el patr√≥n 1 tiene la regla de premiar el contacto, ANULAMOS la penalizaci√≥n.
+        if (patron1 != null && patron1.specialRule == SpecialRule.RewardOnContact)
         {
             return 0; // Se salva de la multa
         }
@@ -518,7 +434,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                         if (tocaOtroUno) break; // Ya encontramos uno, no hace falta seguir buscando para este dado
                     }
 
-                    // Si este dado de 1 toca al menos a otro dado de 1, recibe la penalizaciÛn
+                    // Si este dado de 1 toca al menos a otro dado de 1, recibe la penalizaci√≥n
                     if (tocaOtroUno)
                     {
                         penalizacionTotal += 1;
@@ -529,10 +445,10 @@ public class GridManager : MonoBehaviour, IGridValidator
         return penalizacionTotal;
     }
 
-    private bool ValidarSupervivencia(int pIndex, int r, int c, DieColor color, int newGroupId, int newTargetSize, PlayerData player)
+    private bool ValidateSurvival(int pIndex, int r, int c, DieColor color, int newGroupId, int newTargetSize, PlayerData player)
     {
-        // FAST-EXIT FÕSICO. Escaneamos la matriz real del jugador.
-        // Si no hay ning˙n dado de pl·stico en su tablero, es imposible que se encierre.
+        // FAST-EXIT F√çSICO. Escaneamos la matriz real del jugador.
+        // Si no hay ning√∫n dado de pl√°stico en su tablero, es imposible que se encierre.
         bool tableroVacio = true;
         foreach (DieData dado in allBoardsLogic[pIndex])
         {
@@ -544,7 +460,7 @@ public class GridManager : MonoBehaviour, IGridValidator
 
         DieData[,] logic = allBoardsLogic[pIndex];
 
-        // 1. MAPEO DE NECESIDADES: øCu·ntos dados le faltan a cada grupo del tablero?
+        // 1. MAPEO DE NECESIDADES: ¬øCu√°ntos dados le faltan a cada grupo del tablero?
         Dictionary<int, int> dadosFaltantes = new Dictionary<int, int>();
         foreach (var group in player.activeGroups.Values)
         {
@@ -554,10 +470,10 @@ public class GridManager : MonoBehaviour, IGridValidator
             }
         }
 
-        // 2. SIMULACI”N DE LA JUGADA
+        // 2. SIMULACI√ìN DE LA JUGADA
         logic[r, c] = new DieData(color, newGroupId, newTargetSize);
 
-        // Ajustamos las necesidades bas·ndonos en la simulaciÛn
+        // Ajustamos las necesidades bas√°ndonos en la simulaci√≥n
         if (dadosFaltantes.ContainsKey(newGroupId))
         {
             dadosFaltantes[newGroupId] -= 1;
@@ -572,20 +488,20 @@ public class GridManager : MonoBehaviour, IGridValidator
             }
         }
 
-        // 3. AN¡LISIS DE TOPOLOGÕA GLOBAL
-        bool esValido = AnalizarTopologia(pIndex, logic, dadosFaltantes, player); // <-- AÒadimos 'player' al final
+        // 3. AN√ÅLISIS DE TOPOLOG√çA GLOBAL
+        bool esValido = AnalyzeTopology(pIndex, logic, dadosFaltantes, player); // <-- A√±adimos 'player' al final
 
-        // 4. REVERSI”N DE LA SIMULACI”N
+        // 4. REVERSI√ìN DE LA SIMULACI√ìN
         logic[r, c] = null;
 
         return esValido;
     }
 
-    private bool AnalizarTopologia(int pIndex, DieData[,] logic, Dictionary<int, int> dadosFaltantes, PlayerData player)
+    private bool AnalyzeTopology(int pIndex, DieData[,] logic, Dictionary<int, int> dadosFaltantes, PlayerData player)
     {
-        VariantData variante = GameManager.Instance.varianteActual;
+        VariantData variante = GameManager.Instance.currentVariant;
 
-        // Array de 8 direcciones (Primeros 4 ortogonales, ˙ltimos 4 diagonales)
+        // Array de 8 direcciones (Primeros 4 ortogonales, √∫ltimos 4 diagonales)
         int[] dr = { -1, 1, 0, 0, -1, -1, 1, 1 };
         int[] dc = { 0, 0, -1, 1, -1, 1, -1, 1 };
 
@@ -596,31 +512,31 @@ public class GridManager : MonoBehaviour, IGridValidator
 
             if (requeridos <= 0) continue;
 
-            // Identificar quÈ patrÛn estamos evaluando para saber cÛmo busca espacio
+            // Identificar qu√© patr√≥n estamos evaluando para saber c√≥mo busca espacio
             GroupData grupoActivo = null;
             foreach (var g in player.activeGroups.Values) { if (g != null && g.id == gId) { grupoActivo = g; break; } }
 
-            // --- BLINDAJE CONTRA NULOS (Grupo HipotÈtico) ---
+            // --- BLINDAJE CONTRA NULOS (Grupo Hipot√©tico) ---
             int sizeDelPatron = (grupoActivo != null) ? grupoActivo.targetSize : (requeridos + 1);
 
-            PatternData patronDelGrupo = variante.ObtenerPatron(sizeDelPatron);
+            PatternData patronDelGrupo = variante.GetPattern(sizeDelPatron);
 
-            // Si el Inspector de Unity est· incompleto, abortamos limpiamente sin crashear.
+            // Si el Inspector de Unity est√° incompleto, abortamos limpiamente sin crashear.
             if (patronDelGrupo == null)
             {
-                Debug.LogError($"CRÕTICO: El juego intentÛ leer el patrÛn {sizeDelPatron}, pero NO EXISTE en la Variante '{variante.nombreVariante}'. °Revisa tu ScriptableObject en el Inspector de Unity y aseg˙rate de asignar los 6 patrones!");
+                Debug.LogError($"CR√çTICO: El juego intent√≥ leer el patr√≥n {sizeDelPatron}, pero NO EXISTE en la Variante '{variante.variantName}'. ¬°Revisa tu ScriptableObject en el Inspector de Unity y aseg√∫rate de asignar los 6 patrones!");
                 return false;
             }
 
-            // øTiene permiso este grupo para "saltar" bloqueos en diagonal?
-            bool puedeReservarDiagonal = patronDelGrupo.reglaEspecial == PatternData.SpecialRule.ExtraDiagonalContact || variante.reservasDiagonalesPermitidas;
-            int direccionesDeBusqueda = puedeReservarDiagonal ? 8 : 4; // Cambia la potencia del esc·ner
+            // ¬øTiene permiso este grupo para "saltar" bloqueos en diagonal?
+            bool puedeReservarDiagonal = patronDelGrupo.allowDiagonalReservation;
+            int direccionesDeBusqueda = puedeReservarDiagonal ? 8 : 4; // Cambia la potencia del esc√°ner
 
             int vaciosAlcanzables = 0;
             bool[,] visitado = new bool[rows, cols];
             Queue<Vector2Int> cola = new Queue<Vector2Int>();
 
-            // Si el grupo es nuevo (null), atraparemos su color real leyendo el tablero hipotÈtico m·s abajo
+            // Si el grupo es nuevo (null), atraparemos su color real leyendo el tablero hipot√©tico m√°s abajo
             DieColor colorDelGrupo = (grupoActivo != null) ? grupoActivo.color : DieColor.White;
 
             // 1. Encontrar todos los dados de ESTE grupo
@@ -630,7 +546,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                 {
                     if (logic[r, c] != null && logic[r, c].groupId == gId)
                     {
-                        // Si era un grupo hipotÈtico, aquÌ descubrimos de quÈ color era
+                        // Si era un grupo hipot√©tico, aqu√≠ descubrimos de qu√© color era
                         colorDelGrupo = logic[r, c].color;
 
                         cola.Enqueue(new Vector2Int(r, c));
@@ -639,14 +555,14 @@ public class GridManager : MonoBehaviour, IGridValidator
                 }
             }
 
-            // ... (A partir de aquÌ, el paso "2. Expandir el Flood-Fill" se mantiene exactamente igual que tu cÛdigo original)
+            // ... (A partir de aqu√≠, el paso "2. Expandir el Flood-Fill" se mantiene exactamente igual que tu c√≥digo original)
 
-            // 2. Expandir el Flood-Fill con detecciÛn de colisiÛn
+            // 2. Expandir el Flood-Fill con detecci√≥n de colisi√≥n
             while (cola.Count > 0)
             {
                 Vector2Int actual = cola.Dequeue();
 
-                // Usamos 4 u 8 direcciones seg˙n las reglas del patrÛn
+                // Usamos 4 u 8 direcciones seg√∫n las reglas del patr√≥n
                 for (int d = 0; d < direccionesDeBusqueda; d++)
                 {
                     int nr = actual.x + dr[d];
@@ -656,7 +572,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                     {
                         if (logic[nr, nc] == null && !visitado[nr, nc])
                         {
-                            // ZONA MUERTA: Verificamos los vecinos ortogonales del espacio vacÌo
+                            // ZONA MUERTA: Verificamos los vecinos ortogonales del espacio vac√≠o
                             bool esZonaMuerta = false;
                             for (int d2 = 0; d2 < 4; d2++) // Siempre 4 direcciones para zona muerta
                             {
@@ -688,7 +604,7 @@ public class GridManager : MonoBehaviour, IGridValidator
             // 3. Veredicto Final
             if (vaciosAlcanzables < requeridos)
             {
-                Debug.Log($"Bloqueo TopolÛgico: El grupo {gId} necesita {requeridos} espacios, pero solo alcanza {vaciosAlcanzables} bajo reglas de {(puedeReservarDiagonal ? "b˙squeda de 8 vÌas" : "b˙squeda estricta de 4 vÌas")}.");
+                Debug.Log($"Bloqueo Topol√≥gico: El grupo {gId} necesita {requeridos} espacios, pero solo alcanza {vaciosAlcanzables} bajo reglas de {(puedeReservarDiagonal ? "b√∫squeda de 8 v√≠as" : "b√∫squeda estricta de 4 v√≠as")}.");
                 return false;
             }
         }
@@ -696,7 +612,7 @@ public class GridManager : MonoBehaviour, IGridValidator
         return true;
     }
 
-    // Eval˙a todo el tablero y resalta las celdas v·lidas
+    // Eval√∫a todo el tablero y resalta las celdas v√°lidas
     public void ShowValidMoves(int pIndex, DieColor color, int groupId, int targetSize)
     {
         for (int r = 0; r < rows; r++)
@@ -705,7 +621,7 @@ public class GridManager : MonoBehaviour, IGridValidator
             {
                 bool isValid = false;
 
-                // Solo revisamos si la celda est· vacÌa
+                // Solo revisamos si la celda est√° vac√≠a
                 if (allBoardsLogic[pIndex][r, c] == null)
                 {
                     isValid = IsValidPlacement(pIndex, r, c, color, groupId, targetSize);
@@ -717,7 +633,7 @@ public class GridManager : MonoBehaviour, IGridValidator
     }
 
     // Apaga el resaltado de todas las celdas
-    public void LimpiarResaltados(int pIndex)
+    public void ClearHighlights(int pIndex)
     {
         for (int r = 0; r < rows; r++)
         {
@@ -731,10 +647,10 @@ public class GridManager : MonoBehaviour, IGridValidator
         }
     }
 
-    public int CalcularBonosDeVariante(int pIndex, out string desgloseBonos)
+    public int CalculateVariantBonuses(int pIndex, out string desgloseBonos)
     {
         DieData[,] logic = allBoardsLogic[pIndex];
-        VariantData variante = GameManager.Instance.varianteActual;
+        VariantData variante = GameManager.Instance.currentVariant;
 
         int totalBono = 0;
         desgloseBonos = "";
@@ -749,11 +665,11 @@ public class GridManager : MonoBehaviour, IGridValidator
                 DieData dado = logic[r, c];
                 if (dado == null) continue;
 
-                PatternData patron = variante.ObtenerPatron(dado.value);
+                PatternData patron = variante.GetPattern(dado.value);
                 if (patron == null) continue;
 
                 // --- REGLA: Contacto Diagonal Extra (Variante 1 para el 2) ---
-                if (patron.reglaEspecial == PatternData.SpecialRule.ExtraDiagonalContact)
+                if (patron.specialRule == SpecialRule.ExtraDiagonalContact)
                 {
                     // Escaneamos solo las 4 diagonales
                     int[] dr = { -1, -1, 1, 1 };
@@ -776,7 +692,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                 }
 
                 // --- REGLA: Aislamiento Premiado (Variante 3 para el 1) ---
-                if (patron.reglaEspecial == PatternData.SpecialRule.RewardOnContact)
+                if (patron.specialRule == SpecialRule.RewardOnContact)
                 {
                     bool tocaOtroUno = false;
                     for (int i = -1; i <= 1; i++)
@@ -797,8 +713,8 @@ public class GridManager : MonoBehaviour, IGridValidator
             }
         }
 
-        // MATEM¡TICA SENIOR: Dividimos por 2 porque la topologÌa contÛ cada conexiÛn dos veces 
-        // (El dado A vio al B, y m·s tarde el dado B vio al A).
+        // MATEM√ÅTICA SENIOR: Dividimos por 2 porque la topolog√≠a cont√≥ cada conexi√≥n dos veces 
+        // (El dado A vio al B, y m√°s tarde el dado B vio al A).
         contactosDiagonalesValidos /= 2;
 
         if (contactosDiagonalesValidos > 0)
@@ -818,13 +734,17 @@ public class GridManager : MonoBehaviour, IGridValidator
         return totalBono;
     }
 
-    // 1. Fija el dado definitivamente en la lÛgica y lo instancia visualmente
-    public void FijarDadoEnLogica(int pIndex, int r, int c, DieColor color, int groupId, int number)
+    // 1. Fija el dado definitivamente en la l√≥gica y lo instancia visualmente
+    public void CommitDieToLogic(int pIndex, int r, int c, DieColor color, int groupId, int number)
     {
         DieData[,] currentLogic = allBoardsLogic[pIndex];
         currentLogic[r, c] = new DieData(color, groupId, number);
 
-        // Instanciamos el dado fÌsico final en el tablero
+        InstantiateDieVisual(pIndex, r, c, color, number);
+    }
+
+    private void InstantiateDieVisual(int pIndex, int r, int c, DieColor color, int number)
+    {
         GameObject prefabAUsar = GetPrefabByColor(color);
         Vector3 position = new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2);
 
@@ -835,8 +755,8 @@ public class GridManager : MonoBehaviour, IGridValidator
         if (renderer != null) renderer.sprite = UIManager.Instance.GetSprite(color, number);
     }
 
-    // 2. Escanea solo el dado reciÈn puesto para ver si toca en diagonal a otro de su misma especie
-    public int EscanearConexionesDiagonalesNuevas(int pIndex, int r, int c, DieColor color, int groupId)
+    // 2. Escanea solo el dado reci√©n puesto para ver si toca en diagonal a otro de su misma especie
+    public int ScanNewDiagonalConnections(int pIndex, int r, int c, DieColor color, int groupId)
     {
         DieData[,] logic = allBoardsLogic[pIndex];
         int conexionesNuevas = 0;
@@ -851,7 +771,7 @@ public class GridManager : MonoBehaviour, IGridValidator
             if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
             {
                 DieData vecino = logic[nr, nc];
-                // Si hay vecino, es del mismo color, tiene el mismo n˙mero, PERO es de otra agrupaciÛn...
+                // Si hay vecino, es del mismo color, tiene el mismo n√∫mero, PERO es de otra agrupaci√≥n...
                 if (vecino != null && vecino.color == color && vecino.value == logic[r, c].value && vecino.groupId != groupId)
                 {
                     conexionesNuevas++;
@@ -861,24 +781,24 @@ public class GridManager : MonoBehaviour, IGridValidator
         return conexionesNuevas;
     }
 
-    // (Opcional, usado para obtener dÛnde spawnear el Pop-Up)
-    public Vector3 ObtenerPosicionMundo(int pIndex, int r, int c)
+    // (Opcional, usado para obtener d√≥nde spawnear el Pop-Up)
+    public Vector3 GetWorldPosition(int pIndex, int r, int c)
     {
         return new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2);
     }
 
-    public void ColocarDadoVisualTemporal(int pIndex, int r, int c, DieColor color, int number)
+    public void PlaceTemporaryDieVisual(int pIndex, int r, int c, DieColor color, int number)
     {
-        // Por seguridad, si ya habÌa un fantasma, lo destruimos
-        RemoverDadoVisualTemporal();
+        // Por seguridad, si ya hab√≠a un fantasma, lo destruimos
+        RemoveTemporaryDieVisual();
 
         GameObject prefabAUsar = GetPrefabByColor(color);
-        Vector3 position = new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2.1f); // Un poco m·s adelante
+        Vector3 position = new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2.1f); // Un poco m√°s adelante
 
-        dadoTemporal = Instantiate(prefabAUsar, position, Quaternion.identity, boardRoots[pIndex].transform);
-        dadoTemporal.transform.localScale = new Vector3(cellSize, cellSize, 1f);
+        temporaryDie = Instantiate(prefabAUsar, position, Quaternion.identity, boardRoots[pIndex].transform);
+        temporaryDie.transform.localScale = new Vector3(cellSize, cellSize, 1f);
 
-        SpriteRenderer renderer = dadoTemporal.GetComponent<SpriteRenderer>();
+        SpriteRenderer renderer = temporaryDie.GetComponent<SpriteRenderer>();
         if (renderer != null)
         {
             renderer.sprite = UIManager.Instance.GetSprite(color, number);
@@ -890,12 +810,12 @@ public class GridManager : MonoBehaviour, IGridValidator
         }
     }
 
-    public void RemoverDadoVisualTemporal()
+    public void RemoveTemporaryDieVisual()
     {
-        if (dadoTemporal != null)
+        if (temporaryDie != null)
         {
-            Destroy(dadoTemporal);
-            dadoTemporal = null;
+            Destroy(temporaryDie);
+            temporaryDie = null;
         }
     }
 
@@ -955,30 +875,30 @@ public class GridManager : MonoBehaviour, IGridValidator
             }
         }
 
-        // Si no hay lÌneas, no hay nada que calcular
+        // Si no hay l√≠neas, no hay nada que calcular
         if (completedRows == 0 && completedCols == 0) return 0;
 
         // 3. Client Math: Base * Multipliers (POINT 9: Intersections separated)
         int rowBasePoints = completedRows * ScoreManager.ROW_COMPLETE_BONUS;
         int colBasePoints = completedCols * ScoreManager.COL_COMPLETE_BONUS;
 
-        // Aislar los puntos de intersecciÛn
+        // Aislar los puntos de intersecci√≥n
         int intersectionPoints = intersections * ScoreManager.INTERSECTION_BONUS;
 
         float multRow = completedRows > 0 ? ScoreManager.Instance.GetConsecutiveRowMultiplier(maxConsecutiveRows) : 0f;
         float multCol = completedCols > 0 ? ScoreManager.Instance.GetConsecutiveColMultiplier(maxConsecutiveCols) : 0f;
 
         float totalMultiplier = multRow + multCol;
-        if (totalMultiplier == 0f) totalMultiplier = 1f; // PrevenciÛn de errores
+        if (totalMultiplier == 0f) totalMultiplier = 1f; // Prevenci√≥n de errores
 
-        // APLICACI”N DE REGLA 9: El multiplicador solo afecta a Filas y Columnas
+        // APLICACI√ìN DE REGLA 9: El multiplicador solo afecta a Filas y Columnas
         int lineScoreWithMultiplier = Mathf.FloorToInt((rowBasePoints + colBasePoints) * totalMultiplier);
 
         // Las intersecciones se suman planas (sin multiplicar)
         int currentTotalStructureScore = lineScoreWithMultiplier + intersectionPoints;
 
-        // 4. Differential Logic (Restamos lo que ya se pagÛ en turnos anteriores)
-        // NOTA: Aseg˙rate de renombrar 'accumulatedStructurePoints' a 'accumulatedStructurePoints' en PlayerData.cs
+        // 4. Differential Logic (Restamos lo que ya se pag√≥ en turnos anteriores)
+        // NOTA: Aseg√∫rate de renombrar 'accumulatedStructurePoints' a 'accumulatedStructurePoints' en PlayerData.cs
         int newPointsToEarn = currentTotalStructureScore - player.accumulatedStructurePoints;
 
         // Actualizamos la memoria del jugador
@@ -987,8 +907,8 @@ public class GridManager : MonoBehaviour, IGridValidator
         return newPointsToEarn;
     }
 
-    // Cuenta cu·ntos dados tocan en 3x3 y cu·ntos de esos toques fueron en diagonal
-    public int ContarContactosEn3x3(int pIndex, int r, int c, int valorDado, out int contactosDiagonales)
+    // Cuenta cu√°ntos dados tocan en 3x3 y cu√°ntos de esos toques fueron en diagonal
+    public int Count3x3Contacts(int pIndex, int r, int c, int valorDado, out int contactosDiagonales)
     {
         DieData[,] logic = allBoardsLogic[pIndex];
         int contactosTotales = 0;
@@ -1011,7 +931,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                     {
                         contactosTotales++;
 
-                        // Si nos movimos en X y tambiÈn en Y, es un movimiento diagonal
+                        // Si nos movimos en X y tambi√©n en Y, es un movimiento diagonal
                         if (i != 0 && j != 0)
                         {
                             contactosDiagonales++;
@@ -1022,26 +942,6 @@ public class GridManager : MonoBehaviour, IGridValidator
         }
         return contactosTotales;
     }
-
-    /// <summary>
-    /// Highlights all cells that are part of a successfully completed pattern.
-    /// </summary>
-    public void HighlightCompletedPattern(int pIndex, IEnumerable<Vector2Int> occupiedCells)
-    {
-        foreach (Vector2Int pos in occupiedCells)
-        {
-            // Boundary safety check
-            if (pos.x >= 0 && pos.x < rows && pos.y >= 0 && pos.y < cols)
-            {
-                CellComponent cell = allCellsVisual[pIndex][pos.x, pos.y];
-                if (cell != null)
-                {
-                    cell.TriggerPatternSuccessVisuals();
-                }
-            }
-        }
-    }
-
 
 
 

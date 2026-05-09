@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public enum SpecialRule
 {
@@ -23,10 +23,10 @@ public struct RuleEvaluationResult
 
 public static class SpecialRuleEvaluator
 {
-    private const int MULTA_POR_AISLAMIENTO = -250;
-    private const int BONO_POR_CONTACTO = 100;
+    private const int ISOLATION_PENALTY = -250;
+    private const int CONTACT_BONUS = 100;
 
-    // NUEVO: Añadimos 'bool isFirstDieOnBoard' a la función
+    // NUEVO: AÃ±adimos 'bool isFirstDieOnBoard' a la funciÃ³n
     public static RuleEvaluationResult EvaluatePlacement(SpecialRule activeRule, int totalContactos, int contactosDiagonales, bool isFirstDieOnBoard)
     {
         switch (activeRule)
@@ -34,34 +34,34 @@ public static class SpecialRuleEvaluator
             case SpecialRule.PenalizeOnContact: // Variante 1
                 if (totalContactos > 0)
                 {
-                    return new RuleEvaluationResult(totalContactos * MULTA_POR_AISLAMIENTO, false);
+                    return new RuleEvaluationResult(totalContactos * ISOLATION_PENALTY, false);
                 }
                 return new RuleEvaluationResult(0, true);
 
             case SpecialRule.DiagonalOneContact: // Variante 2
-                // EXCEPCIÓN: Si es el primer dado de todos, se salva de la multa y gana el bono base.
+                // EXCEPCIÃ“N: Si es el primer dado de todos, se salva de la multa y gana el bono base.
                 if (isFirstDieOnBoard) return new RuleEvaluationResult(0, true);
 
                 if (contactosDiagonales > 0)
                 {
-                    return new RuleEvaluationResult(contactosDiagonales * BONO_POR_CONTACTO, true);
+                    return new RuleEvaluationResult(contactosDiagonales * CONTACT_BONUS, true);
                 }
                 else
                 {
-                    return new RuleEvaluationResult(MULTA_POR_AISLAMIENTO, false);
+                    return new RuleEvaluationResult(ISOLATION_PENALTY, false);
                 }
 
             case SpecialRule.RewardOnContact: // Variante 3
-                // EXCEPCIÓN: Si es el primer dado de todos, se salva de la multa y gana el bono base.
+                // EXCEPCIÃ“N: Si es el primer dado de todos, se salva de la multa y gana el bono base.
                 if (isFirstDieOnBoard) return new RuleEvaluationResult(0, true);
 
                 if (totalContactos > 0)
                 {
-                    return new RuleEvaluationResult(totalContactos * BONO_POR_CONTACTO, true);
+                    return new RuleEvaluationResult(totalContactos * CONTACT_BONUS, true);
                 }
                 else
                 {
-                    return new RuleEvaluationResult(MULTA_POR_AISLAMIENTO, false);
+                    return new RuleEvaluationResult(ISOLATION_PENALTY, false);
                 }
 
             case SpecialRule.None:

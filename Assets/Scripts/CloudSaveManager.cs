@@ -7,6 +7,9 @@ public class CloudSaveManager : MonoBehaviour
 {
     public static CloudSaveManager Instance { get; private set; }
 
+    public const string CAMPAIGN_LEVEL_KEY = "CAMPAIGN_LEVEL";
+    public const string TOTAL_COINS_KEY = "TOTAL_COINS";
+
     private void Awake()
     {
         if (Instance == null)
@@ -23,15 +26,15 @@ public class CloudSaveManager : MonoBehaviour
     /// <summary>
     /// Guarda el progreso de la campaña y las estadísticas globales en la nube.
     /// </summary>
-    public async Task GuardarProgresoMeta(int nivelCampana, int monedasTotales)
+    public async Task SaveMetaProgress(int nivelCampana, int monedasTotales)
     {
         try
         {
             // Creamos un "paquete" con los datos que queremos subir
             var datos = new Dictionary<string, object>
             {
-                { "NivelCampana", nivelCampana },
-                { "MonedasTotales", monedasTotales }
+                { CAMPAIGN_LEVEL_KEY, nivelCampana },
+                { TOTAL_COINS_KEY, monedasTotales }
             };
 
             // Lo enviamos a la nube de UGS
@@ -48,22 +51,22 @@ public class CloudSaveManager : MonoBehaviour
     /// <summary>
     /// Descarga el progreso de la nube al iniciar el juego o al vincular una cuenta.
     /// </summary>
-    public async Task CargarProgresoMeta()
+    public async Task LoadMetaProgress()
     {
         try
         {
             // Pedimos a la nube específicamente estas dos "llaves"
-            var query = await CloudSaveService.Instance.Data.Player.LoadAsync(new HashSet<string> { "NivelCampana", "MonedasTotales" });
+            var query = await CloudSaveService.Instance.Data.Player.LoadAsync(new HashSet<string> { CAMPAIGN_LEVEL_KEY, TOTAL_COINS_KEY });
 
             int nivelActual = 1; // Valor por defecto si es un jugador nuevo
             int monedas = 0;
 
-            if (query.TryGetValue("NivelCampana", out var nivelItem))
+            if (query.TryGetValue(CAMPAIGN_LEVEL_KEY, out var nivelItem))
             {
                 nivelActual = nivelItem.Value.GetAs<int>();
             }
 
-            if (query.TryGetValue("MonedasTotales", out var monedasItem))
+            if (query.TryGetValue(TOTAL_COINS_KEY, out var monedasItem))
             {
                 monedas = monedasItem.Value.GetAs<int>();
             }

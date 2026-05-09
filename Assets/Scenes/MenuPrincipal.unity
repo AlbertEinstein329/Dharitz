@@ -560,7 +560,7 @@ MonoBehaviour:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
         m_MethodName: SetPlayer4Bot
-        m_Mode: 0
+        m_Mode: 6
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -867,7 +867,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: SetNumeroDeJugadores
+        m_MethodName: SetPlayerCount
         m_Mode: 3
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1657,7 +1657,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: MostrarPanelModoLibre
+        m_MethodName: ShowFreePlayPanel
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -2421,7 +2421,7 @@ MonoBehaviour:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
         m_MethodName: SetPlayer2Bot
-        m_Mode: 0
+        m_Mode: 6
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -2774,7 +2774,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: SetVariante
+        m_MethodName: SetVariant
         m_Mode: 3
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -2910,7 +2910,7 @@ MonoBehaviour:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
         m_MethodName: SetPlayer3Bot
-        m_Mode: 0
+        m_Mode: 6
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -3565,7 +3565,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: SetVariante
+        m_MethodName: SetVariant
         m_Mode: 3
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -3835,7 +3835,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: SetNumeroDeJugadores
+        m_MethodName: SetPlayerCount
         m_Mode: 3
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -4033,7 +4033,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: IniciarModoLibre
+        m_MethodName: StartFreePlay
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -4166,7 +4166,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: SetNumeroDeJugadores
+        m_MethodName: SetPlayerCount
         m_Mode: 3
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -4299,7 +4299,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: IniciarModoCampana
+        m_MethodName: StartCampaign
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -4432,7 +4432,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: SetVariante
+        m_MethodName: SetVariant
         m_Mode: 3
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -4509,13 +4509,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 692ca2cdfdaf5314e86edb462941435e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  configuracionSesion: {fileID: 11400000, guid: d48966ab6afd5aa45ba05cad741d3fe7, type: 2}
-  variantesDisponibles:
-  - {fileID: 11400000, guid: 19037e4b182d3c24ea0ef85df20a70e2, type: 2}
-  - {fileID: 11400000, guid: a03cdedf4ea49834684c653c4943c759, type: 2}
-  - {fileID: 11400000, guid: d58dc04952ae3824792211a79a4cfd01, type: 2}
-  panelPrincipal: {fileID: 1408177779}
-  panelModoLibre: {fileID: 712418808}
+  sessionConfig: {fileID: 11400000, guid: d48966ab6afd5aa45ba05cad741d3fe7, type: 2}
+  availableVariants: []
+  mainPanel: {fileID: 1408177779}
+  freePlayPanel: {fileID: 712418808}
 --- !u!4 &1784202867
 Transform:
   m_ObjectHideFlags: 0
@@ -4859,7 +4856,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: SetNumeroDeJugadores
+        m_MethodName: SetPlayerCount
         m_Mode: 3
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

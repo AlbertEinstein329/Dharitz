@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 // Provides read-only turn information to UI or board cells.
 public interface ITurnProvider
@@ -12,7 +12,7 @@ public interface ITurnProvider
 // Handles the execution of a placement intent (e.g., the 2-second buffer).
 public interface IPlacementExecutor
 {
-    void IniciarColocacion(int row, int col);
+    void BeginPlacement(int row, int col);
 }
 
 // Validates if a specific board cell can receive a specific die.

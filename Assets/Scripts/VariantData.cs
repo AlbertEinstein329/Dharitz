@@ -1,21 +1,19 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "NuevaVariante", menuName = "Dharitz/Datos de Variante")]
+[CreateAssetMenu(fileName = "NewVariant", menuName = "Dharitz/Variant Data")]
 public class VariantData : ScriptableObject
 {
-    public string nombreVariante;
-    [TextArea] public string descripcion;
+    public string variantName;
+    [TextArea] public string description;
 
-    [Header("Patrones de esta Variante")]
-    public List<PatternData> patrones = new List<PatternData>();
+    [Header("Patterns for this Variant")]
+    public List<PatternData> patterns = new List<PatternData>();
 
-    [Header("Configuración Global")]
-    public bool reservasDiagonalesPermitidas = false; // Útil para la Variante 1 y 3
-
-    // Una función rápida para que el GameManager extraiga el patrón correcto
-    public PatternData ObtenerPatron(int numeroDado)
+    
+    // Helper function for GameManager to extract the correct pattern
+    public PatternData GetPattern(int diceNumber)
     {
-        return patrones.Find(p => p.targetNumber == numeroDado);
+        return patterns.Find(p => p.targetNumber == diceNumber);
     }
 }

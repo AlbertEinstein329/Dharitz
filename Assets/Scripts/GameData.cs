@@ -1,7 +1,7 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using System.Collections.Generic;
 
-// Definición global de colores
+// DefiniciÃ³n global de colores
 public enum DieColor { Red, Blue, White, Black }
 
 
@@ -13,7 +13,7 @@ public class GroupData
     public int targetSize;
     public List<Vector2Int> occupiedCells = new List<Vector2Int>();
 
-    // Esta línea es VITAL: se cierra automáticamente al llegar al número
+    // Esta lÃ­nea es VITAL: se cierra automÃ¡ticamente al llegar al nÃºmero
     public bool isClosed => occupiedCells.Count >= targetSize;
 }
 
@@ -24,15 +24,16 @@ public class PlayerData
     public string name;
     public int score = 0;
     public int placedDice = 0;
-    public int[] conteoPatrones = new int[7];
+    public int[] patternCounts = new int[7];
     public int accumulatedStructurePoints = 0;
-    public int penalizacionUnosAcumulada = 0;
+    public int accumulatedOnesPenalty = 0;
 
     public bool isBot = false;
     public int botDifficulty = 0;
 
-    // --- NUEVO: Contador de Re-Draws permitidos ---
-    public int reDraws = 300;
+    // Re-Draw uses allowed per game
+    public const int DEFAULT_REDRAWS = 3;
+    public int reDraws = DEFAULT_REDRAWS;
 
     public Dictionary<DieColor, GroupData> activeGroups = new Dictionary<DieColor, GroupData>();
 
@@ -42,9 +43,9 @@ public class PlayerData
         this.name = name;
         this.isBot = isBot;
         this.botDifficulty = difficulty;
-        this.reDraws = 300; // Inicializamos con 3 usos por partida
+        this.reDraws = DEFAULT_REDRAWS;
         this.activeGroups = new Dictionary<DieColor, GroupData>();
-        this.conteoPatrones = new int[7];
+        this.patternCounts = new int[7];
     }
 
 

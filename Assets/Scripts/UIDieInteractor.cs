@@ -30,10 +30,10 @@ public class UIDieInteractor : MonoBehaviour, IPointerClickHandler, IBeginDragHa
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        // Añadimos el candado a la condición (!isInputLocked)
+        // AÃ±adimos el candado a la condiciÃ³n (!isInputLocked)
         if (IsSlotEmpty && !eventData.dragging && !isInputLocked)
         {
-            GameManager.Instance.DrawDie(); // O el nombre de tu función
+            GameManager.Instance.DrawDie(); // O el playerName de tu funciÃ³n
             AudioManager.Instance.PlayDrawSound();
         }
     }
@@ -59,18 +59,25 @@ public class UIDieInteractor : MonoBehaviour, IPointerClickHandler, IBeginDragHa
         canvasGroup.blocksRaycasts = true;
         canvasGroup.alpha = 1f;
 
-        // POINT 3: Convert screen position to 2D world position and simulate a click on the cell
-        Vector3 worldPoint = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
-
-        if (hit.collider != null)
+        if (Camera.main != null)
         {
-            CellComponent targetCell = hit.collider.GetComponent<CellComponent>();
-            if (targetCell != null)
+            // POINT 3: Convert screen position to 2D world position and simulate a click on the cell
+            Vector3 worldPoint = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
+
+            if (hit.collider != null)
             {
-                // Simulate the click on the 2D cell to place the die
-                targetCell.SendMessage("OnMouseDown", SendMessageOptions.DontRequireReceiver);
+                CellComponent targetCell = hit.collider.GetComponent<CellComponent>();
+                if (targetCell != null)
+                {
+                    // Simulate the click on the 2D cell to place the die
+                    targetCell.HandleClick();
+                }
             }
+        }
+        else
+        {
+            Debug.LogError("Main Camera is null! Cannot place die.");
         }
 
         // Return UI image to its original slot position

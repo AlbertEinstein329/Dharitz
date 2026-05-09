@@ -1,0 +1,33 @@
+1. Sistema de Patrones (Geometría Dinámica)
+Este sistema ha evolucionado de un modelo estático a uno basado en datos (Data-Driven).
+•	Arquitectura ScriptableObject: Implementación de PatternData y VariantData para definir formas, reglas de rotación y espejado sin tocar código.
+•	Motor de Geometría (PatternValidator): Un validador universal que normaliza coordenadas, aplica transformaciones matriciales (rotación/espejo) y compara formas relativas en el tablero.
+•	Variantes de Patrones: Configuración de tres variantes distintas (Base, Media y Difícil) con 6 patrones únicos cada una, permitiendo comportamientos asimétricos entre ellas.
+3 variantes de patrones citados a continuación.
+Variante 1: 
+Patron de 1 = Debe estar aislado de otro dado 1 para sumas puntos
+Patron de 2 = (0,0)(1,1) efecto especial si esta en contacto con otro 2 también en diagonal pero distinta id mismo color este también sumara puntos, Ejemplo hay dos dados rojo (0,0) y (1,1) y en otro turno sacas otro dado rojo 2 y lo pones en (2,2) o (2,0) o (0,2) este también sumaria un patron con el dado de (1,1) ademan de segundo dado de su mismo id sin importar en que dirección este el mismo Ejemplo 2 rojo id 1 posición (0,0)(1,1) y 2 rojo id 2 posición (0,2) 1 punto extra, dado rojo posición (2,2) 1 punto extra en total en esa situación habría en total completado 3 veces el patron de 2 y sumado 3 puntos extra. Además el patron 2 tendría otro efecto en cuanto a la reserva de espacio como si patron es diagonal debería reservar espacios de forma diagonal además de la ortogonal. En ese caso si un dado le tapa la salida directa aun tiene la posibilidad de colocar en un espacio vacío diagonal.
+
+Patron de 3 = (0,0)(0,1)(1,1)
+Patron de 4 = En forma de S "(0,0);(0,1);(1,1);(1,2)"
+Patron de 5 = “(0,1);(1,0);(1,1);(1,2);(2,1)".
+Patron de 6 =  "(1,0);(1,1);(1,2);(1,0);(0,0);(0,3)"
+
+Variante 2: 
+Patron de 1 = los dados de 1 deben estar en contacto con otro 1 de forma diagonal sin importar el color para sumar un punto extra.
+Patron de 2 = uno al lado del otro de forma horizontal sin posibilidad de rotación para sumar los puntos extra, si están en otra posición no suma puntos extra.
+Patron de 3 = en diagonal "(0,0);(1,1);(2,2)" con el mismo efecto especial del patron 2 en la variante 1 pero ahora con 3 dados.
+Patron de 4 = En forma de L "(0,0);(0,1);(0,2);(1,0)".
+Patron de 5 = En forma de C "(0,0);(0,1);(0,2);(1,0);(1,2)".
+Patron de 6 = en forma de Y "(0,1);(0,2);(1,0);(1,1);(2,1);(2,2)".
+
+Variante 3 =
+Patron de 1 = Debe estar en contacto con otro 1 para sumar un punto extra, si esta aislado no suma puntos.
+Patron de 2 = Uno debajo de otro en Vertical sin posibilidad de rotación para sumar los puntos extra, si están en otra posición no suma puntos extra.
+Patron de 3 = Uno al lado de otro horizontal si posibilidad de rotación para sumar los puntos extra, si están en otra posición no suma puntos extra.
+Patron de 4 = En forma de T "(0,0);(1,1);(1,1);(2,0)"
+Patron de 5 =  "(0,2);(1,0);(1,1);(1,2);(2,0)".
+Patron de 6 =  "(0,2);(1,2);(1,3);(2,0);(2,1);(3,2)". este patron tendría otro efecto en cuanto a la reserva de espacio como si patron es diagonal debería reservar espacios de forma diagonal además de la ortogonal. En ese caso si un dado le tapa la salida directa aun tiene la posibilidad de colocar en un espacio vacío diagonal.
+
+
+Todo los patrones se pueden rotar menos aquellos en los cuales esta especificado que no puedan rotar.

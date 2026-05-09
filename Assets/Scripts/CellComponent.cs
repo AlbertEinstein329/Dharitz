@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using DG.Tweening;
 
 public class CellComponent : MonoBehaviour
@@ -14,7 +14,7 @@ public class CellComponent : MonoBehaviour
 
     [Header("Visual Configuration")]
     [Tooltip("Drag the child object containing the SpriteRenderer here.")]
-    [SerializeField] private SpriteRenderer childSpriteRenderer; // Asignar el hijo aquí
+    [SerializeField] private SpriteRenderer childSpriteRenderer; // Asignar el hijo aquÃ­
     private Color originalColor;
 
     void Awake()
@@ -52,12 +52,17 @@ public class CellComponent : MonoBehaviour
     {
         if (childSpriteRenderer == null) return;
 
-        // El resaltado normal de movimientos ocurre en celdas vacías, no necesita superponerse a un dado
+        // El resaltado normal de movimientos ocurre en celdas vacÃ­as, no necesita superponerse a un dado
         childSpriteRenderer.color = highlight ? new Color(0.5f, 1f, 0.5f, 1f) : originalColor;
         childSpriteRenderer.sortingOrder = 0; // Orden base
     }
 
     void OnMouseDown()
+    {
+        HandleClick();
+    }
+
+    public void HandleClick()
     {
         // 1. Ask the Turn Provider if it's our turn
         if (turnProvider.CurrentPlayerIndex != playerOwnerIndex)
@@ -79,40 +84,10 @@ public class CellComponent : MonoBehaviour
                 if (gridValidator.CanBotPlaceHere(playerOwnerIndex, row, col, currentColor, group.id, group.targetSize))
                 {
                     // 3. Ask the Executor to process the play
-                    placementExecutor.IniciarColocacion(row, col);
+                    placementExecutor.BeginPlacement(row, col);
                 }
             }
         }
-    }
-
-    /// <summary>
-    /// Triggers the visual feedback when a pattern is successfully completed using DOTween.
-    /// </summary>
-    public void TriggerPatternSuccessVisuals()
-    {
-        if (childSpriteRenderer == null) return;
-
-        // 1. Kill any active tween on this object to prevent animation overlaps (Spam protection)
-        childSpriteRenderer.DOKill();
-
-        // 2. Set initial state: Golden color with 80% opacity and high sorting order
-        Color flashColor = new Color(1f, 0.84f, 0f, 0.8f);
-        childSpriteRenderer.color = flashColor;
-        childSpriteRenderer.sortingOrder = 10;
-
-        // 3. DOTween Animation: Fade from flashColor to originalColor over 1.5 seconds
-        // Ease.OutQuad makes the animation start fast and slow down at the end
-        childSpriteRenderer.DOColor(originalColor, 1.5f)
-            .SetEase(Ease.OutQuad)
-            .OnComplete(() =>
-            {
-                // Reset the sorting order when the animation finishes
-                childSpriteRenderer.sortingOrder = 0;
-            });
-
-        // [OPEN PLACEHOLDER FOR PARTICLES]
-        // In the future, call your ParticleManager or VFXManager here.
-        // Example: VFXManager.Instance.PlaySuccessParticles(transform.position);
     }
 
     /// <summary>
@@ -129,7 +104,7 @@ public class CellComponent : MonoBehaviour
         }
         else
         {
-            // Si por algún motivo tu tablero está hecho de UI Images (Canvas)
+            // Si por algÃºn motivo tu tablero estÃ¡ hecho de UI Images (Canvas)
             UnityEngine.UI.Image img = GetComponent<UnityEngine.UI.Image>();
             if (img != null) img.color = new Color(1f, 0.3f, 0.3f, 1f);
         }

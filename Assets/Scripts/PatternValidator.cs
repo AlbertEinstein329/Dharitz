@@ -1,48 +1,48 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
 public static class PatternValidator
 {
-    // El método ahora recibe el ScriptableObject con las reglas específicas
+    // El mÃ©todo ahora recibe el ScriptableObject con las reglas especÃ­ficas
     public static bool CheckPattern(List<Vector2Int> groupCells, PatternData patternData)
     {
-        // El número 1 es un caso especial geométrico (1 sola celda siempre coincide consigo misma)
+        // El nÃºmero 1 es un caso especial geomÃ©trico (1 sola celda siempre coincide consigo misma)
         if (patternData.targetNumber == 1) return true;
 
         if (patternData.baseShape == null || patternData.baseShape.Count == 0)
         {
-            Debug.LogError($"Error: El patrón para el número {patternData.targetNumber} no tiene forma base asignada.");
+            Debug.LogError($"Error: El patrÃ³n para el nÃºmero {patternData.targetNumber} no tiene forma base asignada.");
             return false;
         }
 
         List<Vector2Int> targetPattern = patternData.baseShape;
 
-        // 1. Intentar hacer coincidir con la forma original (y sus rotaciones si están permitidas)
-        if (EvaluarRotaciones(groupCells, targetPattern, patternData.permiteRotacion))
+        // 1. Intentar hacer coincidir con la forma original (y sus rotaciones si estÃ¡n permitidas)
+        if (EvaluarRotaciones(groupCells, targetPattern, patternData.allowRotation))
             return true;
 
-        // 2. Si falló y el espejo está permitido, invertimos la figura y probamos de nuevo
-        if (patternData.permiteEspejo)
+        // 2. Si fallÃ³ y el espejo estÃ¡ permitido, invertimos la figura y probamos de nuevo
+        if (patternData.allowMirror)
         {
             List<Vector2Int> mirroredPattern = EspejarPatron(targetPattern);
-            if (EvaluarRotaciones(groupCells, mirroredPattern, patternData.permiteRotacion))
+            if (EvaluarRotaciones(groupCells, mirroredPattern, patternData.allowRotation))
                 return true;
         }
 
         return false;
     }
 
-    private static bool EvaluarRotaciones(List<Vector2Int> cells, List<Vector2Int> target, bool permiteRotacion)
+    private static bool EvaluarRotaciones(List<Vector2Int> cells, List<Vector2Int> target, bool allowRotation)
     {
-        // Si no permite rotación, el bucle solo corre 1 vez. Si permite, corre 4 veces (0°, 90°, 180°, 270°).
-        int ciclos = permiteRotacion ? 4 : 1;
+        // Si no permite rotaciÃ³n, el bucle solo corre 1 vez. Si permite, corre 4 veces (0Â°, 90Â°, 180Â°, 270Â°).
+        int ciclos = allowRotation ? 4 : 1;
         List<Vector2Int> currentTarget = target;
 
         for (int i = 0; i < ciclos; i++)
         {
             if (AreShapesEqual(cells, currentTarget)) return true;
-            currentTarget = RotarPatron(currentTarget); // Rota 90 grados para la siguiente iteración
+            currentTarget = RotarPatron(currentTarget); // Rota 90 grados para la siguiente iteraciÃ³n
         }
 
         return false;
@@ -59,7 +59,7 @@ public static class PatternValidator
         return normA.All(a => normB.Any(b => b.x == a.x && b.y == a.y));
     }
 
-    // Lleva cualquier figura a su punto de origen (0,0) relativo para poder compararlas sin importar dónde se construyeron en el tablero
+    // Lleva cualquier figura a su punto de origen (0,0) relativo para poder compararlas sin importar dÃ³nde se construyeron en el tablero
     private static List<Vector2Int> Normalize(List<Vector2Int> points)
     {
         if (points.Count == 0) return points;
@@ -68,7 +68,7 @@ public static class PatternValidator
         return points.Select(p => new Vector2Int(p.x - minX, p.y - minY)).ToList();
     }
 
-    // Matemática matricial básica: Rotación de 90 grados (x, y) -> (-y, x)
+    // MatemÃ¡tica matricial bÃ¡sica: RotaciÃ³n de 90 grados (x, y) -> (-y, x)
     private static List<Vector2Int> RotarPatron(List<Vector2Int> points)
     {
         return points.Select(p => new Vector2Int(-p.y, p.x)).ToList();

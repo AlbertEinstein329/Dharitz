@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections.Generic;
@@ -6,87 +6,87 @@ using System.Collections.Generic;
 public class MainMenuManager : MonoBehaviour
 {
     [Header("Referencias a Datos")]
-    public SessionConfig configuracionSesion; // Arrastra aquí tu 'DatosDeSesionActual'
-    public List<VariantData> variantesDisponibles; // Arrastra aquí tus 3 variantes
+    public SessionConfig sessionConfig; // Arrastra aquÃ­ tu 'DatosDeSesionActual'
+    public List<VariantData> availableVariants; // Arrastra aquÃ­ tus 3 variantes
 
     [Header("Paneles UI")]
-    public GameObject panelPrincipal;
-    public GameObject panelModoLibre;
+    public GameObject mainPanel;
+    public GameObject freePlayPanel;
 
     private void Start()
     {
         // Limpiamos los datos de partidas anteriores al abrir el juego
-        if (configuracionSesion != null)
+        if (sessionConfig != null)
         {
-            configuracionSesion.ResetearSesion();
+            sessionConfig.ResetSession();
             // Por defecto asignamos la primera variante
-            if (variantesDisponibles.Count > 0)
-                configuracionSesion.varianteSeleccionada = variantesDisponibles[0];
+            if (availableVariants.Count > 0)
+                sessionConfig.selectedVariant = availableVariants[0];
         }
 
-        MostrarPanelPrincipal();
+        ShowMainPanel();
     }
 
-    // --- NAVEGACIÓN ---
-    public void MostrarPanelPrincipal()
+    // --- NAVEGACIÃ“N ---
+    public void ShowMainPanel()
     {
-        panelPrincipal.SetActive(true);
-        panelModoLibre.SetActive(false);
+        mainPanel.SetActive(true);
+        freePlayPanel.SetActive(false);
     }
 
-    public void MostrarPanelModoLibre()
+    public void ShowFreePlayPanel()
     {
-        panelPrincipal.SetActive(false);
-        panelModoLibre.SetActive(true);
+        mainPanel.SetActive(false);
+        freePlayPanel.SetActive(true);
     }
 
-    // --- CONFIGURACIÓN DE PARTIDA ---
-    // Conecta estos a botones de números (1, 2, 3, 4) o a un Dropdown
-    public void SetNumeroDeJugadores(int numero)
+    // --- CONFIGURACIÃ“N DE PARTIDA ---
+    // Conecta estos a botones de nÃºmeros (1, 2, 3, 4) o a un Dropdown
+    public void SetPlayerCount(int numero)
     {
-        configuracionSesion.numeroDeJugadores = Mathf.Clamp(numero, 1, 4);
-        Debug.Log($"Jugadores configurados a: {configuracionSesion.numeroDeJugadores}");
+        sessionConfig.playerCount = Mathf.Clamp(numero, 1, 4);
+        Debug.Log($"Jugadores configurados a: {sessionConfig.playerCount}");
     }
 
     // Conecta esto a un Dropdown de Variantes (0 = Var 1, 1 = Var 2, etc.)
-    public void SetVariante(int indiceDropdown)
+    public void SetVariant(int indiceDropdown)
     {
-        if (indiceDropdown >= 0 && indiceDropdown < variantesDisponibles.Count)
+        if (indiceDropdown >= 0 && indiceDropdown < availableVariants.Count)
         {
-            configuracionSesion.varianteSeleccionada = variantesDisponibles[indiceDropdown];
-            Debug.Log($"Variante seleccionada: {configuracionSesion.varianteSeleccionada.nombreVariante}");
+            sessionConfig.selectedVariant = availableVariants[indiceDropdown];
+            Debug.Log($"Variante seleccionada: {sessionConfig.selectedVariant.variantName}");
         }
     }
 
-    // --- CONFIGURACIÓN DE BOTS (USANDO TOGGLES) ---
+    // --- CONFIGURACIÃ“N DE BOTS (USANDO TOGGLES) ---
 
-    // Estos métodos reciben el 'bool' directamente del Toggle de Unity
-    public void SetPlayer1Bot(bool isBot) { ActualizarEstadoBot(0, isBot); }
-    public void SetPlayer2Bot(bool isBot) { ActualizarEstadoBot(1, isBot); }
-    public void SetPlayer3Bot(bool isBot) { ActualizarEstadoBot(2, isBot); }
-    public void SetPlayer4Bot(bool isBot) { ActualizarEstadoBot(3, isBot); }
+    // Estos mÃ©todos reciben el 'bool' directamente del Toggle de Unity
+    public void SetPlayer1Bot(bool isBot) { UpdateBotState(0, isBot); }
+    public void SetPlayer2Bot(bool isBot) { UpdateBotState(1, isBot); }
+    public void SetPlayer3Bot(bool isBot) { UpdateBotState(2, isBot); }
+    public void SetPlayer4Bot(bool isBot) { UpdateBotState(3, isBot); }
 
-    // El método central que modifica el maletín de sesión
-    private void ActualizarEstadoBot(int playerIndex, bool isBot)
+    // El mÃ©todo central que modifica el maletÃ­n de sesiÃ³n
+    private void UpdateBotState(int playerIndex, bool isBot)
     {
-        if (playerIndex < configuracionSesion.jugadores.Count)
+        if (playerIndex < sessionConfig.players.Count)
         {
-            configuracionSesion.jugadores[playerIndex].esBot = isBot;
+            sessionConfig.players[playerIndex].isBot = isBot;
             Debug.Log($"Jugador {playerIndex + 1} configurado como Bot: {isBot}");
         }
     }
 
     // --- INICIAR JUEGO ---
-    public void IniciarModoLibre()
+    public void StartFreePlay()
     {
-        configuracionSesion.esModoCampana = false;
-        // Asume que tu escena de juego es la número 2 en los Build Settings
+        sessionConfig.isCampaignMode = false;
+        // Asume que tu escena de juego es la nÃºmero 2 en los Build Settings
         SceneManager.LoadScene(1);
     }
 
-    public void IniciarModoCampana()
+    public void StartCampaign()
     {
-        // En futuras versiones cargaremos el mapa aquí
-        Debug.Log("Modo campaña aún en desarrollo.");
+        // En futuras versiones cargaremos el mapa aquÃ­
+        Debug.Log("Modo campaÃ±a aÃºn en desarrollo.");
     }
 }

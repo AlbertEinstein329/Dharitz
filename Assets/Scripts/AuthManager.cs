@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using Unity.Services.Core;
 using Unity.Services.Authentication;
 using System.Threading.Tasks;
@@ -27,7 +27,7 @@ public class AuthManager : MonoBehaviour
 
     async void Start()
     {
-        // Al arrancar el juego, intentamos iniciar sesión automáticamente
+        // Al arrancar el juego, intentamos iniciar sesiÃ³n automÃ¡ticamente
         await InitializeAndSignInAsync();
     }
 
@@ -39,24 +39,24 @@ public class AuthManager : MonoBehaviour
             await UnityServices.InitializeAsync();
             Debug.Log("Unity Services inicializados correctamente.");
 
-            // 2. Nos suscribimos a los eventos para saber si funcionó
+            // 2. Nos suscribimos a los eventos para saber si funcionÃ³
             SetupEvents();
 
-            // 3. Si ya tiene sesión iniciada, no hacemos nada. Si no, lo logueamos como invitado.
+            // 3. Si ya tiene sesiÃ³n iniciada, no hacemos nada. Si no, lo logueamos como invitado.
             if (!AuthenticationService.Instance.IsSignedIn)
             {
-                Debug.Log("Intentando iniciar sesión como invitado...");
+                Debug.Log("Intentando iniciar sesiÃ³n como invitado...");
                 await AuthenticationService.Instance.SignInAnonymouslyAsync();
             }
         }
         catch (AuthenticationException ex)
         {
-            // Atrapamos errores específicos de autenticación (ej: cuenta baneada)
-            Debug.LogError($"Error de Autenticación: {ex.Message}");
+            // Atrapamos errores especÃ­ficos de autenticaciÃ³n (ej: cuenta baneada)
+            Debug.LogError($"Error de AutenticaciÃ³n: {ex.Message}");
         }
         catch (RequestFailedException ex)
         {
-            // Atrapamos errores de red (ej: sin conexión a internet)
+            // Atrapamos errores de red (ej: sin conexiÃ³n a internet)
             Debug.LogError($"Error de Red/Servidor: {ex.Message}");
         }
     }
@@ -64,26 +64,26 @@ public class AuthManager : MonoBehaviour
     private void SetupEvents()
     {
         AuthenticationService.Instance.SignedIn += async () => {
-            Debug.Log($"¡Sesión iniciada con éxito! ID: {AuthenticationService.Instance.PlayerId}");
+            Debug.Log($"Â¡SesiÃ³n iniciada con Ã©xito! ID: {AuthenticationService.Instance.PlayerId}");
 
-            // NUEVO: Apenas inicia sesión (ya sea invitado o Google), descarga su progreso.
+            // NUEVO: Apenas inicia sesiÃ³n (ya sea invitado o Google), descarga su progreso.
             if (CloudSaveManager.Instance != null)
             {
-                await CloudSaveManager.Instance.CargarProgresoMeta();
+                await CloudSaveManager.Instance.LoadMetaProgress();
             }
         };
 
         AuthenticationService.Instance.SignInFailed += (err) => {
-            Debug.LogError($"Fallo al iniciar sesión: {err}");
+            Debug.LogError($"Fallo al iniciar sesiÃ³n: {err}");
         };
 
         AuthenticationService.Instance.SignedOut += () => {
-            Debug.Log("Sesión cerrada.");
+            Debug.Log("SesiÃ³n cerrada.");
         };
     }
 
     /// <summary>
-    /// Inicia la conexión con la app de Google Play Games del teléfono.
+    /// Inicia la conexiÃ³n con la app de Google Play Games del telÃ©fono.
     /// </summary>
     public void VincularCuentaGooglePlay()
     {
@@ -92,24 +92,24 @@ public class AuthManager : MonoBehaviour
         // 1. Activamos la plataforma de GPGS
         PlayGamesPlatform.Activate();
 
-        // 2. Intentamos autenticar al jugador (saldrá el cartel verde de Play Games por arriba)
+        // 2. Intentamos autenticar al jugador (saldrÃ¡ el cartel verde de Play Games por arriba)
         PlayGamesPlatform.Instance.Authenticate((SignInStatus status) =>
         {
             if (status == SignInStatus.Success)
             {
-                Debug.Log("Login en Play Games exitoso. Solicitando código de acceso al servidor...");
+                Debug.Log("Login en Play Games exitoso. Solicitando cÃ³digo de acceso al servidor...");
 
-                // 3. Pedimos el Auth Code. El 'true' significa que forzamos la obtención del código.
+                // 3. Pedimos el Auth Code. El 'true' significa que forzamos la obtenciÃ³n del cÃ³digo.
                 PlayGamesPlatform.Instance.RequestServerSideAccess(true, async (authCode) =>
                 {
                     try
                     {
-                        Debug.Log("Código recibido. Vinculando con Unity Gaming Services...");
+                        Debug.Log("CÃ³digo recibido. Vinculando con Unity Gaming Services...");
 
-                        // OJO: Usamos el método específico para Play Games
+                        // OJO: Usamos el mÃ©todo especÃ­fico para Play Games
                         await AuthenticationService.Instance.LinkWithGooglePlayGamesAsync(authCode);
 
-                        Debug.Log("¡VINCULACIÓN EXITOSA! Ahora estás usando Google Play Games.");
+                        Debug.Log("Â¡VINCULACIÃ“N EXITOSA! Ahora estÃ¡s usando Google Play Games.");
                     }
                     catch (AuthenticationException ex)
                     {
@@ -119,7 +119,7 @@ public class AuthManager : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"Fallo al iniciar sesión en Play Games: {status}");
+                Debug.LogError($"Fallo al iniciar sesiÃ³n en Play Games: {status}");
             }
         });
     }

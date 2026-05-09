@@ -49,16 +49,4 @@ public partial class ScoreManager : MonoBehaviour
         int index = Mathf.Min(linesConsecutive - 1, colMultipliers.Length - 1);
         return colMultipliers[index];
     }
-
-    public int GetHolePenalty(int holeSize)
-    {
-        if (holeSize <= 0) return 0;
-        if (holeSize == 1) return 500; // 
-        if (holeSize == 2) return 700; // 
-        return 1000 * holeSize;        // 3 o más: 1000 por cada uno 
-    }
-
-
-
-
 }

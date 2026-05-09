@@ -1,4 +1,4 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
@@ -16,19 +16,19 @@ public class UIManager : MonoBehaviour
 
     [Header("Paneles Principales")]
     public GameObject panelGameOver;
-    public TextMeshProUGUI textoResultados;
+    public TextMeshProUGUI resultsText;
 
     [Header("Referencias de UI del Panel Superior")]
-    public GameObject panelDados;
-    public Image imagenDadoActual;
-    public TextMeshProUGUI textoProgreso;
-    public TextMeshProUGUI textoScoreHUD;
+    public GameObject dicePanel;
+    public Image currentDieImage;
+    public TextMeshProUGUI progressText;
+    public TextMeshProUGUI scoreHUDText;
 
     [Header("Base de Datos de Sprites")]
-    public Sprite[] spritesRojos;
-    public Sprite[] spritesAzules;
-    public Sprite[] spritesBlancos;
-    public Sprite[] spritesNegros;
+    public Sprite[] redSprites;
+    public Sprite[] blueSprites;
+    public Sprite[] whiteSprites;
+    public Sprite[] blackSprites;
 
     [Header("Dice Counters")]
     public DiceCounterUI redCounter;
@@ -37,9 +37,9 @@ public class UIManager : MonoBehaviour
     public DiceCounterUI blackCounter;
 
     [Header("Animation Settings")]
-    [SerializeField] private float rollDuration = 0.5f; // DuraciÛn total de la animaciÛn en segundos
-    [SerializeField] private int rollAnimationSteps = 6; // Cu·ntas veces cambiar· de sprite
-    //[SerializeField] private Sprite emptySlotSprite; // OPCIONAL: Asigna aquÌ la imagen de fondo vacÌa si la tienes, si no, dÈjalo en null
+    [SerializeField] private float rollDuration = 0.5f; // Duraci√≥n total de la animaci√≥n en segundos
+    [SerializeField] private int rollAnimationSteps = 6; // Cu√°ntas veces cambiar√° de sprite
+    //[SerializeField] private Sprite emptySlotSprite; // OPCIONAL: Asigna aqu√≠ la imagen de fondo vac√≠a si la tienes, si no, d√©jalo en null
     
     private Sprite originalSlotSprite;
     private Sequence rollSequence; // Guarda la referencia de DOTween
@@ -49,10 +49,10 @@ public class UIManager : MonoBehaviour
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
 
-        // CACH…: Guardamos la "Source Image" que configuraste en el editor de Unity
-        if (imagenDadoActual != null)
+        // CACH√â: Guardamos la "Source Image" que configuraste en el editor de Unity
+        if (currentDieImage != null)
         {
-            originalSlotSprite = imagenDadoActual.sprite;
+            originalSlotSprite = currentDieImage.sprite;
         }
 
         InitializeCounters();
@@ -64,9 +64,9 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void SetDrawInputLock(bool isLocked)
     {
-        if (imagenDadoActual != null)
+        if (currentDieImage != null)
         {
-            UIDieInteractor interactor = imagenDadoActual.GetComponent<UIDieInteractor>();
+            UIDieInteractor interactor = currentDieImage.GetComponent<UIDieInteractor>();
             if (interactor != null) interactor.isInputLocked = isLocked;
         }
     }
@@ -78,20 +78,20 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void UpdateHandUI(DieColor finalColor, int finalNumber, int placedDice, int totalDice, System.Action onCompleteCallback)
     {
-        if (panelDados != null) panelDados.SetActive(true);
+        if (dicePanel != null) dicePanel.SetActive(true);
 
         Sprite finalSprite = GetSprite(finalColor, finalNumber);
         rollSequence?.Kill();
-        imagenDadoActual.color = Color.white;
+        currentDieImage.color = Color.white;
 
-        // Bloqueamos el espacio de interacciÛn
-        UIDieInteractor interactor = imagenDadoActual.GetComponent<UIDieInteractor>();
+        // Bloqueamos el espacio de interacci√≥n
+        UIDieInteractor interactor = currentDieImage.GetComponent<UIDieInteractor>();
         if (interactor != null) interactor.IsSlotEmpty = false;
 
         rollSequence = DOTween.Sequence();
         float intervalDuration = rollDuration / rollAnimationSteps;
 
-        // Bucle de animaciÛn
+        // Bucle de animaci√≥n
         for (int i = 0; i < rollAnimationSteps; i++)
         {
             rollSequence.AppendCallback(() =>
@@ -99,22 +99,22 @@ public class UIManager : MonoBehaviour
                 DieColor randomColor = (DieColor)UnityEngine.Random.Range(0, 4);
                 int randomFace = UnityEngine.Random.Range(1, 7);
 
-                imagenDadoActual.sprite = GetSprite(randomColor, randomFace);
+                currentDieImage.sprite = GetSprite(randomColor, randomFace);
                 AudioManager.Instance.PlayTickSound();
             });
             rollSequence.AppendInterval(intervalDuration);
         }
 
-        // FinalizaciÛn de la animaciÛn
+        // Finalizaci√≥n de la animaci√≥n
         rollSequence.AppendCallback(() =>
         {
-            imagenDadoActual.sprite = finalSprite;
+            currentDieImage.sprite = finalSprite;
 
-            // Ahora las variables sÌ existen en la cabecera y la resta funcionar·
+            // Ahora las variables s√≠ existen en la cabecera y la resta funcionar√°
             int missingDice = totalDice - placedDice;
-            if (textoProgreso != null)
+            if (progressText != null)
             {
-                textoProgreso.text = $"{finalColor.ToString().ToUpper()} {finalNumber} / Faltan: {missingDice}";
+                progressText.text = $"{finalColor.ToString().ToUpper()} {finalNumber} / Faltan: {missingDice}";
             }
 
             // Disparamos el callback hacia el GameManager
@@ -131,16 +131,16 @@ public class UIManager : MonoBehaviour
         rollSequence?.Kill();
 
         // 2. Restore the cached default sprite
-        if (imagenDadoActual != null)
+        if (currentDieImage != null)
         {
-            imagenDadoActual.sprite = originalSlotSprite;
-            imagenDadoActual.color = Color.white; // Ensures visibility
+            currentDieImage.sprite = originalSlotSprite;
+            currentDieImage.color = Color.white; // Ensures visibility
         }
 
-        UIDieInteractor interactor = imagenDadoActual.GetComponent<UIDieInteractor>();
+        UIDieInteractor interactor = currentDieImage.GetComponent<UIDieInteractor>();
         if (interactor != null)
         {
-            // Desbloqueamos el espacio: Vuelve a estar vacÌo, permitiendo el "Tap" para extraer el siguiente.
+            // Desbloqueamos el espacio: Vuelve a estar vac√≠o, permitiendo el "Tap" para extraer el siguiente.
             interactor.IsSlotEmpty = true;
         }
 
@@ -155,10 +155,10 @@ public class UIManager : MonoBehaviour
 
         switch (color)
         {
-            case DieColor.Red: listaSeleccionada = spritesRojos; break;
-            case DieColor.Blue: listaSeleccionada = spritesAzules; break;
-            case DieColor.White: listaSeleccionada = spritesBlancos; break;
-            case DieColor.Black: listaSeleccionada = spritesNegros; break;
+            case DieColor.Red: listaSeleccionada = redSprites; break;
+            case DieColor.Blue: listaSeleccionada = blueSprites; break;
+            case DieColor.White: listaSeleccionada = whiteSprites; break;
+            case DieColor.Black: listaSeleccionada = blackSprites; break;
         }
 
         if (listaSeleccionada == null || listaSeleccionada.Length < 6) return null;
@@ -167,24 +167,24 @@ public class UIManager : MonoBehaviour
     }
 
     //Actualiza el texto en la pantalla durante el juego
-    public void ActualizarScore(int nuevoScore)
+    public void UpdateScore(int nuevoScore)
     {
-        if (textoScoreHUD != null)
+        if (scoreHUDText != null)
         {
-            textoScoreHUD.text = $"PUNTOS: {nuevoScore}";
+            scoreHUDText.text = $"PUNTOS: {nuevoScore}";
         }
     }
 
-    public void MostrarResultadosFinales(int playerIndex)
+    public void ShowFinalResults(int playerIndex)
     {
         panelGameOver.SetActive(true);
 
         //  Ocultamos el HUD de puntos en pantalla
-        if (textoScoreHUD != null) textoScoreHUD.gameObject.SetActive(false);
+        if (scoreHUDText != null) scoreHUDText.gameObject.SetActive(false);
 
         PlayerData player = GameManager.Instance.players[playerIndex];
 
-        // 1. Puntos que el jugador ya ganÛ en tiempo real
+        // 1. Puntos que el jugador ya gan√≥ en tiempo real
         int puntosTiempoReal = player.score;
 
         // --- DESGLOSE VISUAL (No se suman al total, solo se calculan para mostrar en texto) ---
@@ -194,34 +194,34 @@ public class UIManager : MonoBehaviour
         string desglosePatrones = "";
         for (int i = 1; i <= 6; i++) // Ahora evaluamos desde el 1
         {
-            if (player.conteoPatrones[i] > 0)
+            if (player.patternCounts[i] > 0)
             {
                 int bonoUnico = ScoreManager.Instance.GetPatternBonus(i);
-                int subtotal = player.conteoPatrones[i] * bonoUnico;
+                int subtotal = player.patternCounts[i] * bonoUnico;
                 totalBonosPatrones += subtotal;
-                desglosePatrones += $"Patrones de {i} (x{player.conteoPatrones[i]}): +{subtotal} pts\n";
+                desglosePatrones += $"Patrones de {i} (x{player.patternCounts[i]}): +{subtotal} pts\n";
             }
         }
 
         int puntosEstructura = player.accumulatedStructurePoints;
 
-        // Puntos ExÛticos: Lo que "sobra" del score total tras restar lo b·sico, son los combos de variantes.
+        // Puntos Ex√≥ticos: Lo que "sobra" del score total tras restar lo b√°sico, son los combos de variantes.
         int puntosVariante = puntosTiempoReal - (puntosBase + totalBonosPatrones + puntosEstructura);
 
         // 2. PENALIZACIONES DE FIN DE PARTIDA (AHORA SOLO HUECOS)
-        // Recordatorio: Debes usar la funciÛn que creamos para contar huecos agrupados
+        // Recordatorio: Debes usar la funci√≥n que creamos para contar huecos agrupados
         int penalizacionHuecos = GameManager.Instance.gridManager.CalculateGapPenalty(playerIndex, false);
 
 
         // Los unos ya fueron restados del 'puntosTiempoReal' durante la partida. 
-        // Solo los obtenemos para mostrarlos como informaciÛn al jugador.
-        int cantidadUnos = GameManager.Instance.gridManager.ObtenerPenalizacionesPorUnos(playerIndex);
+        // Solo los obtenemos para mostrarlos como informaci√≥n al jugador.
+        int cantidadUnos = GameManager.Instance.gridManager.GetOnesPenalties(playerIndex);
         int puntosRestadosPorUnos = cantidadUnos * 200;
 
-        // 2. CORRECCI”N: El Score real YA TIENE la multa aplicada. °Est·n sincronizados!
+        // 2. CORRECCI√ìN: El Score real YA TIENE la multa aplicada. ¬°Est√°n sincronizados!
         int totalFinal = player.score;
 
-        // 4. CONSTRUCCI”N DE LA INTERFAZ
+        // 4. CONSTRUCCI√ìN DE LA INTERFAZ
         string textoCombos = puntosEstructura > 0 ? $"Combos Estructura: +{puntosEstructura} pts\n" : "";
         string textoVariantes = puntosVariante > 0 ? $"Bonos de Variante: +{puntosVariante} pts\n" : "";
 
@@ -231,7 +231,7 @@ public class UIManager : MonoBehaviour
             textoPenalizaciones += $"<color=red>Huecos encerrados: {penalizacionHuecos} pts</color>\n";
         }
 
-        textoResultados.text =
+        resultsText.text =
             $"<size=120%>{player.name.ToUpper()}</size>\n\n" +
             $"Dados (+{ScoreManager.POINTS_PER_DIE} c/u): +{puntosBase} pts\n" +
             $"{desglosePatrones}" +
@@ -266,12 +266,12 @@ public class UIManager : MonoBehaviour
     }
 
 
-    public void OcultarPanelResultados()
+    public void HideResultsPanel()
     {
         if (panelGameOver != null) panelGameOver.SetActive(false);
 
         // --- Volvemos a encender el HUD para poder ver el tablero ---
-        if (textoScoreHUD != null) textoScoreHUD.gameObject.SetActive(true);
+        if (scoreHUDText != null) scoreHUDText.gameObject.SetActive(true);
     }
 
     /// <summary>
@@ -281,9 +281,9 @@ public class UIManager : MonoBehaviour
     public void UpdateProgressText(DieColor finalColor, int finalNumber, int placedDice, int totalDice)
     {
         int missingDice = totalDice - placedDice;
-        if (textoProgreso != null)
+        if (progressText != null)
         {
-            textoProgreso.text = $"{finalColor.ToString().ToUpper()} {finalNumber} / Faltan: {missingDice}";
+            progressText.text = $"{finalColor.ToString().ToUpper()} {finalNumber} / Faltan: {missingDice}";
         }
     }
 

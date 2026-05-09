@@ -1,0 +1,43 @@
+Date : 2026-05-09 17:52:36
+Directory : d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts
+Total : 19 files,  2080 codes, 344 comments, 543 blanks, all 2967 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| C#       |         19 |      2,080 |        344 |        543 |      2,967 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                   |         19 |      2,080 |        344 |        543 |      2,967 |
++-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                            | language | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\AudioManager.cs         | C#       |         28 |          4 |          7 |         39 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\AuthManager.cs          | C#       |         93 |         15 |         20 |        128 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\CellComponent.cs        | C#       |         83 |         14 |         18 |        115 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\CloudSaveManager.cs     | C#       |         61 |         15 |         12 |         88 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\GameData.cs             | C#       |         38 |          3 |         11 |         52 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\GameInterfaces.cs       | C#       |         16 |          3 |          3 |         22 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\GameManager.cs          | C#       |        372 |         92 |        132 |        596 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\GridManager.cs          | C#       |        695 |         89 |        165 |        949 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\MainMenuManager.cs      | C#       |         67 |         12 |         13 |         92 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\PatternData.cs          | C#       |         20 |          2 |          6 |         28 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\PatternUIManager.cs     | C#       |         79 |          6 |         22 |        107 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\PatternValidator.cs     | C#       |         58 |          9 |         17 |         84 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\PopUpManager.cs         | C#       |         62 |         22 |         20 |        104 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\ScoreManager.cs         | C#       |         43 |          1 |          8 |         52 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\SessionConfig.cs        | C#       |         35 |          2 |          5 |         42 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\SpecialRuleEvaluator.cs | C#       |         60 |          3 |         10 |         73 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\UIDieInteractor.cs      | C#       |         64 |          8 |         14 |         86 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\UIManager.cs            | C#       |        192 |         43 |         55 |        290 |
+| d:\Programacion\UnityProyect\Dharitz\Dharitz\Assets\Scripts\VariantData.cs          | C#       |         14 |          1 |          5 |         20 |
+| Total                                                                               |          |      2,080 |        344 |        543 |      2,967 |
++-------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
