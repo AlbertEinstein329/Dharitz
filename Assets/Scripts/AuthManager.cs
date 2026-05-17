@@ -4,6 +4,7 @@ using Unity.Services.Authentication;
 using System.Threading.Tasks;
 using GooglePlayGames;
 using GooglePlayGames.BasicApi;
+using UnityEngine.SceneManagement;
 
 public class AuthManager : MonoBehaviour
 {
@@ -63,18 +64,25 @@ public class AuthManager : MonoBehaviour
 
     private void SetupEvents()
     {
+        // Usamos 'async' para poder esperar a que descarguen los datos antes de cambiar de escena
         AuthenticationService.Instance.SignedIn += async () => {
             Debug.Log($"¡Sesión iniciada con éxito! ID: {AuthenticationService.Instance.PlayerId}");
 
-            // NUEVO: Apenas inicia sesión (ya sea invitado o Google), descarga su progreso.
             if (CloudSaveManager.Instance != null)
             {
+                // Esperamos a que termine de descargar las monedas y nivel
+                // La forma correcta con el nuevo nombre
                 await CloudSaveManager.Instance.LoadMetaProgress();
             }
+
+            // NUEVO: Cambiamos a la escena del menú principal.
+            // Asegúrate de escribir el nombre de tu escena EXACTAMENTE igual (respetando mayúsculas)
+            SceneManager.LoadScene(1);
         };
 
         AuthenticationService.Instance.SignInFailed += (err) => {
             Debug.LogError($"Fallo al iniciar sesión: {err}");
+            // Aquí en el futuro podrías mostrar un PopUp que diga "Revisa tu conexión a internet"
         };
 
         AuthenticationService.Instance.SignedOut += () => {

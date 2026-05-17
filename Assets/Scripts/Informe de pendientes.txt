@@ -1,0 +1,22 @@
+II. INFORME DE PENDIENTES (ROADMAP)
+5. Sistema de Inteligencia Artificial (ML-Agents)
+Es la prioridad crítica para la versión 0.4.
+•	Cerebro Neuronal: Creación del agente DharitzAgent e implementación del espacio de observación (matriz 8x10) para que la IA "entienda" el tablero.
+•	Sistema de Recompensa: Programar las señales positivas por patrones completados y negativas por dejar huecos innecesarios.
+6. Sistema de Modo Campaña (Progreso de Niveles)
+Estructura de juego para un solo jugador con objetivos fijos.
+•	Mapa de Niveles: Diseño visual de una ruta con niveles que exijan objetivos específicos (ej: "Completa 5 patrones rojos").
+•	Persistencia de Datos: Implementación de guardado (JSON/PlayerPrefs) para estrellas, niveles desbloqueados y récords.
+7. Sistema de Feedback Audiovisual (Juice & Polish)
+Mejorar la experiencia táctil y visual del juego.
+•	Tweening y Animaciones: Uso de DOTween para que los dados caigan o se deslicen al ser colocados, eliminando la aparición instantánea.
+•	Diseño de Audio (SFX): Integración de sonidos para la extracción de dados, rotación y el cierre de grupos exitosos.
+•	Tutorial Interactivo: Guía paso a paso para enseñar al jugador las reglas de aislamiento del 1 y contacto de color.
+8. Sistema de Red (Online Multiplayer)
+Preparación para la versión 0.7.
+•	Netcode: Sincronización de la bolsa de dados y los movimientos entre distintos dispositivos en tiempo real.
+•	Matchmaking: Creación de salas privadas o búsqueda de oponentes aleatorios.
+9. Sistema de Monetización y Personalización
+Implementación final para la versión 1.0.
+•	Tienda de Skins: Sistema para cambiar las texturas de los dados (Zen, Naturaleza, Futurista) y los materiales del tablero.
+•	Integración de Ads/IAP: Compras dentro de la aplicación para skins y anuncios opcionales para beneficios menores.

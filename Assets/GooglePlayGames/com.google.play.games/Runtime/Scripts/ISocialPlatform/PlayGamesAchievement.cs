@@ -39,6 +39,7 @@ namespace GooglePlayGames
     /// to the API, offering identical functionality as <see cref="PlayGamesPlatform.ReportProgress" />.
     /// Implements both the <see cref="IAchievement"/> and <see cref="IAchievementDescription"/> interfaces.
     /// </summary>
+    [Obsolete]
     internal class PlayGamesAchievement : IAchievement, IAchievementDescription
     {
         /// <summary>

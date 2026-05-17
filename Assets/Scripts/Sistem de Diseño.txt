@@ -1,0 +1,7 @@
+4. Sistema de Diseño Canvas (UX Reactiva)
+La interfaz se construye dinámicamente basándose en la configuración de la sesión.
+•	Gestor de Sesión (SessionConfig): Un "maletín" de datos que transporta la configuración (número de jugadores, variantes, IA) desde el Menú Principal hasta la escena de Juego.
+•	Pattern UIManager: Generador automático de guías visuales en la parte superior del HUD que dibuja los patrones actuales usando sprites de madera, adaptándose instantáneamente a la variante elegida.
+•	Panel de Resultados Dinámico: Desglose detallado de puntos, bonos y penalizaciones que se actualiza según el tablero que el usuario esté visualizando.
+Visualizacion Dinamica en tiempo real al completar un patron y los puntajes obtenidos por cada patron y combo de patrones (Vease Sistema de Puntaje)
+Desgloce detallado de puntaje al final de la partida separado por cada jugador en un mismo tablero separado según cantidad de jugadores

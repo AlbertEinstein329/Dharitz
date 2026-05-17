@@ -1,7 +1,9 @@
-﻿using UnityEngine;
+using UnityEngine;
+using UnityEngine.EventSystems; // NUEVO: Necesario para el Input System
 using DG.Tweening;
 
-public class CellComponent : MonoBehaviour
+// NUEVO: Añadimos IPointerClickHandler a la clase
+public class CellComponent : MonoBehaviour, IPointerClickHandler
 {
     private int row;
     private int col;
@@ -14,12 +16,13 @@ public class CellComponent : MonoBehaviour
 
     [Header("Visual Configuration")]
     [Tooltip("Drag the child object containing the SpriteRenderer here.")]
-    [SerializeField] private SpriteRenderer childSpriteRenderer; // Asignar el hijo aquí
+    [SerializeField] private SpriteRenderer childSpriteRenderer;
+    [Tooltip("Drag the overlay sprite for completed patterns here.")]
+    [SerializeField] private SpriteRenderer completionSpriteOverlay;
     private Color originalColor;
 
     void Awake()
     {
-        // Fallback: If not assigned in Inspector, search in children automatically
         if (childSpriteRenderer == null)
         {
             childSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
@@ -31,12 +34,26 @@ public class CellComponent : MonoBehaviour
         }
         else
         {
-            Debug.LogError($"CellComponent on {gameObject.name} is missing a SpriteRenderer in its children!");
+            Debug.LogError($"CellComponent on {gameObject.name} is missing a SpriteRenderer!");
         }
     }
 
-    // Dependency Injection via Setup. 
-    // The cell receives its dependencies without knowing their concrete implementations.
+    private void Start()
+
+    {
+
+        // Si no se asignaron desde el Inspector o al instanciar, búscalas automáticamente
+
+        if (turnProvider == null) turnProvider = GameManager.Instance;
+
+        if (gridValidator == null) gridValidator = GameManager.Instance.gridManager; // O GameManager.Instance si lo implementa directo
+
+        if (placementExecutor == null) placementExecutor = GameManager.Instance;
+
+    }
+
+
+
     public void Setup(int r, int c, int pIndex, IGridValidator validator, ITurnProvider turnInfo, IPlacementExecutor executor)
     {
         row = r;
@@ -51,19 +68,29 @@ public class CellComponent : MonoBehaviour
     public void SetHighlight(bool highlight)
     {
         if (childSpriteRenderer == null) return;
-
-        // El resaltado normal de movimientos ocurre en celdas vacías, no necesita superponerse a un dado
         childSpriteRenderer.color = highlight ? new Color(0.5f, 1f, 0.5f, 1f) : originalColor;
-        childSpriteRenderer.sortingOrder = 0; // Orden base
+        childSpriteRenderer.sortingOrder = 0;
     }
 
-    void OnMouseDown()
+    public void ToggleCompletionSprite(bool isActive)
+    {
+        if (completionSpriteOverlay != null)
+        {
+            completionSpriteOverlay.gameObject.SetActive(isActive);
+        }
+    }
+
+
+    public void OnPointerClick(PointerEventData eventData)
     {
         HandleClick();
     }
 
     public void HandleClick()
     {
+        // 🛡️ ESCUDO 1: Blindaje contra NullReferenceException
+        if (turnProvider == null || gridValidator == null || placementExecutor == null) return;
+
         // 1. Ask the Turn Provider if it's our turn
         if (turnProvider.CurrentPlayerIndex != playerOwnerIndex)
         {
@@ -71,45 +98,51 @@ public class CellComponent : MonoBehaviour
             return;
         }
 
+        // Interceptamos si el Modo Mover está activo
+        var gm = global::GameManager.Instance;
+        if (gm != null && gm.placementOrchestrator != null && gm.placementOrchestrator.isMoveModeActive)
+        {
+            gm.placementOrchestrator.HandleMoveClick(row, col);
+            return; // Bloqueamos la colocación normal
+        }
+
         if (!turnProvider.HasDrawn) return;
 
         DieColor currentColor = turnProvider.CurrentDrawnColor;
         PlayerData currentPlayer = turnProvider.GetCurrentPlayer();
 
+        if (currentPlayer == null) return;
+
+        // 🛡️ ESCUDO 2: Deducimos el tamaño y el ID para permitir colocar grupos NUEVOS
+        int targetSize = 0;
+        int currentGroupId = 0;
+
         if (currentPlayer.activeGroups.TryGetValue(currentColor, out GroupData group))
         {
             if (group != null && group.targetSize > 0)
             {
-                // 2. Ask the Grid Validator if the move is legal
-                if (gridValidator.CanBotPlaceHere(playerOwnerIndex, row, col, currentColor, group.id, group.targetSize))
-                {
-                    // 3. Ask the Executor to process the play
-                    placementExecutor.BeginPlacement(row, col);
-                }
+                targetSize = group.targetSize;
+                currentGroupId = group.id;
             }
         }
-    }
 
-    /// <summary>
-    /// Colors the empty cell red to indicate a gap penalty.
-    /// </summary>
-    public void HighlightGapColor()
-    {
-        // Si tu tablero usa SpriteRenderer (2D World)
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr != null)
+        if (targetSize == 0) return; // Si no hay dado extraído, abortamos
+
+        // 2. CORRECCIÓN: Usamos IsValidPlacement en lugar de CanBotPlaceHere
+        if (gridValidator.IsValidPlacement(playerOwnerIndex, row, col, currentColor, currentGroupId, targetSize))
         {
-            // Usamos un rojo semitransparente/claro para que no sea muy agresivo
-            sr.color = new Color(1f, 0.3f, 0.3f, 1f);
+            // 3. Ask the Executor to process the play
+            placementExecutor.BeginPlacement(row, col);
         }
         else
         {
-            // Si por algún motivo tu tablero está hecho de UI Images (Canvas)
-            UnityEngine.UI.Image img = GetComponent<UnityEngine.UI.Image>();
-            if (img != null) img.color = new Color(1f, 0.3f, 0.3f, 1f);
+            Debug.Log("Movimiento inválido. La celda ignora el clic.");
         }
     }
 
-
-
+    public void HighlightGapColor()
+    {
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = new Color(1f, 0.3f, 0.3f, 1f);
+    }
 }

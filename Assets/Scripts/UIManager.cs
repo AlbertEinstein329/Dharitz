@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
@@ -13,6 +13,7 @@ public class UIManager : MonoBehaviour
     }
 
     public static UIManager Instance;
+
 
     [Header("Paneles Principales")]
     public GameObject panelGameOver;
@@ -58,6 +59,7 @@ public class UIManager : MonoBehaviour
         InitializeCounters();
 
     }
+
 
     /// <summary>
     /// Locks or unlocks the draw area to prevent inputs during turn transitions.
@@ -144,6 +146,23 @@ public class UIManager : MonoBehaviour
             interactor.IsSlotEmpty = true;
         }
 
+    }
+
+    public void RestoreDieToHand(DieColor color, int number)
+    {
+        rollSequence?.Kill();
+        if (currentDieImage != null)
+        {
+            currentDieImage.sprite = GetSprite(color, number);
+            currentDieImage.color = Color.white;
+            
+            UIDieInteractor interactor = currentDieImage.GetComponent<UIDieInteractor>();
+            if (interactor != null)
+            {
+                interactor.IsSlotEmpty = false;
+                interactor.isInputLocked = false;
+            }
+        }
     }
 
     public Sprite GetSprite(DieColor color, int number)

@@ -154,6 +154,7 @@ namespace GooglePlayGames.BasicApi
         /// </summary>
         /// <param name="userIds">List of user IDs.</param>
         /// <param name="callback">Callback to handle the user profile response.</param>
+        [Obsolete("IUserProfile is deprecated and will be removed in a future release.")]
         public void LoadUsers(string[] userIds, Action<IUserProfile[]> callback)
         {
             LogUsage();
@@ -476,6 +477,7 @@ namespace GooglePlayGames.BasicApi
         /// Retrieves the list of friends for the current user.
         /// </summary>
         /// <returns>Returns an empty array since no friends are loaded.</returns>
+        [Obsolete("IUserProfile is deprecated and will be removed in a future release.")]
         public IUserProfile[] GetFriends()
         {
             LogUsage();

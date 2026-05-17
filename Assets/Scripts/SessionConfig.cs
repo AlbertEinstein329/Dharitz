@@ -13,12 +13,17 @@ public class SessionConfig : ScriptableObject
     [Header("Player Settings")]
     public int playerCount = 1;
     public List<PlayerSetup> players = new List<PlayerSetup>();
+    [Header("Abilities Settings")]
+    public int baseUndoUses = 2;
+    public int baseMoveUses = 1;
 
     // Initialize default list
     public void ResetSession()
     {
         isCampaignMode = false;
         playerCount = 1;
+        baseUndoUses = 2;
+        baseMoveUses = 1;
         players.Clear();
         // Prepare 4 slots by default
         for (int i = 0; i < 4; i++)

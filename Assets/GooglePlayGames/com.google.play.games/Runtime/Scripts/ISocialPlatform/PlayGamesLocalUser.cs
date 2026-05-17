@@ -27,6 +27,7 @@ namespace GooglePlayGames
     /// authentication and user-specific functionality. Implements Unity's
     /// <c>ILocalUser</c> interface.
     /// </summary>
+    [Obsolete]
     public class PlayGamesLocalUser : PlayGamesUserProfile, ILocalUser
     {
         /// <summary>

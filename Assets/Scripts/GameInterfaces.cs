@@ -16,7 +16,11 @@ public interface IPlacementExecutor
 }
 
 // Validates if a specific board cell can receive a specific die.
+// Validates if a specific board cell can receive a specific die.
 public interface IGridValidator
 {
     bool CanBotPlaceHere(int playerIndex, int r, int c, DieColor color, int groupId, int targetSize);
+
+    // NUEVO: Le damos permiso a la interfaz de usar el validador principal
+    bool IsValidPlacement(int pIndex, int r, int c, DieColor color, int currentGroupId, int number);
 }

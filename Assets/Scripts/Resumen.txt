@@ -1,0 +1,87 @@
+Technical Architecture Specification: Dharitz Geometry Engine & Rule Injection System
+
+1. Architectural Foundation: SOLID Principles and Decoupling
+
+The strategic evolution of Project Dharitz necessitates a transition from legacy monolithic scripts toward a decoupled, interface-driven architecture. To ensure the long-term scalability required for complex features such as ML-Agents and server-authoritative multiplayer, the system has been refactored to communicate via abstract contracts. This shift prevents the technical debt associated with tight coupling and allows for modular iteration of the scoring engine and pattern validation logic without side effects.
+
+A cornerstone of this architecture is the implementation of the Interface Segregation Principle (ISP). By partitioning massive manager classes into focused interfaces, we ensure that consuming components only interact with relevant logic. This is exemplified by the CellComponent, which no longer maintains a direct dependency on the full game state. Instead, it utilizes targeted interfaces:
+
+* IGridValidator: Handles coordinate-specific placement eligibility.
+* ITurnProvider: Supplies the current turn state and "has-drawn" status.
+* IPlacementExecutor: Executes the logical and physical commitment of a die to the grid.
+
+Comparison of Architectural Paradigms
+
+Feature	Legacy Static Logic	Current Interface-Driven	Impact on Maintenance & Reliability
+Connectivity	Tightly coupled Singletons	Decoupled Interfaces	Minimizes the Fragile Base Class problem by reducing inheritance-based dependencies.
+Testing	Requires full scene context	Supports unit testing/mocking	Enables Mock-based testing for high-reliability turn logic and validation.
+State Management	DontDestroyOnLoad persistence	SessionConfig ScriptableObjects	Prevents "zombie" states by ensuring fresh data containers for every session.
+Rule Injection	Hardcoded logic in Managers	Modular "Plug-and-Play" rules	Allows rapid variant iteration without modifying core C# code.
+
+The SessionConfig ScriptableObject acts as our "Data Briefcase" for cross-scene communication. Unlike the standard DontDestroyOnLoad Singletons, which often lead to initialization errors and memory leaks, SessionConfig provides a stateless data container that the Main Menu populates and the Game Scene consumes. This ensures predictable environment resets during scene transitions, providing a robust foundation for the Geometry Engine’s spatial logic.
+
+2. The Geometry Engine: Grid Management and Spatial Logic
+
+The Dharitz 8x10 grid serves as the central data structure, functioning as a survival topology for managing multi-player interactions. Each cell acts as a logical node in a spatial network, balancing player strategy against physical board constraints. The relationship between the GridManager and the CellComponent is facilitated through a Hybrid Interaction System, utilizing the UIDieInteractor to bridge UI and World Space.
+
+This hybrid system supports modern mobile interaction standards through a multi-stage sequence:
+
+1. Tap-to-draw: Tapping the empty die slot triggers the random extraction and "Roll Animation."
+2. Drag-to-place / Tap-to-place: Players can either physically drag the die from the UI layer into the grid or use a secondary selection method for accessibility.
+3. Visual Confirmation: The system utilizes a "Ghost Die" Visualizer. Given the constraints of small mobile screens, this visualizer prevents accidental placements by providing a semi-transparent preview.
+4. Confirmation Buffer: Upon selecting a cell, a 2-second confirmation buffer is initiated. Only after this window expires is the placement logically committed, reducing player error significantly.
+
+Placement is governed by rigorous Adjacency Rules. For dice sharing the same ID, the engine enforces strict orthogonal adjacency (Up, Down, Left, Right). However, for initial placements of a new group or connecting to different color groups, the system applies a 3x3 proximity rule. This distinction maintains group cohesion while allowing for the strategic diagonal leaps required by advanced patterns.
+
+3. Pattern Validation and Data-Driven Rule Injection
+
+The transition to a data-driven model utilizes PatternData and VariantData ScriptableObjects to define rules and geometric requirements. This shift allows for the injection of game variants (Base, Medium, Hard) without changing core code. The PatternValidator employs Normalization to (0,0) origin, allowing for coordinate-independent shape matching through matrix transformations such as rotation and mirroring.
+
+Game Variant Specifications and Special Rules
+
+* Variant 1 (Base): Focused on orthogonal adjacency.
+  * SpecialRule: PenalizeOnContact for Pattern 1 (Aisolation); ExtraDiagonalContact for Pattern 2, rewarding connections across corners.
+* Variant 2 (Medium): Introduces restricted orientations.
+  * SpecialRule: DiagonalOneContact for Pattern 1, requiring diagonal adjacency to avoid penalties.
+* Variant 3 (Hard): Features complex, fixed-orientation shapes.
+  * SpecialRule: RewardOnContact for Pattern 1; inverted logic where isolation is penalized.
+
+Specific patterns trigger a "Diagonal Leap" mechanic. This is a conditional expansion of the Flood-Fill algorithm, where the engine switches from a standard 4-way scan to an 8-way "rayo" (ray) expansion to detect valid moves. This flexibility allows patterns to bypass orthogonal blockages, provided they maintain diagonal connectivity.
+
+4. Advanced Topology: Survival Calculation and Dead Zone Detection
+
+The Survival Calculation algorithm ensures board "health" by verifying that incomplete dice groups have sufficient physical space to reach their target size. The system employs a "Flood-Fill" simulation where incomplete groups are treated as "conductors." The algorithm travels through these conductive groups to determine if they can access enough empty volume to survive.
+
+The core mathematical constraint for legal placement is: N \geq (Required\_Existing) + (Required\_New)
+
+* N: Total volume of connected empty space in a specific region.
+* Required\_Existing: Sum of missing dice for all incomplete groups touching that region.
+* Required\_New: Dice required to complete the group currently being placed.
+
+To solve the "Leaking" (Fuga) problem, the engine applies an "Orthogonal Only" gap penalty. By ignoring diagonal escapes, the CalculateGapPenalty method identifies true enclosed clusters. This prevents groups from "escaping" through corner-to-corner gaps that should not logically allow a die to be placed, identifying these areas as true Dead Zones and penalizing the player accordingly.
+
+5. Real-Time Scoring and Feedback Systems
+
+The architecture has shifted from post-match summaries to a real-time feedback model to maximize engagement. The Multi-Dimensional Evaluation system processes scoring in real-time using Differential Scoring. Instead of a full board recalculation, the system calculates the delta between the current state and the previousStructureScore, preventing "double-dipping" or farming points from already completed lines.
+
+* Basic Placement: +50 points per committed die.
+* Pattern Completion: +150 points (PERFECT!).
+* Combo System: Multipliers for simultaneous line/column intersections.
+
+Feedback is delivered via the PopUpManager, which utilizes a World Space Canvas and Object Pooling to prevent frame drops during high-scoring combos. To accommodate mobile aspect ratios like 18.5:9, the manager implements "Screen Clipping" prevention. It calculates the physical width of the text mesh and clamps its viewport projection between 0.05 and 0.95, ensuring score visibility regardless of how close a placement is to the screen edge.
+
+6. Implementation Roadmap and Performance Considerations
+
+Refactoring is currently prioritized for a 2026 mobile deployment, focusing on mid-range hardware optimization and the resolution of legacy technical debt.
+
+* Performance Optimization: We have replaced native Coroutines with DOTween for UI and world-space animations. DOTween’s internal object pool significantly reduces Garbage Collection (GC) overhead, eliminating the memory spikes associated with frequent coroutine instantiation.
+* Technical Debt Addressed:
+  * Resolved the "Self-Destructing GameManager" Awake bug caused by redundant Singleton checks.
+  * Fixed "Diagonal Wall" false positives in the Flood-Fill algorithm, ensuring diagonal gaps do not count as exits for conductive groups.
+* Future Phases:
+  * Phase 3: ML-Agents: Utilizing the IGridValidator for Action Masking, allowing the agent to ignore invalid placement coordinates.
+  * Phase 4: Online Multiplayer: Transitioning the IPlacementExecutor to a Server-Authoritative model to prevent client-side state manipulation.
+
+Security Analysis
+
+To ensure professional integrity, score validation is strictly maintained on the logic layer. We mitigate memory injection exploits by ensuring that player.score is never modified directly by UI events; all scoring is the result of server-side (or authority-layer) validation of the grid matrix state. This maintains a clear boundary between the visual presentation and the authoritative mathematical state of the game.

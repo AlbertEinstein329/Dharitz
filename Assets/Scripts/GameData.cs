@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 // Definición global de colores
@@ -35,6 +35,9 @@ public class PlayerData
     public const int DEFAULT_REDRAWS = 3;
     public int reDraws = DEFAULT_REDRAWS;
 
+    public int currentUndoUses;
+    public int currentMoveUses;
+
     public Dictionary<DieColor, GroupData> activeGroups = new Dictionary<DieColor, GroupData>();
 
     public PlayerData(int id, string name, bool isBot = false, int difficulty = 0)
@@ -44,6 +47,8 @@ public class PlayerData
         this.isBot = isBot;
         this.botDifficulty = difficulty;
         this.reDraws = DEFAULT_REDRAWS;
+        this.currentUndoUses = 2; // Serán sobrescritos por SessionConfig
+        this.currentMoveUses = 1;
         this.activeGroups = new Dictionary<DieColor, GroupData>();
         this.patternCounts = new int[7];
     }

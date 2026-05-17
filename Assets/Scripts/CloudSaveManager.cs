@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Services.CloudSave;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -24,17 +24,18 @@ public class CloudSaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Guarda el progreso de la campaña y las estadísticas globales en la nube.
+    /// Guarda el progreso de la campaña y las estadísticas globales en la nube leyendo del SaveManager local.
     /// </summary>
-    public async Task SaveMetaProgress(int nivelCampana, int monedasTotales)
+    public async Task SaveMetaProgress()
     {
+        if (SaveManager.Instance == null || SaveManager.Instance.CurrentProfile == null) return;
+
         try
         {
-            // Creamos un "paquete" con los datos que queremos subir
             var datos = new Dictionary<string, object>
             {
-                { CAMPAIGN_LEVEL_KEY, nivelCampana },
-                { TOTAL_COINS_KEY, monedasTotales }
+                { CAMPAIGN_LEVEL_KEY, SaveManager.Instance.CurrentProfile.maxLevelReached },
+                { TOTAL_COINS_KEY, SaveManager.Instance.CurrentProfile.totalCoins }
             };
 
             // Lo enviamos a la nube de UGS
@@ -73,12 +74,13 @@ public class CloudSaveManager : MonoBehaviour
 
             Debug.Log($"☁️ Progreso descargado: Nivel {nivelActual} | Monedas: {monedas}");
 
-            // TODO: Aquí debes asignar estos valores a tu script real de Meta-Progresión
-            // CONECTA LOS DATOS AQUÍ:
-            // GlobalData.NivelActual = nivelActual;
-            // GlobalData.MonedasTotales = monedas;
-            // MenuManager.Instance.ActualizarTextosDeMonedas(); // Que la UI se actualice
+            // Resolvemos conflictos y sincronizamos localmente
+            if (SaveManager.Instance != null)
+            {
+                SaveManager.Instance.ResolveCloudConflict(monedas, nivelActual);
+            }
 
+            // TODO: Si estás en el MainMenu, aquí llamarías a MenuManager.Instance.UpdateCoinsUI()
         }
         catch (System.Exception e)
         {

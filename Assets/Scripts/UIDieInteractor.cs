@@ -62,7 +62,7 @@ public class UIDieInteractor : MonoBehaviour, IPointerClickHandler, IBeginDragHa
         if (Camera.main != null)
         {
             // POINT 3: Convert screen position to 2D world position and simulate a click on the cell
-            Vector3 worldPoint = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            Vector3 worldPoint = Camera.main.ScreenToWorldPoint(eventData.position);
             RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
 
             if (hit.collider != null)

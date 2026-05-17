@@ -1,0 +1,40 @@
+Hoja de Ruta: Versión 0.2 a 1.0
+v0.2: Estado Actual (Core Funcional)
+•	Tablero e Infraestructura: Matriz de 8x10 con celdas funcionales.
+•	Lógica de Reglas: Sistema de bolsa de dados (13 por color), validación de patrones del 1 al 6 y lógica de grupos cerrados.
+•	Multitablero: Soporte para múltiples jugadores locales con cambio de vista automático y manual.
+•	Sistema de Puntaje: Cálculo base (+1 por dado) y penalización por huecos (-5 puntos).
+v0.3: UX y Arquitectura de Menús
+•	Sistema de Escenas: Implementación de un SceneManager para navegar entre el Menú Principal, Configuración y la Escena de Juego.
+•	Flujo de Juego: Pantalla de selección de jugadores (1-4) antes de iniciar la partida.
+•	Feedback Visual: Animaciones de "Tweening" (usando DOTween o similares) para que los dados no aparezcan instantáneamente, sino que caigan o se deslicen al tablero.
+v0.4: Integración de ML-Agents (Entrenamiento)
+•	Cerebro Neuronal: Creación del script DharitzAgent heredando de Agent de ML-Agents.
+•	Espacio de Observación: Programar la recolección de datos del tablero (8x10) como una matriz de enteros para que la IA "vea" el estado de las celdas.
+•	Sistema de Recompensas:
+o	Positiva: Al completar patrones geométricos (+1 a +5 según dificultad).
+o	Negativa: Al dejar huecos encerrados o realizar movimientos inválidos.
+•	Action Masking: Uso de CanBotPlaceHere para bloquear acciones en celdas ocupadas o prohibidas.
+v0.5: Modo Campaña (Progreso Zen)
+•	Progresión: Creación de un mapa de niveles. Cada nivel tendrá objetivos específicos (ej. "Completa 3 patrones de Cruz" o "Alcanza 50 puntos").
+•	Sistema de Guardado: Implementación de persistencia de datos (JSON o PlayerPrefs) para guardar estrellas obtenidas y niveles desbloqueados.
+•	Tutorial Interactivo: Guía paso a paso sobre las reglas de aislamiento del número 1 y contacto de color.
+v0.6: Multijugador Local y Pulido de Turnos
+•	Sincronización de UI: Refinamiento del panel de resultados dinámico que cambia según el tablero visualizado.
+•	Gestión de Tiempos: Ajuste fino del delay de 1.5s entre turnos para permitir que los jugadores vean la jugada del oponente antes del cambio de cámara.
+•	Eventos de Audio: Integración de efectos de sonido (SFX) para la extracción de la bolsa y la colocación del dado.
+v0.7: Multijugador Online (Netcode)
+•	Networking: Implementación de Unity Netcode for GameObjects para sincronizar la bolsa de dados entre dispositivos.
+•	Matchmaking: Sistema para unirse a salas mediante códigos o búsqueda aleatoria.
+•	Estado de Red: Sincronización de la variable isGameOver y los puntajes finales en todos los clientes conectados.
+v0.8: Personalización y Skins (Meta-Game)
+•	SkinManager: Uso de ScriptableObjects para cambiar las texturas de los dados (Rojo, Azul, Blanco, Negro) y los materiales del tablero.
+•	Tienda Visual: Interfaz para previsualizar diferentes estéticas (Zen, Naturaleza, Futurista) antes de aplicarlas.
+v0.9: Economía y Monetización
+•	Unity IAP: Integración de compras integradas para adquirir skins exclusivas.
+•	Unity Ads: Sistema de anuncios opcionales para obtener un "re-roll" del número del dado (lanzar de nuevo el 1-6).
+•	Optimización: Pruebas de rendimiento en dispositivos móviles (Android/iOS) para asegurar que los múltiples tableros no afecten los FPS.
+v1.0: Lanzamiento Oficial
+•	Balance Final: Ajuste de los bonos por patrones de 6 dados (+5 puntos) según la dificultad observada en el entrenamiento de la IA.
+•	Localización: Traducción de la interfaz a varios idiomas.
+Certificación: Preparación de builds finales para Google Play Store y Apple App Store.

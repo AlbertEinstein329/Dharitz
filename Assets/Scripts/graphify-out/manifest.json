@@ -1,0 +1,142 @@
+{
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\AudioManager.cs": {
+    "mtime": 1778108915.8591805,
+    "ast_hash": "185fe6458288e26ceeb7ee359cb95d01",
+    "semantic_hash": "185fe6458288e26ceeb7ee359cb95d01"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\AuthManager.cs": {
+    "mtime": 1778872267.5038478,
+    "ast_hash": "a33ff5bdcc961445265186fa75e1ed89",
+    "semantic_hash": "a33ff5bdcc961445265186fa75e1ed89"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\CellComponent.cs": {
+    "mtime": 1778624427.0878212,
+    "ast_hash": "f3062bb3979250d92dc611769aa06b18",
+    "semantic_hash": "f3062bb3979250d92dc611769aa06b18"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\CloudSaveManager.cs": {
+    "mtime": 1778357521.2477565,
+    "ast_hash": "ee58fafd7ce2af0bf6a23a29034195d9",
+    "semantic_hash": "ee58fafd7ce2af0bf6a23a29034195d9"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\GameData.cs": {
+    "mtime": 1778356354.664073,
+    "ast_hash": "b9af4e008f49151e7d3a1799260673f1",
+    "semantic_hash": "b9af4e008f49151e7d3a1799260673f1"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\GameInterfaces.cs": {
+    "mtime": 1778457383.7178876,
+    "ast_hash": "baff9b14012d411afd26927392d514b3",
+    "semantic_hash": "baff9b14012d411afd26927392d514b3"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\GameManager.cs": {
+    "mtime": 1778871889.842392,
+    "ast_hash": "060463661ab84a53e5cb5fa668744683",
+    "semantic_hash": "060463661ab84a53e5cb5fa668744683"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\GridManager.cs": {
+    "mtime": 1778457421.819024,
+    "ast_hash": "089b3748a229d54687fc60385442fbef",
+    "semantic_hash": "089b3748a229d54687fc60385442fbef"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\MainMenuManager.cs": {
+    "mtime": 1778871837.1987221,
+    "ast_hash": "101b45348ddf13224bc906b6e0084c40",
+    "semantic_hash": "101b45348ddf13224bc906b6e0084c40"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\PatternData.cs": {
+    "mtime": 1778356354.7234735,
+    "ast_hash": "717b07c85b54314271a9515f9c3c352f",
+    "semantic_hash": "717b07c85b54314271a9515f9c3c352f"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\PatternUIManager.cs": {
+    "mtime": 1778356354.7462003,
+    "ast_hash": "bdcfaca9dc5b951aa08e79c622aa6fa5",
+    "semantic_hash": "bdcfaca9dc5b951aa08e79c622aa6fa5"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\PatternValidator.cs": {
+    "mtime": 1778356354.766513,
+    "ast_hash": "0336f43872487f3701a42aa53f7e612d",
+    "semantic_hash": "0336f43872487f3701a42aa53f7e612d"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\PopUpManager.cs": {
+    "mtime": 1778356354.78913,
+    "ast_hash": "b94aa123a09e05e3eca8bd62477b57d3",
+    "semantic_hash": "b94aa123a09e05e3eca8bd62477b57d3"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\ScoreManager.cs": {
+    "mtime": 1778355909.1421497,
+    "ast_hash": "243245f7b8d82a291d77bb59893d4b9a",
+    "semantic_hash": "243245f7b8d82a291d77bb59893d4b9a"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\SessionConfig.cs": {
+    "mtime": 1778356449.4740653,
+    "ast_hash": "c4a561168bcac7b046340e6119b4176e",
+    "semantic_hash": "c4a561168bcac7b046340e6119b4176e"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\SpecialRuleEvaluator.cs": {
+    "mtime": 1778356354.830988,
+    "ast_hash": "70a595b844811b6e85816a73274fab3b",
+    "semantic_hash": "70a595b844811b6e85816a73274fab3b"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\UIDieInteractor.cs": {
+    "mtime": 1778623731.0431013,
+    "ast_hash": "44b47e6d22be10e021fa39627a118e4e",
+    "semantic_hash": "44b47e6d22be10e021fa39627a118e4e"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\UIManager.cs": {
+    "mtime": 1778356354.8742597,
+    "ast_hash": "bf25bea7a9e0b1405856f2e0a99ce8c8",
+    "semantic_hash": "bf25bea7a9e0b1405856f2e0a99ce8c8"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\VariantData.cs": {
+    "mtime": 1778359600.3479323,
+    "ast_hash": "34d6037e182fb145c35daf76cc80f70d",
+    "semantic_hash": "34d6037e182fb145c35daf76cc80f70d"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\Fases de progamacion.txt": {
+    "mtime": 1778889978.3886044,
+    "ast_hash": "e469f0f0685164122cf05e72c9704f86",
+    "semantic_hash": "e469f0f0685164122cf05e72c9704f86"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\Informe de pendientes.txt": {
+    "mtime": 1778889923.941338,
+    "ast_hash": "f1184d7be078c4125b5f5436d74ed5c9",
+    "semantic_hash": "f1184d7be078c4125b5f5436d74ed5c9"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\PatternSystem.txt": {
+    "mtime": 1778107973.289735,
+    "ast_hash": "45c5e64fc5a2111d9c2bf5113beea301",
+    "semantic_hash": "45c5e64fc5a2111d9c2bf5113beea301"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\Resumen.txt": {
+    "mtime": 1778881240.5736265,
+    "ast_hash": "8e648950419c445dff83d55ed4847937",
+    "semantic_hash": "8e648950419c445dff83d55ed4847937"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\Sistema de Patrones(Geometria Dinamica).txt": {
+    "mtime": 1778889865.778808,
+    "ast_hash": "5b4ae3c67d65b3559dc77542965296ab",
+    "semantic_hash": "5b4ae3c67d65b3559dc77542965296ab"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\SurvivalSystem.txt": {
+    "mtime": 1778108005.0881057,
+    "ast_hash": "d0884d0b248d24ba12cf13a8ea276e38",
+    "semantic_hash": "d0884d0b248d24ba12cf13a8ea276e38"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\Version del juego.txt": {
+    "mtime": 1778889720.3450432,
+    "ast_hash": "6f3ebcc06300a1c7da4f201a8b0953fe",
+    "semantic_hash": "6f3ebcc06300a1c7da4f201a8b0953fe"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\.agents\\rules\\graphify.md": {
+    "mtime": 1778889051.3747487,
+    "ast_hash": "56d322bc02e948acf8a5abc7fd5d20ff",
+    "semantic_hash": "56d322bc02e948acf8a5abc7fd5d20ff"
+  },
+  "D:\\Programacion\\UnityProyect\\Dharitz\\Dharitz\\Assets\\Scripts\\.agents\\workflows\\graphify.md": {
+    "mtime": 1778889051.375772,
+    "ast_hash": "84de69efd46ab0b8430393bd4188f8f2",
+    "semantic_hash": "84de69efd46ab0b8430393bd4188f8f2"
+  }
+}

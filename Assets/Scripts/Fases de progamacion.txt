@@ -1,0 +1,42 @@
+Fase 1: Arquitectura Base y Lógica del "Motor de Reglas"
+En esta fase programaremos las reglas fundamentales del GDD sin preocuparnos aún por los gráficos.
+1.	Estructura de Datos del Tablero: Crear una matriz de 8x10
+2.	Sistema de Bolsa (Bag System): Programar una clase BagManager que gestione los 13 dados de cada color, 4 colores, 52 dados por jugador
+3.	Lógica de Lanzamiento (Dice Roller): Implementar la función que, al abrir un grupo, genere un número aleatorio entre 1 y 6 para definir el tamaño y el patrón.
+4.	Validador de Colocación (Placement Rules):
+o	Programar la restricción de Inamovilidad.
+o	Programar la Prohibición de contacto ortogonal entre grupos del mismo color.
+o	Implementar la Obligatoriedad de cerrar un grupo antes de abrir otro del mismo color.
+ Fase 2: El Sistema de Patrones (Geometría)
+Esta es la parte más compleja del código. Debemos programar un validador para cada una de las 6 formas:
+Número	Patrón	Lógica a programar 
+1	Aislamiento	Verificar que no haya adyacencia ortogonal ni diagonal.
+2	Diagonal	Validar que la conexión sea exclusivamente por esquinas.
+3	Vértice	Comprobar un tercer dado como nexo diagonal.
+4	Pieza "S"	Validar la formación escalonada (estilo Tetris).
+5	Cruz	Verificar un centro y 4 dados en sus caras (N, S, E, O).
+6	Forma "C"	Validar fila de 4 con dos extremos horizontales.
+Nota: Todos los patrones deben permitir rotación en el código.
+ Fase 3: Inteligencia Artificial (Bots)
+Para crear bots "bien entrenados", utilizaremos un algoritmo de evaluación:
+1.	Heurística de Evaluación: El bot puntuará cada celda vacía según:
+o	Proximidad a los bordes (para evitar dejar huecos centrales).
+o	Facilidad para completar el patrón actual.
+o	Minimización de "espacios encerrados" para evitar la penalización de -5 puntos.
+2.	Niveles de Dificultad:
+o	Fácil: Elige posiciones válidas al azar.
+o	Difícil: Utiliza un algoritmo que prevee la mejor posición para maximizar la bonificación por patrón (+1 a +5 puntos).
+ Fase 4: Multijugador y Servicios
+1.	Local: Gestión de turnos mediante un TurnManager que intercambie el control de la UI entre jugadores en el mismo dispositivo.
+2.	Online (2-4 jugadores): Implementación de Unity Netcode for GameObjects o Photon para sincronizar la extracción de la bolsa y la posición de los dados.
+3.	Sistema de Personalización (Skins):
+o	Uso de ScriptableObjects en C# para definir diferentes modelos de dados y texturas de tablero.
+o	Programar un SkinManager que asigne el material seleccionado al instanciar el dado.
+ Fase 5: Integración de Tienda y Puntuación
+1.	Calculadora de Puntaje Final: Implementar el algoritmo que sume:
+o	1 punto por dado colocado.
+o	Bonificaciones por patrones completados correctamente .
+o	Resta de 5 puntos por cada espacio vacío encerrado.
+2.	Monetización (Código):
+o	Integrar el SDK de Unity IAP para compras de skins.
+o	Integrar Unity Ads o AdMob para mostrar anuncios voluntarios a cambio de "re-lanzar" el dado de patrón (si decides añadir esa mecánica).

@@ -18,8 +18,8 @@
 
 namespace GooglePlayGames
 {
-    using System.Collections.Generic;
     using GooglePlayGames.BasicApi;
+    using System.Collections.Generic;
     using UnityEngine;
     using UnityEngine.SocialPlatforms;
 
@@ -28,6 +28,7 @@ namespace GooglePlayGames
     /// data for a specific leaderboard.
     /// Implements Unity's generic <c>ILeaderboard</c> interface.
     /// </summary>
+    
     public class PlayGamesLeaderboard : ILeaderboard
     {
         /// <summary>

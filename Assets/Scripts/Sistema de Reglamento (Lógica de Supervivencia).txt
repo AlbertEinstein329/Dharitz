@@ -1,0 +1,35 @@
+1. DESCRIPCIÓN GENERAL
+El juego consiste en completar un tablero personal de 8x10 utilizando dados de colores. Los jugadores deben gestionar la aleatoriedad de los lanzamientos para formar grupos numéricos y patrones geométricos, optimizando el espacio para evitar penalizaciones.
+2. COMPONENTES
+•	Tableros personales: 8x10 espacios para dados.
+•	Dados (52 por jugador):
+o	13 Rojos
+o	13 Azules
+o	13 Blancos
+o	13 Negros
+•	Bolsa de tela: Para la extracción ciega de dados.
+•	Cartas de Patrones: 6 variantes por cada número (del 1 al 6), elegidas al azar al inicio.
+3. MECÁNICAS DE JUEGO
+3.1 El Turno
+1.	Cada jugador extrae un dado al azar de la bolsa por turno.
+2.	Si es la primera vez que sale ese color (o se cerró el grupo anterior), el jugador lanza el dado.
+3.	El número resultante (1-6) determina el tamaño de la agrupación y el patrón a seguir.
+3.2 Reglas de Colocación
+•	Apertura de grupos: Solo se puede abrir una nueva agrupación de un color si la anterior de ese mismo color ya está "cerrada" (completada).
+•	Inamovilidad: Una vez colocado un dado, no se puede mover.
+•	Prohibición de contacto: Dos agrupaciones del mismo color no pueden tocarse entre sí (ortogonal).
+•	Estilo Tetris: El jugador decide en qué espacio y orientación colocar los patrones.
+•	Los dados deben estar en contacto con otro dado, exceptuando el primero. En una cuadricula de 3x3 alrededor de otro dado.
+•	No es posible colocar un dado sobre otro.
+
+4. REGLAS ADICIONALES DE CONSTRUCCIÓN
+•	Rotación: Todos los patrones (del 2 al 6) permiten rotación libre en el tablero para encajar en la cuadrícula de 8x10.
+•	Obligatoriedad Numérica: Si se lanza un 6, el jugador está obligado por regla a intentar cerrar esa agrupación de 6 dados antes de poder lanzar nuevamente para ese color.
+•	Decisión Estratégica: El jugador puede decidir no seguir la forma del patrón para asegurar espacio, pero perderá el puntaje extra por patrón cumplido y deberá cumplir sí o sí con la cantidad de dados (asignación numérica).
+
+5. Sistema de Reglamento (Lógica de Supervivencia)
+El núcleo del juego utiliza una lógica de validación de proximidad y espacio físico.
+•	Adyacencia y Color: Control estricto de contacto ortogonal obligatorio con el propio ID y prohibición de contacto entre grupos distintos del mismo color.
+•	Supervivencia Topológica: Algoritmo de simulación avanzado (Flood-Fill selectivo) que verifica si cada grupo incompleto tiene físicamente suficiente espacio vacío para terminarse antes de permitir una nueva jugada.
+•	Gestión de Turnos y Re-Draw: Sistema de bolsa de dados (13 por color) con opción de hasta 3 "Re-Draws" por partida para mitigar la mala suerte, reintegrando el dado de forma aleatoria en el mazo.
+•	Multitablero: Soporte para hasta 4 jugadores con cambio de vista de cámara y sincronización de estados lógicos individuales.
