@@ -5,7 +5,10 @@ public class CommandManager : MonoBehaviour
 {
     public static CommandManager Instance { get; private set; }
 
-    private Stack<IGridCommand> commandHistory = new Stack<IGridCommand>();
+    // EL NÚCLEO MULTIJUGADOR: Un diccionario que separa el historial por jugador
+    private Dictionary<int, Stack<IGridCommand>> playerCommandStacks = new Dictionary<int, Stack<IGridCommand>>();
+
+    [HideInInspector] public bool isTransitioning = false;
 
     private void Awake()
     {
@@ -13,60 +16,92 @@ public class CommandManager : MonoBehaviour
         else Destroy(gameObject);
     }
 
+    // Método auxiliar privado para crear o devolver la pila correcta sin generar errores
+    private Stack<IGridCommand> GetPlayerStack(int playerIndex)
+    {
+        if (!playerCommandStacks.ContainsKey(playerIndex))
+        {
+            playerCommandStacks[playerIndex] = new Stack<IGridCommand>();
+        }
+        return playerCommandStacks[playerIndex];
+    }
+
     public void RegisterCommand(IGridCommand command)
     {
-        commandHistory.Push(command);
+        // Enrutamiento automático al jugador activo
+        int currentPlayer = GameManager.Instance.turnManager.CurrentPlayerIndex;
+        GetPlayerStack(currentPlayer).Push(command);
+    }
+
+    public void ExecuteCommand(IGridCommand command)
+    {
+        // Ejecuta y guarda en la pila del jugador activo
+        int currentPlayer = GameManager.Instance.turnManager.CurrentPlayerIndex;
+        command.Execute();
+        GetPlayerStack(currentPlayer).Push(command);
     }
 
     public void UndoLastCommand()
     {
-        if (commandHistory.Count == 0)
+        // ESCUDO ANTI-EXPLOIT
+        if (isTransitioning)
         {
-            Debug.LogWarning("No hay comandos para deshacer.");
+            Debug.LogWarning("[Anti-Exploit] Undo bloqueado: El turno está en transición.");
             return;
         }
 
         GameManager gm = GameManager.Instance;
         PlayerData p = gm.turnManager.GetCurrentPlayer();
+        int currentPlayer = gm.turnManager.CurrentPlayerIndex;
 
-        // 1. Verificación de reglas de Undo (Límites de Uso)
+        Stack<IGridCommand> currentStack = GetPlayerStack(currentPlayer);
+
+        if (currentStack.Count == 0)
+        {
+            Debug.LogWarning($"No hay comandos para deshacer para el Jugador {currentPlayer}.");
+            return;
+        }
+
+        // 1. Verificación de reglas de Undo (Límites de Uso) - TU LÓGICA INTACTA
         if (p.currentUndoUses <= 0)
         {
             Debug.LogWarning("Undo limit reached.");
             return;
         }
 
-        // 2. Verificación de Fase de Turno (en Free Play no se puede hacer Undo si ya robó el siguiente dado, a menos que no haya robado, pero wait,
-        // The rule says "if the player draws a die in the current turn before executing Undo, the command is locked until the transition to the next formal round."
-        // Wait, "Undo" is for the LAST placed die. If they draw a new die, the turn phase is "HasDrawn = true". We can block it.
+        // 2. Verificación de Fase de Turno - TU LÓGICA INTACTA
         if (gm.turnManager.HasDrawn && !gm.currentSession.isCampaignMode)
         {
             Debug.LogWarning("Undo locked: Ya has robado un nuevo dado este turno.");
             return;
         }
 
-        IGridCommand command = commandHistory.Pop();
+        // 3. Ejecución del Undo Aislado
+        IGridCommand command = currentStack.Pop();
         command.Undo();
         p.currentUndoUses--;
 
-        Debug.Log($"Undo exitoso. Usos restantes: {p.currentUndoUses}");
+        Debug.Log($"Undo exitoso. Usos restantes del Jugador {currentPlayer}: {p.currentUndoUses}");
+
+        if (GameManager.Instance != null && GameManager.Instance.placementOrchestrator != null)
+        {
+            GameManager.Instance.placementOrchestrator.RefreshPlacementHighlights();
+        }
     }
 
-    public void ExecuteCommand(IGridCommand command)
+    /// <summary>
+    /// Limpia el historial del jugador indicado (para llamar al final de su turno)
+    /// </summary>
+    public void ClearHistory(int playerIndex)
     {
-        // For MoveCommand, we execute and push.
-        command.Execute();
-        commandHistory.Push(command);
+        if (playerCommandStacks.ContainsKey(playerIndex))
+        {
+            playerCommandStacks[playerIndex].Clear();
+        }
     }
 
-    public void ClearHistory()
-    {
-        commandHistory.Clear();
-    }
+    // --- PREMIUM CURRENCY / ABILITY UPGRADES (TUS FUNCIONES INTACTAS) ---
 
-    // --- PREMIUM CURRENCY / ABILITY UPGRADES ---
-    // Diferimos la persistencia en disco hasta el final del turno, operando en memoria local (SaveManager.CurrentProfile).
-    
     public bool TryBuyUndoUpgrade(int cost)
     {
         GameManager gm = GameManager.Instance;
@@ -81,13 +116,12 @@ public class CommandManager : MonoBehaviour
 
         if (SaveManager.Instance.CurrentProfile.totalCoins >= cost)
         {
-            // Operación síncrona en memoria, sin escribir a JSON inmediatamente (cero lag)
             SaveManager.Instance.CurrentProfile.totalCoins -= cost;
             p.currentUndoUses++;
             Debug.Log($"Undo Upgrade comprado. Usos ahora: {p.currentUndoUses}");
             return true;
         }
-        
+
         return false;
     }
 

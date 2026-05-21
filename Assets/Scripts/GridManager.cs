@@ -24,8 +24,8 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     private Dictionary<DieColor, GameObject> prefabDict;
 
-    private List<DieData[,]> allBoardsLogic;
-    private List<CellComponent[,]> allCellsVisual;
+    public List<DieData[,]> allBoardsLogic;
+    public List<CellComponent[,]> allCellsVisual;
     private GameObject[] boardRoots;
     public int currentlyViewedPlayer = 0;
     private GameObject temporaryDie;
@@ -82,6 +82,10 @@ public class GridManager : MonoBehaviour, IGridValidator
                 if (cellScript != null)
                 {
                     cellScript.Setup(r, c, playerIndex, this, GameManager.Instance, GameManager.Instance);
+
+                    // Asignamos la coordenada matemática para el Raycast.
+                    cellScript.gridCoordinate = new Vector2Int(c, r);
+
                     allCellsVisual[playerIndex][r, c] = cellScript;
                 }
             }
@@ -140,12 +144,25 @@ public class GridManager : MonoBehaviour, IGridValidator
     // --- DELEGATION TO PLACEMENT VALIDATOR ---
     public bool TryPlaceDie(int pIndex, int r, int c, DieColor color, int groupId, int number)
     {
+
         if (!PlacementValidator.CanBotPlaceHere(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId, number, GameManager.Instance.players[pIndex], GameManager.Instance.currentVariant))
             return false;
+
+        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        if (boardLogic != null)
+        {
+            boardLogic.occupiedCells.Add(new Vector2Int(c, r));
+        }
+        else
+        {
+            Debug.LogError("[Arquitectura] GridManager no pudo encontrar BoardLogic para sincronizar el dado.");
+        }
+
 
         InstantiateDieVisual(pIndex, r, c, color, number);
         allBoardsLogic[pIndex][r, c] = new DieData(color, groupId, number);
         return true;
+
     }
 
     public bool CanBotPlaceHere(int pIndex, int r, int c, DieColor color, int groupId, int number)
@@ -252,27 +269,57 @@ public class GridManager : MonoBehaviour, IGridValidator
         currentLogic[r, c] = new DieData(color, groupId, number);
 
         InstantiateDieVisual(pIndex, r, c, color, number);
+
+
+        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        if (boardLogic != null)
+        {
+            boardLogic.occupiedCells.Add(new Vector2Int(c, r));
+        }
+        else
+        {
+            Debug.LogError("[Arquitectura] GridManager no pudo encontrar BoardLogic para sincronizar el dado.");
+        }
+
+        if (GridInteractionManager.Instance != null)
+        {
+            GridInteractionManager.Instance.ClearBoardHighlights();
+        }
+
+        // TAREA DE ARQUITECTURA: Si tienes un sistema que ilumina el tablero para el 
+        // SIGUIENTE dado en la mano, debes llamarlo justo aquí, DESPUÉS de apagar las luces.
+    
     }
 
     public void RemoveDie(int pIndex, int r, int c)
     {
+        // 1. Limpieza lógica
         allBoardsLogic[pIndex][r, c] = null;
-        if (allCellsVisual[pIndex][r, c] != null)
+
+        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        if (boardLogic != null)
         {
-            // The visual die is instantiated as a child of the board root, but its position corresponds to r,c.
-            // Wait, we don't keep a direct reference to the visual die GameObject in the grid logic. 
-            // We should find it by position or keep track of it, or the CellComponent can destroy its child.
-            // Let's iterate through the boardRoot's children and destroy the one at the cell's position.
-            Vector3 pos = GetWorldPosition(pIndex, r, c);
-            foreach (Transform child in boardRoots[pIndex].transform)
+            boardLogic.occupiedCells.Remove(new Vector2Int(c, r));
+        }
+
+        // 2. SOLUCIÓN VISUAL: Búsqueda por Identidad en lugar de Posición Flotante
+        foreach (Transform child in boardRoots[pIndex].transform)
+        {
+            CellComponent dieComp = child.GetComponent<CellComponent>();
+
+            // Verificamos que el objeto tenga el componente, que sus coordenadas coincidan 
+            // exactamente con lo que queremos borrar, y que sea un dado (z < -1f)
+            if (dieComp != null && dieComp.gridCoordinate.x == c && dieComp.gridCoordinate.y == r && child.position.z < -1f)
             {
-                // Skip the cells themselves (they might be at Z=0). Dice are at Z=-2
-                if (Mathf.Abs(child.position.x - pos.x) < 0.1f && Mathf.Abs(child.position.y - pos.y) < 0.1f && child.position.z < -1f)
-                {
-                    Destroy(child.gameObject);
-                    break;
-                }
+                Destroy(child.gameObject);
+                break; // Encontramos el dado correcto, lo destruimos y salimos del bucle
             }
+        }
+
+        // 3. Forzamos actualización visual de luces
+        if (GridInteractionManager.Instance != null)
+        {
+            GridInteractionManager.Instance.ClearBoardHighlights();
         }
     }
 
@@ -291,6 +338,13 @@ public class GridManager : MonoBehaviour, IGridValidator
 
         SpriteRenderer renderer = nuevoDado.GetComponent<SpriteRenderer>();
         if (renderer != null) renderer.sprite = UIManager.Instance.GetSprite(color, number);
+
+        // (Si el dado usa otro script, cambia "CellComponent" por el nombre de tu script).
+        CellComponent dieScript = nuevoDado.GetComponent<CellComponent>();
+        if (dieScript != null)
+        {
+            dieScript.gridCoordinate = new Vector2Int(c, r);
+        }
     }
 
     private GameObject GetPrefabByColor(DieColor color)

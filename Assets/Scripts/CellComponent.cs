@@ -1,8 +1,9 @@
 using UnityEngine;
-using UnityEngine.EventSystems; // NUEVO: Necesario para el Input System
+using UnityEngine.EventSystems;
 using DG.Tweening;
 
 // NUEVO: Añadimos IPointerClickHandler a la clase
+[RequireComponent(typeof(BoxCollider2D))]
 public class CellComponent : MonoBehaviour, IPointerClickHandler
 {
     private int row;
@@ -20,6 +21,10 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
     [Tooltip("Drag the overlay sprite for completed patterns here.")]
     [SerializeField] private SpriteRenderer completionSpriteOverlay;
     private Color originalColor;
+
+    [Header("Datos de la Entidad")]
+    // Esta coordenada DEBE ser asignada por tu BoardLogic cuando genera el tablero
+    public Vector2Int gridCoordinate;
 
     void Awake()
     {
@@ -67,10 +72,22 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
 
     public void SetHighlight(bool highlight)
     {
+
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr != null)
+        {
+            // Cambia el color a amarillo suave si está iluminado, y vuelve al blanco (normal) si no.
+            sr.color = highlight ? new Color(1f, 1f, 0f, 0.5f) : Color.white;
+        }
+
         if (childSpriteRenderer == null) return;
         childSpriteRenderer.color = highlight ? new Color(0.5f, 1f, 0.5f, 1f) : originalColor;
         childSpriteRenderer.sortingOrder = 0;
+
+
     }
+
+
 
     public void ToggleCompletionSprite(bool isActive)
     {
@@ -80,32 +97,42 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
         }
     }
 
-
     public void OnPointerClick(PointerEventData eventData)
     {
-        HandleClick();
+        // El EventSystem llama a esto automáticamente. Solo filtramos el clic izquierdo.
+        if (eventData.button != PointerEventData.InputButton.Left) return;
+
+        // Llamamos al motor lógico central
+        ProcessInteraction();
     }
 
-    public void HandleClick()
+    public void ProcessInteraction()
     {
-        // 🛡️ ESCUDO 1: Blindaje contra NullReferenceException
+        // ==========================================
+        // ESCUDO 1: Blindaje contra NullReference y Turnos
+        // ==========================================
         if (turnProvider == null || gridValidator == null || placementExecutor == null) return;
 
-        // 1. Ask the Turn Provider if it's our turn
         if (turnProvider.CurrentPlayerIndex != playerOwnerIndex)
         {
-            Debug.LogWarning("Invalid Turn or Board.");
+            Debug.LogWarning("[Tráfico] Clic ignorado. Tablero equivocado o turno inválido.");
             return;
         }
 
-        // Interceptamos si el Modo Mover está activo
-        var gm = global::GameManager.Instance;
-        if (gm != null && gm.placementOrchestrator != null && gm.placementOrchestrator.isMoveModeActive)
+        // ==========================================
+        // INTERCEPCIÓN MÁXIMA PRIORIDAD: Modo Mover
+        // ==========================================
+        if (GridInteractionManager.Instance != null && GridInteractionManager.Instance.IsMoveModeActive)
         {
-            gm.placementOrchestrator.HandleMoveClick(row, col);
-            return; // Bloqueamos la colocación normal
+            // FALLO CORREGIDO: Usamos gridCoordinate directamente.
+            // Esta es la única Fuente de la Verdad que los dados tienen actualizada.
+            GridInteractionManager.Instance.OnGridCellClicked(this.gridCoordinate);
+            return;
         }
 
+        // ==========================================
+        // COMPORTAMIENTO NORMAL: Colocar dado nuevo
+        // ==========================================
         if (!turnProvider.HasDrawn) return;
 
         DieColor currentColor = turnProvider.CurrentDrawnColor;
@@ -113,7 +140,6 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
 
         if (currentPlayer == null) return;
 
-        // 🛡️ ESCUDO 2: Deducimos el tamaño y el ID para permitir colocar grupos NUEVOS
         int targetSize = 0;
         int currentGroupId = 0;
 
@@ -126,17 +152,21 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
             }
         }
 
-        if (targetSize == 0) return; // Si no hay dado extraído, abortamos
+        if (targetSize == 0) return;
 
-        // 2. CORRECCIÓN: Usamos IsValidPlacement en lugar de CanBotPlaceHere
-        if (gridValidator.IsValidPlacement(playerOwnerIndex, row, col, currentColor, currentGroupId, targetSize))
+        // FALLO CORREGIDO A LARGO PLAZO: 
+        // Extraemos row y col directamente de gridCoordinate para que la colocación 
+        // normal tampoco sufra del síndrome de las "coordenadas fantasma".
+        int realRow = this.gridCoordinate.y;
+        int realCol = this.gridCoordinate.x;
+
+        if (gridValidator.IsValidPlacement(playerOwnerIndex, realRow, realCol, currentColor, currentGroupId, targetSize))
         {
-            // 3. Ask the Executor to process the play
-            placementExecutor.BeginPlacement(row, col);
+            placementExecutor.BeginPlacement(realRow, realCol);
         }
         else
         {
-            Debug.Log("Movimiento inválido. La celda ignora el clic.");
+            Debug.LogWarning($"[Tráfico] Movimiento inválido en ({realCol}, {realRow}). La celda ignora la interacción.");
         }
     }
 

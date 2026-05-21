@@ -34,8 +34,9 @@ namespace LapKan
         [Tooltip("Botón para encender/apagar los efectos de sonido (SFX)")]
         public Toggle toggleSfxButton;
 
-        private void Awake()
+        public override void Awake()
         {
+            base.Awake();
             if (Instance == null) Instance = this;
             else Destroy(gameObject);
         }

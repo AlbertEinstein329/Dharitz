@@ -21,7 +21,7 @@ namespace LapKan
 
         protected Coroutine currentAnim;
 
-        protected virtual void Awake()
+        public virtual void Awake()
         {
             if (panelRoot != null)
             {

@@ -89,11 +89,6 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         }
     }
 
-    public void ToggleMoveModeButton()
-    {
-        if (placementOrchestrator != null)
-            placementOrchestrator.ToggleMoveMode();
-    }
 
     // --- Facade Methods to handle UI Button Clicks ---
     public void DrawDie()

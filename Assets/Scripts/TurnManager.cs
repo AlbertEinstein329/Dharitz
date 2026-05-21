@@ -62,6 +62,19 @@ public class TurnManager
 
         UIManager.Instance.SetDrawInputLock(false);
         StartTurn();
+
+        // Limpiamos la memoria de lo que hizo el jugador en este turno para que 
+        // en la siguiente ronda no pueda hacer Undo de turnos pasados.
+        if (CommandManager.Instance != null)
+        {
+            CommandManager.Instance.ClearHistory(CurrentPlayerIndex);
+        }
+
+        if (CommandManager.Instance != null)
+        {
+            CommandManager.Instance.isTransitioning = false;
+        }
+
     }
 
     public IEnumerator TurnTransitionPause()

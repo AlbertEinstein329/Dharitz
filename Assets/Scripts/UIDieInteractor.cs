@@ -71,7 +71,7 @@ public class UIDieInteractor : MonoBehaviour, IPointerClickHandler, IBeginDragHa
                 if (targetCell != null)
                 {
                     // Simulate the click on the 2D cell to place the die
-                    targetCell.HandleClick();
+                    targetCell.ProcessInteraction();
                 }
             }
         }

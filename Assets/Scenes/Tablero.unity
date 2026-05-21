@@ -1321,19 +1321,7 @@ MonoBehaviour:
   m_Group: {fileID: 0}
   onValueChanged:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1476226384}
-        m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
-        m_MethodName: ToggleMoveModeButton
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   m_IsOn: 0
 --- !u!114 &406380340
 MonoBehaviour:
@@ -1347,9 +1335,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cde40661793e4344ebd64d3b5c4f28d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MoveActionButton
-  activeSprite: {fileID: 21300000, guid: 6fdbb883820f445b28e978ef2d376679, type: 3}
-  inactiveSprite: {fileID: 21300000, guid: 6126b7e8c5ff141ac8d18a660e829c70, type: 3}
-  targetButtonImage: {fileID: 1662760825}
 --- !u!1 &414361158
 GameObject:
   m_ObjectHideFlags: 0
@@ -1492,7 +1477,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 417189587}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -5394,7 +5379,7 @@ GameObject:
   - component: {fileID: 1476226385}
   - component: {fileID: 1476226384}
   - component: {fileID: 1476226387}
-  - component: {fileID: 1476226386}
+  - component: {fileID: 1476226388}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -5451,20 +5436,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1476226386
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1476226383}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4c4e8c2c63b53849a08f5e474d811c6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GridInteractionManager
-  boardLogic: {fileID: 1476226387}
-  moveButton: {fileID: 406380340}
 --- !u!114 &1476226387
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5477,6 +5448,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3869d36f767dc2948845970145dbe244, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BoardLogic
+--- !u!114 &1476226388
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1476226383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4c4e8c2c63b53849a08f5e474d811c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridInteractionManager
+  boardLogic: {fileID: 1476226387}
+  commandManager: {fileID: 1554520486}
+  moveActionButton: {fileID: 406380340}
+  currentState: 0
 --- !u!1 &1511351326
 GameObject:
   m_ObjectHideFlags: 0

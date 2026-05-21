@@ -4,47 +4,75 @@ using UnityEngine.UI;
 [RequireComponent(typeof(Toggle))]
 public class MoveActionButton : MonoBehaviour
 {
-    [Header("UI Sprites")]
-    [SerializeField] private Sprite activeSprite;
-    [SerializeField] private Sprite inactiveSprite;
-    [SerializeField] private Image targetButtonImage;
-
-    private Toggle toggleComponent;
+    private Toggle moveToggle;
 
     private void Awake()
     {
-        toggleComponent = GetComponent<Toggle>();
+        moveToggle = GetComponent<Toggle>();
 
-        if (targetButtonImage == null)
-            targetButtonImage = GetComponent<Image>();
+        // Prevents memory leaks and duplicate listeners
+        moveToggle.onValueChanged.RemoveAllListeners();
+        moveToggle.onValueChanged.AddListener(OnToggleStateChanged);
+    }
 
-        // Registrar el evento de Unity de forma segura
-        toggleComponent.onValueChanged.AddListener(OnToggleValueChanged);
+    private void OnToggleStateChanged(bool isOn)
+    {
+        if (GridInteractionManager.Instance == null)
+        {
+            Debug.LogError("[Architecture Error] GridInteractionManager is missing in the scene.");
+            return;
+        }
+
+        // Send the dynamic boolean to the interaction manager
+        GridInteractionManager.Instance.ToggleMoveMode(isOn);
+    }
+
+    // Fix for CS1061: This allows the Manager to reset the UI safely
+    public void ResetButtonState()
+    {
+        if (moveToggle != null)
+        {
+            // CRITICAL: We use WithoutNotify to avoid firing OnToggleStateChanged again and causing infinite loops.
+            moveToggle.SetIsOnWithoutNotify(false);
+        }
     }
 
     private void OnDestroy()
     {
-        toggleComponent.onValueChanged.RemoveListener(OnToggleValueChanged);
-    }
-
-    private void OnToggleValueChanged(bool isActive)
-    {
-        // Cambiamos el Sprite de forma dinámica respetando las buenas prácticas de UI
-        if (targetButtonImage != null && activeSprite != null && inactiveSprite != null)
+        if (moveToggle != null)
         {
-            targetButtonImage.sprite = isActive ? activeSprite : inactiveSprite;
-        }
-
-        // Informamos al mánager de interacción que el modo de movimiento cambió
-        if (GridInteractionManager.Instance != null)
-        {
-            GridInteractionManager.Instance.SetMoveModeActive(isActive);
+            moveToggle.onValueChanged.RemoveListener(OnToggleStateChanged);
         }
     }
-
-    // Método de seguridad para desactivar el botón desde fuera si el movimiento concluye
-    public void ResetButtonState()
+    public void LockToggle()
     {
-        toggleComponent.isOn = false;
+        if (moveToggle != null)
+        {
+            moveToggle.SetIsOnWithoutNotify(false);
+
+            // LA SOLUCIÓN AL ABUSO: Desactiva físicamente el botón
+            moveToggle.interactable = false;
+
+            Debug.Log("[Wildcard] Comodín Move agotado y bloqueado.");
+        }
     }
+
+    /// <summary>
+    /// Permite al GridInteractionManager bloquear o desbloquear físicamente el botón
+    /// dependiendo de si el jugador del turno actual tiene usos disponibles.
+    /// </summary>
+    public void SetInteractable(bool isInteractable)
+    {
+        if (moveToggle != null)
+        {
+            moveToggle.interactable = isInteractable;
+
+            // Si el botón se vuelve no interactuable, nos aseguramos de apagar el visual
+            if (!isInteractable)
+            {
+                moveToggle.SetIsOnWithoutNotify(false);
+            }
+        }
+    }
+
 }

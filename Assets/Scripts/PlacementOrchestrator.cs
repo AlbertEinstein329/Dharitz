@@ -6,48 +6,10 @@ public class PlacementOrchestrator
     private GameManager gm;
     private Coroutine confirmationRoutine;
     public bool isMoveModeActive = false;
-    private Vector2Int? moveOrigin = null;
 
     public PlacementOrchestrator(GameManager gm)
     {
         this.gm = gm;
-    }
-
-    public void ToggleMoveMode()
-    {
-        isMoveModeActive = !isMoveModeActive;
-        moveOrigin = null;
-        Debug.Log("Modo Mover: " + (isMoveModeActive ? "ACTIVADO. Haz clic en un dado para moverlo." : "DESACTIVADO."));
-    }
-
-    public void HandleMoveClick(int r, int c)
-    {
-        if (moveOrigin == null)
-        {
-            // Seleccionando Origen (debe tener un dado)
-            var logic = gm.gridManager.GetBoardLogic(gm.turnManager.CurrentPlayerIndex);
-            if (logic[r, c] != null)
-            {
-                moveOrigin = new Vector2Int(r, c);
-                Debug.Log($"Origen seleccionado ({r}, {c}). Ahora haz clic en una celda vacía.");
-                // Feedback visual: gm.gridManager.allCellsVisual[...].SetHighlight(true) (opcional)
-            }
-        }
-        else
-        {
-            // Seleccionando Destino (debe estar vacío)
-            var logic = gm.gridManager.GetBoardLogic(gm.turnManager.CurrentPlayerIndex);
-            if (logic[r, c] == null)
-            {
-                MoveCommand moveCmd = new MoveCommand(gm, gm.turnManager.CurrentPlayerIndex, moveOrigin.Value.x, moveOrigin.Value.y, r, c);
-                CommandManager.Instance.ExecuteCommand(moveCmd);
-            }
-            
-            // Salir del modo mover sin importar si fue válido o no, para resetear el estado
-            isMoveModeActive = false;
-            moveOrigin = null;
-            Debug.Log("Modo Mover: DESACTIVADO.");
-        }
     }
 
     public void BeginPlacement(int row, int col)
@@ -61,6 +23,12 @@ public class PlacementOrchestrator
     public void ConfirmAndProcessScore(int r, int c)
     {
         UIManager.Instance.SetDrawInputLock(true);
+
+        // ==========================================
+        // ESCUDO ANTI-EXPLOIT: Bloqueo de Transición Inmediato
+        // ==========================================
+        if (CommandManager.Instance != null) CommandManager.Instance.isTransitioning = true;
+        if (GridInteractionManager.Instance != null) GridInteractionManager.Instance.LockUIForTransition();
 
         if (gm.reDrawButton != null) gm.reDrawButton.interactable = false;
 
@@ -156,4 +124,74 @@ public class PlacementOrchestrator
             gm.StartCoroutine(gm.turnManager.TurnTransitionPause());
         }
     }
+
+    /// <summary>
+    /// Recalcula e ilumina las celdas válidas para el dado que el jugador tiene actualmente en la mano.
+    /// Invocado después de usar un comodín (Move/Undo) para restaurar el estado visual.
+    /// </summary>
+    public void RefreshPlacementHighlights()
+    {
+        // 1. Verificación de estado: Si no hay dado en la mano, no hay nada que iluminar.
+        if (!gm.turnManager.HasDrawn)
+        {
+            gm.gridManager.ClearHighlights(gm.turnManager.CurrentPlayerIndex);
+            return;
+        }
+
+        // 2. Limpieza de seguridad antes de recalcular
+        int pIndex = gm.turnManager.CurrentPlayerIndex;
+        gm.gridManager.ClearHighlights(pIndex);
+
+        // 3. Recopilación de datos inyectables
+        PlayerData p = gm.turnManager.GetCurrentPlayer();
+        DieColor drawnColor = gm.turnManager.CurrentDrawnColor;
+
+        // Prevención de NullReference si el grupo aún no existe
+        if (!p.activeGroups.ContainsKey(drawnColor)) return;
+
+        GroupData group = p.activeGroups[drawnColor];
+        VariantData variant = gm.currentSession.selectedVariant;
+
+        // Obtenemos la matriz lógica actual
+        var logic = gm.gridManager.GetBoardLogic(pIndex);
+
+        bool foundValidSpot = false;
+
+        // 4. Escaneo del tablero (8x10)
+        for (int r = 0; r < 10; r++)
+        {
+            for (int c = 0; c < 8; c++)
+            {
+                // Inyectamos la información al Validador
+                bool isValid = PlacementValidator.IsValidPlacement(
+                    logic,
+                    10, 8,
+                    r, c,
+                    drawnColor,
+                    group.id,
+                    group.targetSize,
+                    p,
+                    variant
+                );
+
+                if (isValid)
+                {
+                    
+                    CellComponent cell = gm.gridManager.allCellsVisual[pIndex][r, c];
+                    if (cell != null)
+                    {
+                        cell.SetHighlight(true);
+                        foundValidSpot = true;
+                    }
+                }
+            }
+        }
+
+        if (!foundValidSpot)
+        {
+            Debug.LogWarning("[UX] No hay posiciones válidas para colocar el dado actual. El jugador está bloqueado.");
+            // Aquí a futuro podría disparar un evento de "Game Over" o forzar al jugador a usar un Re-Draw.
+        }
+    }
+
 }

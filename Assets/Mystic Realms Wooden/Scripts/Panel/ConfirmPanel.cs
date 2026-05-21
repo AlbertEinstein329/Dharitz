@@ -14,7 +14,7 @@ namespace LapKan
 
         private System.Action onConfirm;
 
-        protected override void Awake()
+        public override void Awake()
         {
             Instance = this;
             base.Awake();

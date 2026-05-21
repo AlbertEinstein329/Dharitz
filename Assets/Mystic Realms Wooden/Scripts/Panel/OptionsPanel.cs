@@ -12,7 +12,7 @@ namespace LapKan
         [SerializeField] private Button saveButton;
         private BasePanel previousPanel;
 
-        protected override void Awake()
+        public override void Awake()
         {
             Instance = this;
             base.Awake();
