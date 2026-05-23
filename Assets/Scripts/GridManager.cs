@@ -27,7 +27,8 @@ public class GridManager : MonoBehaviour, IGridValidator
     public List<DieData[,]> allBoardsLogic;
     public List<CellComponent[,]> allCellsVisual;
     private GameObject[] boardRoots;
-    public int currentlyViewedPlayer = 0;
+    private int currentlyViewedPlayer = 0;
+    public int CurrentlyViewedPlayer => currentlyViewedPlayer;
     private GameObject temporaryDie;
 
     private float startX;
@@ -81,11 +82,9 @@ public class GridManager : MonoBehaviour, IGridValidator
                 CellComponent cellScript = newCell.GetComponent<CellComponent>();
                 if (cellScript != null)
                 {
+                    // Mantenemos la configuración vital para que el multijugador sepa quién es el dueño
                     cellScript.Setup(r, c, playerIndex, this, GameManager.Instance, GameManager.Instance);
-
-                    // Asignamos la coordenada matemática para el Raycast.
                     cellScript.gridCoordinate = new Vector2Int(c, r);
-
                     allCellsVisual[playerIndex][r, c] = cellScript;
                 }
             }
@@ -94,27 +93,34 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     public void SwitchViewTo(int playerIndex)
     {
-        currentlyViewedPlayer = playerIndex;
+        // Validación de seguridad para no salirnos de los límites del array
+        if (playerIndex < 0 || playerIndex >= boardRoots.Length) return;
+
+        currentlyViewedPlayer = playerIndex; // Actualizamos el índice de seguimiento
+
         for (int i = 0; i < boardRoots.Length; i++)
         {
-            if (boardRoots[i] != null)
-            {
-                boardRoots[i].SetActive(i == currentlyViewedPlayer);
-            }
+            // Activamos solo el tablero que queremos ver
+            boardRoots[i].SetActive(i == playerIndex);
         }
 
-        if (GameManager.Instance != null)
+        // =========================================================================
+        // SINCRONIZACIÓN DE UI: Obligamos al HUD a mostrar los datos del tablero actual
+        // =========================================================================
+        if (GameManager.Instance != null && GameManager.Instance.players != null)
         {
-            if (!GameManager.Instance.isGameOver && GameManager.Instance.players.Count > playerIndex)
+            PlayerData p = GameManager.Instance.players[playerIndex];
+
+            if (UIManager.Instance != null)
             {
-                int scoreDelJugador = GameManager.Instance.players[playerIndex].score;
-                UIManager.Instance.UpdateScore(scoreDelJugador);
+                // Actualizamos el score en pantalla
+                UIManager.Instance.UpdateScore(p.score);
+
+                // (Opcional): Si tienes una función para mostrar el nombre del jugador, 
+                // el avatar, o sus monedas, llámala también aquí. Por ejemplo:
+                // UIManager.Instance.UpdatePlayerName(p.playerName);
             }
 
-            if (GameManager.Instance.isGameOver)
-            {
-                UIManager.Instance.ShowFinalResults(playerIndex);
-            }
         }
     }
 
@@ -130,14 +136,13 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     public void ViewNextBoard()
     {
-        int next = (currentlyViewedPlayer + 1) % GameManager.Instance.numPlayers;
+        int next = (currentlyViewedPlayer + 1) % boardRoots.Length;
         SwitchViewTo(next);
     }
 
     public void ViewPreviousBoard()
     {
-        int prev = currentlyViewedPlayer - 1;
-        if (prev < 0) prev = GameManager.Instance.numPlayers - 1;
+        int prev = (currentlyViewedPlayer - 1 + boardRoots.Length) % boardRoots.Length;
         SwitchViewTo(prev);
     }
 
@@ -344,6 +349,8 @@ public class GridManager : MonoBehaviour, IGridValidator
         if (dieScript != null)
         {
             dieScript.gridCoordinate = new Vector2Int(c, r);
+
+            dieScript.Setup(r, c, pIndex, this, GameManager.Instance, GameManager.Instance);
         }
     }
 

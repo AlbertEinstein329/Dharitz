@@ -18,7 +18,7 @@ public class BoardLogic : MonoBehaviour
 
         // 1. RECONSTRUCCIÓN DE LA VERDAD ABSOLUTA
         // Leemos la matriz exacta para ignorar cualquier dado fantasma en la memoria.
-        var logic = gm.gridManager.allBoardsLogic[gm.CurrentPlayerIndex];
+        var logic = gm.gridManager.allBoardsLogic[gm.turnManager.CurrentPlayerIndex];
         HashSet<Vector2Int> realOccupied = new HashSet<Vector2Int>();
 
         for (int r = 0; r < 10; r++)

@@ -7,7 +7,27 @@ public class TurnManager
     private GameManager gm;
 
     public int CurrentPlayerIndex { get; private set; } = 0;
-    public bool HasDrawn { get; set; } = false;
+    
+    // =========================================================================
+    // PROPIEDAD INTELIGENTE PUNTO DE NO RETORNO
+    // El historial solo se borra cuando el jugador decide robar un nuevo dado.
+    // =========================================================================
+    private bool hasDrawn = false;
+    public bool HasDrawn 
+    { 
+        get => hasDrawn; 
+        set 
+        {
+            hasDrawn = value;
+            if (hasDrawn && CommandManager.Instance != null)
+            {
+                // Al robar un nuevo dado, confirmas tu tablero pasado y se borra la pila vieja
+                CommandManager.Instance.ClearHistory(CurrentPlayerIndex);
+                Debug.Log($"[Fase de Turno] Dado extraído. Historial previo del Jugador {CurrentPlayerIndex + 1} limpiado.");
+            }
+        }
+    }
+    
     public DieColor CurrentDrawnColor { get; set; }
 
     public TurnManager(GameManager gm)
@@ -39,53 +59,49 @@ public class TurnManager
         }
 
         if (gm.reDrawButton != null) gm.reDrawButton.interactable = false;
+
+        // Desbloqueamos dinámicamente el botón Move según los usos de este jugador
+        if (GridInteractionManager.Instance != null)
+        {
+            GridInteractionManager.Instance.OnTurnChanged(CurrentPlayerIndex);
+        }
     }
 
     public void EndTurn()
     {
-        HasDrawn = false;
+        // Al finalizar el turno solo apagamos la bandera, no destruimos datos.
+        hasDrawn = false; 
         CurrentPlayerIndex = (CurrentPlayerIndex + 1) % gm.numPlayers;
 
         if (SaveManager.Instance != null)
         {
-            // Diferimos la escritura a disco JSON hasta este punto del bucle de juego
-            // para evitar tirones (stuttering) en móviles durante la colocación de piezas.
             SaveManager.Instance.SaveLocal();
         }
 
         Debug.Log($"Turno finalizado. Ahora es el turno del Jugador {CurrentPlayerIndex + 1}");
 
+        // FORZAMOS a que el GridManager vuelva a mostrar el tablero del jugador que ahora tiene el turno
         if (gm.gridManager != null)
         {
             gm.gridManager.SwitchViewTo(CurrentPlayerIndex);
         }
 
         UIManager.Instance.SetDrawInputLock(false);
-        StartTurn();
 
-        // Limpiamos la memoria de lo que hizo el jugador en este turno para que 
-        // en la siguiente ronda no pueda hacer Undo de turnos pasados.
-        if (CommandManager.Instance != null)
-        {
-            CommandManager.Instance.ClearHistory(CurrentPlayerIndex);
-        }
 
+        // LEVANTAMOS EL ESCUDO ANTI-EXPLOIT DE TRANSICIÓN
         if (CommandManager.Instance != null)
         {
             CommandManager.Instance.isTransitioning = false;
         }
 
+        StartTurn();
     }
 
     public IEnumerator TurnTransitionPause()
     {
-        float tiempoDeEspera = (gm.numPlayers == 1) ? 0f : 1.5f;
-
-        if (tiempoDeEspera > 0f)
-        {
-            yield return new WaitForSeconds(tiempoDeEspera);
-        }
-
+        float tiempoDeEspera = (gm.numPlayers == 1) ? 1.0f : 1.5f;
+        yield return new WaitForSeconds(tiempoDeEspera);
         EndTurn();
     }
 }

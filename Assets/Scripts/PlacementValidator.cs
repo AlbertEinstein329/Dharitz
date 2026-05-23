@@ -11,6 +11,10 @@ public static class PlacementValidator
 
     public static bool IsValidPlacement(GridManager.DieData[,] logic, int rows, int cols, int r, int c, DieColor color, int currentGroupId, int number, PlayerData player, VariantData variant)
     {
+        // ESCUDO ANTI-SUPERPOSICIÓN: Si la celda ya tiene un dado, se rechaza inmediatamente.
+        if (logic[r, c] != null) return false;
+
+
         bool isBoardEmpty = (player.placedDice == 0);
 
         PatternData currentPattern = variant.GetPattern(number);

@@ -25,7 +25,7 @@ public class GridInteractionManager : MonoBehaviour
     [Header("Gestión de Comodines Multijugador")]
     [SerializeField] private int maxMoveUses = 1;
 
-    // SOLUCIÓN AL BOTÓN COMPARTIDO: Cada jugador tiene su propio contador indexado
+    // AISLAMIENTO: Cada jugador rastrea sus propios usos del comodín Move
     private Dictionary<int, int> playerMoveUses = new Dictionary<int, int>();
 
     private void Awake()
@@ -38,10 +38,7 @@ public class GridInteractionManager : MonoBehaviour
         Instance = this;
     }
 
-    /// <summary>
-    /// SINCRO DE TURNO CRÍTICA: Debes llamar a este método desde tu GameManager o TurnManager
-    /// en el código exacto donde cambies el turno de los jugadores.
-    /// </summary>
+    // Se ejecuta de forma segura al cambiar de turno
     public void OnTurnChanged(int newPlayerIndex)
     {
         if (!playerMoveUses.ContainsKey(newPlayerIndex))
@@ -49,14 +46,11 @@ public class GridInteractionManager : MonoBehaviour
             playerMoveUses[newPlayerIndex] = 0;
         }
 
-        // Evaluamos si el nuevo jugador tiene usos disponibles y actualizamos el botón
         bool hasUsesLeft = playerMoveUses[newPlayerIndex] < maxMoveUses;
         if (moveActionButton != null)
         {
             moveActionButton.SetInteractable(hasUsesLeft);
         }
-
-        // Forzamos la salida del modo mover por si el jugador anterior dejó el toggle encendido
         ResetMoveMode();
     }
 
@@ -64,19 +58,18 @@ public class GridInteractionManager : MonoBehaviour
     {
         if (isActive)
         {
-            int pIndex = GameManager.Instance.CurrentPlayerIndex;
+            int pIndex = GameManager.Instance.turnManager.CurrentPlayerIndex;
             if (!playerMoveUses.ContainsKey(pIndex)) playerMoveUses[pIndex] = 0;
 
             if (playerMoveUses[pIndex] >= maxMoveUses)
             {
-                Debug.LogWarning("[UX] Ya has agotado tus usos de Move para esta partida.");
+                Debug.LogWarning("[UX] Ya has agotado tus usos de Move para este turno.");
                 if (moveActionButton != null) moveActionButton.LockToggle();
                 return;
             }
 
             currentState = InteractionState.MoveMode_WaitingForDie;
             ClearSelection();
-            Debug.Log($"[UX] Modo Mover Activado para Jugador {pIndex}. Selecciona un dado.");
         }
         else
         {
@@ -86,37 +79,36 @@ public class GridInteractionManager : MonoBehaviour
 
     public void OnGridCellClicked(Vector2Int clickedCoordinate)
     {
+        int pIndex = GameManager.Instance.turnManager.CurrentPlayerIndex;
+        var logic = GameManager.Instance.gridManager.allBoardsLogic[pIndex];
+        bool isOccupied = logic[clickedCoordinate.y, clickedCoordinate.x] != null;
+
         switch (currentState)
         {
             case InteractionState.MoveMode_WaitingForDie:
-                TrySelectDieForMove(clickedCoordinate);
+                if (isOccupied) TrySelectDieForMove(clickedCoordinate);
                 break;
 
             case InteractionState.MoveMode_WaitingForDestination:
-                if (boardLogic.occupiedCells.Contains(clickedCoordinate))
-                {
+                if (isOccupied)
                     TrySelectDieForMove(clickedCoordinate);
-                }
                 else
-                {
                     TryExecuteMove(clickedCoordinate);
-                }
                 break;
         }
     }
 
     private void TrySelectDieForMove(Vector2Int coordinate)
     {
-        if (boardLogic != null && boardLogic.occupiedCells.Contains(coordinate))
+        int pIndex = GameManager.Instance.turnManager.CurrentPlayerIndex;
+        var logic = GameManager.Instance.gridManager.allBoardsLogic[pIndex];
+
+        if (logic[coordinate.y, coordinate.x] != null)
         {
             ClearBoardHighlights();
             currentSelectedDieCoordinate = coordinate;
             currentState = InteractionState.MoveMode_WaitingForDestination;
             HighlightValidMoveCells(coordinate);
-        }
-        else
-        {
-            Debug.LogWarning("[UX] Clic inválido. Selecciona un DADO.");
         }
     }
 
@@ -135,20 +127,24 @@ public class GridInteractionManager : MonoBehaviour
         GameManager gm = GameManager.Instance;
         if (gm == null || gm.gridManager == null) return false;
 
-        int playerIndex = gm.CurrentPlayerIndex;
+        int playerIndex = gm.turnManager.CurrentPlayerIndex;
         var dieToMove = gm.gridManager.allBoardsLogic[playerIndex][currentSelectedDieCoordinate.y, currentSelectedDieCoordinate.x];
         if (dieToMove == null) return false;
 
-        PlayerData player = gm.GetCurrentPlayer();
+        PlayerData player = gm.turnManager.GetCurrentPlayer();
         int countInGroup = 0;
+        int totalOccupied = 0;
 
         foreach (var die in gm.gridManager.allBoardsLogic[playerIndex])
         {
-            if (die != null && die.groupId == dieToMove.groupId) countInGroup++;
+            if (die != null)
+            {
+                totalOccupied++;
+                if (die.groupId == dieToMove.groupId) countInGroup++;
+            }
         }
 
         bool isSoloDie = (countInGroup <= 1);
-
         var simulatedLogic = CloneBoardLogic(gm.gridManager.allBoardsLogic[playerIndex], 10, 8);
         simulatedLogic[currentSelectedDieCoordinate.y, currentSelectedDieCoordinate.x] = null;
 
@@ -161,15 +157,12 @@ public class GridInteractionManager : MonoBehaviour
 
         bool isLegal = false;
 
-        if (boardLogic.occupiedCells.Count <= 1)
-        {
-            isLegal = true;
-        }
+        // NUEVO: Verificamos el conteo real, no el boardLogic
+        if (totalOccupied <= 1) isLegal = true;
         else if (isSoloDie)
         {
             bool touchesAnyDie = false;
             bool colorClash = false;
-
             Vector2Int[] directions = {
                 Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right,
                 new Vector2Int(1, 1), new Vector2Int(1, -1), new Vector2Int(-1, 1), new Vector2Int(-1, -1)
@@ -187,9 +180,7 @@ public class GridInteractionManager : MonoBehaviour
                         if (dir.x == 0 || dir.y == 0)
                         {
                             if (neighborDie.color == dieToMove.color && neighborDie.groupId != dieToMove.groupId)
-                            {
                                 colorClash = true;
-                            }
                         }
                     }
                 }
@@ -216,41 +207,27 @@ public class GridInteractionManager : MonoBehaviour
 
     private void TryExecuteMove(Vector2Int targetCoordinate)
     {
-        if (!HasValidSelection())
-        {
-            ResetMoveMode();
-            return;
-        }
+        if (currentSelectedDieCoordinate.x == -1) { ResetMoveMode(); return; }
 
-        var logicMatrix = GameManager.Instance.gridManager.allBoardsLogic[GameManager.Instance.CurrentPlayerIndex];
+        GameManager gm = GameManager.Instance;
+        int pIndex = gm.turnManager.CurrentPlayerIndex;
+        var logicMatrix = gm.gridManager.allBoardsLogic[pIndex];
+
         bool isTargetEmpty = logicMatrix[targetCoordinate.y, targetCoordinate.x] == null;
-
         bool maintainsCohesion = !boardLogic.WouldLeaveSplitIslands(currentSelectedDieCoordinate, targetCoordinate);
         bool isValidDestination = IsValidMoveDestination(targetCoordinate);
 
-        if (boardLogic != null && isTargetEmpty && maintainsCohesion && isValidDestination)
+        if (isTargetEmpty && maintainsCohesion && isValidDestination)
         {
-            if (commandManager != null)
-            {
-                int oldR = currentSelectedDieCoordinate.y;
-                int oldC = currentSelectedDieCoordinate.x;
-                int newR = targetCoordinate.y;
-                int newC = targetCoordinate.x;
+            int oldR = currentSelectedDieCoordinate.y;
+            int oldC = currentSelectedDieCoordinate.x;
+            int newR = targetCoordinate.y;
+            int newC = targetCoordinate.x;
 
-                GameManager gm = GameManager.Instance;
-                if (gm == null) return;
+            IGridCommand moveCommand = new MoveCommand(gm, pIndex, oldR, oldC, newR, newC);
+            commandManager.ExecuteCommand(moveCommand);
 
-                int currentPlayerIndex = gm.CurrentPlayerIndex;
-
-                IGridCommand moveCommand = new MoveCommand(gm, currentPlayerIndex, oldR, oldC, newR, newC);
-                commandManager.ExecuteCommand(moveCommand);
-                Debug.Log($"[Movimiento] Dado movido con éxito de {currentSelectedDieCoordinate} a {targetCoordinate}.");
-            }
-
-            // CONSUMO MULTIJUGADOR AISLADO
-            int pIndex = GameManager.Instance.CurrentPlayerIndex;
             playerMoveUses[pIndex]++;
-
             ResetMoveMode();
 
             if (playerMoveUses[pIndex] >= maxMoveUses)
@@ -259,34 +236,18 @@ public class GridInteractionManager : MonoBehaviour
             }
 
             ClearSelection();
-
-            if (GameManager.Instance != null && GameManager.Instance.placementOrchestrator != null)
-            {
-                GameManager.Instance.placementOrchestrator.RefreshPlacementHighlights();
-            }
-        }
-        else
-        {
-            Debug.LogWarning($"[Movimiento] Inválido. Vacía: {isTargetEmpty} | Rompe tablero: {!maintainsCohesion} | Destino Legal: {isValidDestination}");
+            if (gm.placementOrchestrator != null) gm.placementOrchestrator.RefreshPlacementHighlights();
         }
     }
 
-    /// <summary>
-    /// Devuelve un uso del comodín al jugador si realiza un Undo exitoso.
-    /// </summary>
     public void RefundMoveUse(int playerIndex)
     {
         if (playerMoveUses.ContainsKey(playerIndex) && playerMoveUses[playerIndex] > 0)
         {
             playerMoveUses[playerIndex]--;
-
-            // Si vuelve a ser elegible para usarlo y es su turno actual, liberamos el botón
-            if (GameManager.Instance.CurrentPlayerIndex == playerIndex)
+            if (GameManager.Instance.turnManager.CurrentPlayerIndex == playerIndex && moveActionButton != null)
             {
-                if (moveActionButton != null)
-                {
-                    moveActionButton.SetInteractable(true);
-                }
+                moveActionButton.SetInteractable(true);
             }
         }
     }
@@ -304,25 +265,27 @@ public class GridInteractionManager : MonoBehaviour
         ClearBoardHighlights();
     }
 
-    private bool HasValidSelection()
+    public void LockUIForTransition()
     {
-        return currentSelectedDieCoordinate.x != -1 && currentSelectedDieCoordinate.y != -1;
+        ResetMoveMode();
+        if (moveActionButton != null) moveActionButton.SetInteractable(false);
     }
 
     public void HighlightValidMoveCells(Vector2Int originCoordinate)
     {
-        if (boardLogic == null) return;
         GameManager gm = GameManager.Instance;
         if (gm == null || gm.gridManager == null) return;
 
-        int playerIndex = gm.CurrentPlayerIndex;
+        // CORRECCIÓN: Buscamos dinámicamente las celdas visuales del jugador del turno actual
+        int playerIndex = gm.turnManager.CurrentPlayerIndex;
+        var logic = gm.gridManager.allBoardsLogic[playerIndex];
 
         for (int r = 0; r < 10; r++)
         {
             for (int c = 0; c < 8; c++)
             {
                 Vector2Int checkPos = new Vector2Int(c, r);
-                if (!boardLogic.occupiedCells.Contains(checkPos) && IsValidMoveDestination(checkPos))
+                if (logic[r, c] == null && IsValidMoveDestination(checkPos))
                 {
                     CellComponent cell = gm.gridManager.allCellsVisual[playerIndex][r, c];
                     if (cell != null) cell.SetHighlight(true);
@@ -336,7 +299,8 @@ public class GridInteractionManager : MonoBehaviour
         GameManager gm = GameManager.Instance;
         if (gm == null || gm.gridManager == null) return;
 
-        int playerIndex = gm.CurrentPlayerIndex;
+        // CORRECCIÓN MULTIJUGADOR: Limpiamos los brillos del tablero correcto
+        int playerIndex = gm.turnManager.CurrentPlayerIndex;
 
         for (int r = 0; r < 10; r++)
         {
@@ -347,16 +311,4 @@ public class GridInteractionManager : MonoBehaviour
             }
         }
     }
-
-    public void LockUIForTransition()
-    {
-        ResetMoveMode(); // Apaga el estado interno y limpia selecciones
-
-        if (moveActionButton != null)
-        {
-            // Bloquea el botón de la UI físicamente
-            moveActionButton.SetInteractable(false);
-        }
-    }
-
 }

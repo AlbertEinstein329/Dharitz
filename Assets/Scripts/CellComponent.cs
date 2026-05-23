@@ -63,7 +63,7 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
     {
         row = r;
         col = c;
-        playerOwnerIndex = pIndex;
+        this.playerOwnerIndex = pIndex;
 
         gridValidator = validator;
         turnProvider = turnInfo;
@@ -108,31 +108,50 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
 
     public void ProcessInteraction()
     {
-        // ==========================================
-        // ESCUDO 1: Blindaje contra NullReference y Turnos
-        // ==========================================
-        if (turnProvider == null || gridValidator == null || placementExecutor == null) return;
 
-        if (turnProvider.CurrentPlayerIndex != playerOwnerIndex)
+        // Consultemos el ID real desde el GridManager.
+        int currentPlayerTurn = GameManager.Instance.turnManager.CurrentPlayerIndex;
+
+        // MODIFICACIÓN: En lugar de comparar contra una variable interna,
+        // validemos si la celda clickeada pertenece al jugador activo.
+        if (currentPlayerTurn != this.playerOwnerIndex)
         {
-            Debug.LogWarning("[Tráfico] Clic ignorado. Tablero equivocado o turno inválido.");
+            Debug.LogWarning($"[Error] Clic en celda de Jugador {playerOwnerIndex}, pero turno es de {currentPlayerTurn}");
             return;
         }
 
-        // ==========================================
-        // INTERCEPCIÓN MÁXIMA PRIORIDAD: Modo Mover
-        // ==========================================
+        // =========================================================================
+        // 1. INTERCEPCIÓN DEL COMODÍN MOVE (Al principio de todo)
+        // Si el modo mover está activo, procesamos el clic aquí y detenemos el flujo normal.
+        // =========================================================================
         if (GridInteractionManager.Instance != null && GridInteractionManager.Instance.IsMoveModeActive)
         {
-            // FALLO CORREGIDO: Usamos gridCoordinate directamente.
-            // Esta es la única Fuente de la Verdad que los dados tienen actualizada.
-            GridInteractionManager.Instance.OnGridCellClicked(this.gridCoordinate);
+            // Verificamos de forma segura que el jugador esté interactuando con SU propio tablero
+            if (GameManager.Instance.turnManager.CurrentPlayerIndex == playerOwnerIndex)
+            {
+                GridInteractionManager.Instance.OnGridCellClicked(gridCoordinate);
+            }
+            else
+            {
+                Debug.LogWarning("[Tráfico] Clic ignorado: Intentaste usar el comodín en el tablero de un rival.");
+            }
+            return; // Bloquea y evita que se ejecute la colocación normal de dados inferiores
+        }
+
+        // =========================================================================
+        // 2. COLOCACIÓN NORMAL DE DADOS (Tu lógica intacta)
+        // =========================================================================
+        if (turnProvider == null || gridValidator == null || placementExecutor == null) return;
+
+        bool isOwnerTurn = (GameManager.Instance.turnManager.CurrentPlayerIndex == playerOwnerIndex);
+
+        // Usamos el turnManager real para la colocación estándar
+        if (!GridInteractionManager.Instance.IsMoveModeActive && !isOwnerTurn)
+        {
+            Debug.LogWarning("Turno inválido para colocar dado.");
             return;
         }
 
-        // ==========================================
-        // COMPORTAMIENTO NORMAL: Colocar dado nuevo
-        // ==========================================
         if (!turnProvider.HasDrawn) return;
 
         DieColor currentColor = turnProvider.CurrentDrawnColor;
@@ -154,9 +173,6 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
 
         if (targetSize == 0) return;
 
-        // FALLO CORREGIDO A LARGO PLAZO: 
-        // Extraemos row y col directamente de gridCoordinate para que la colocación 
-        // normal tampoco sufra del síndrome de las "coordenadas fantasma".
         int realRow = this.gridCoordinate.y;
         int realCol = this.gridCoordinate.x;
 

@@ -39,7 +39,7 @@ public class UndoCommand : IGridCommand
         // we leave this empty. The CommandManager will just push it to the stack.
     }
 
-    public void Undo()
+public void Undo()
     {
         PlayerData p = gm.players[playerIndex];
         
@@ -58,17 +58,20 @@ public class UndoCommand : IGridCommand
         // 3. Remove from logic and visual grid
         gm.gridManager.RemoveDie(playerIndex, r, c);
 
-        // 4. Update UI to reflect the restored state
+        // 4. Update UI
         UIManager.Instance.UpdateScore(p.score);
         UIManager.Instance.UpdateProgressText(color, targetSize, group.occupiedCells.Count, targetSize);
         
-        // Return the die to the active hand space and unlock
-        UIManager.Instance.ClearDieUI(); // Hides current if needed, but we need it back?
-        // Wait, ClearDieUI clears the UI. If we undo, the player should be able to place the SAME die again.
-        // We will call RestoreDieToHand in UIManager
         UIManager.Instance.RestoreDieToHand(color, targetSize);
+        gm.turnManager.HasDrawn = true;
 
-        gm.turnManager.HasDrawn = true; // Player is back to the state of having drawn but not placed
+        // ========================================================
+        // LA LLAVE DE SINCRONIZACIÓN: Actualizamos el cerebro del juego
+        // ========================================================
+        gm.turnManager.CurrentDrawnColor = color;
+        gm.turnManager.HasDrawn = true;
+
+        UIManager.Instance.SetDrawInputLock(false);
 
         Debug.Log("Undo executed: Reverted last placement.");
     }

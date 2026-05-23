@@ -189,9 +189,35 @@ public class PlacementOrchestrator
 
         if (!foundValidSpot)
         {
-            Debug.LogWarning("[UX] No hay posiciones válidas para colocar el dado actual. El jugador está bloqueado.");
-            // Aquí a futuro podría disparar un evento de "Game Over" o forzar al jugador a usar un Re-Draw.
+            Debug.LogWarning("[UX] Softlock topológico detectado. Ejecutando protocolo Anti-Softlock.");
+
+            // 1. Limpiamos el dado atascado de la UI de la mano del jugador
+            UIManager.Instance.ClearDieUI();
+
+            // 2. Liberamos el candado de la interfaz
+            UIManager.Instance.SetDrawInputLock(false);
+
+            // 3. Revertimos la memoria del turno: hacemos creer al juego que "aún no has robado"
+            gm.turnManager.HasDrawn = false;
+
+            // 4. (Opcional) Si tu botón de Redraw se desactiva al robar, vuélvelo a encender
+            if (gm.reDrawButton != null) gm.reDrawButton.interactable = true;
+
+            // 5. Feedback Visual para que el jugador no piense que es un bug
+            if (PopUpManager.Instance != null)
+            {
+                // Mostramos el texto flotante en el centro del tablero
+                PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "DADO INJUGABLE\n¡Tiro devuelto!", Color.yellow);
+            }
+
+            /* * NOTA DE GAME DESIGN (MODO ESTRICTO):
+             * Si en el futuro decides que robar un dado injugable es "mala suerte" 
+             * y el jugador DEBE perder su turno en lugar de recibir un tiro gratis, 
+             * borra las líneas 2, 3 y 4 de arriba, y simplemente ejecuta:
+             * gm.turnManager.EndTurn();
+             */
         }
+
     }
 
 }

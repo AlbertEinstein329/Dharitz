@@ -126,7 +126,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     {
         Debug.Log("Fin de la bolsa. Calculando resultados...");
         isGameOver = true;
-        int viewedPlayer = gridManager.currentlyViewedPlayer;
+        int viewedPlayer = gridManager.CurrentlyViewedPlayer;
         UIManager.Instance.ShowFinalResults(viewedPlayer);
     }
 
