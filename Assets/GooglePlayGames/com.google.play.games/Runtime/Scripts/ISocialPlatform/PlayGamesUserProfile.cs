@@ -31,6 +31,7 @@ namespace GooglePlayGames
     /// Represents a Google Play Games user profile. Implements the Unity's <c>IUserProfile</c>
     /// interface and is used as a base class for <see cref="PlayGamesLocalUser" />.
     /// </summary>
+    [Obsolete]
     public class PlayGamesUserProfile : IUserProfile
     {
         /// <summary>

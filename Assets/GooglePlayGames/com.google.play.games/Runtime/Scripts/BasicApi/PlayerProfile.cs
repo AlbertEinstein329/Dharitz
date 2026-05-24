@@ -17,10 +17,11 @@
 #if UNITY_ANDROID
 
 namespace GooglePlayGames.BasicApi {
-  /// <summary>
-  /// Represents a player, a real-world person (tied to a Games account).
-  /// </summary>
-  public class PlayerProfile : PlayGamesUserProfile {
+    /// <summary>
+    /// Represents a player, a real-world person (tied to a Games account).
+    /// </summary>
+    [System.Obsolete]
+    public class PlayerProfile : PlayGamesUserProfile {
     /// <summary>
     /// Constructor for PlayerProfile.
     /// </summary>

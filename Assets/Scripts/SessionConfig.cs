@@ -44,4 +44,5 @@ public class PlayerSetup
     public string playerName;
     public bool isBot;
     public int botDifficulty;
+    public int avatarId;
 }
