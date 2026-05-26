@@ -15,8 +15,8 @@ MonoBehaviour:
   targetNumber: 3
   baseShape:
   - {x: 0, y: 0}
-  - {x: 0, y: 1}
-  - {x: 0, y: 2}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
   allowRotation: 0
   allowMirror: 1
   specialRule: 0

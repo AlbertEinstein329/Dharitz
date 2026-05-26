@@ -1,5 +1,7 @@
-using UnityEngine;
+Ôªøusing DG.Tweening;
 using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class GridManager : MonoBehaviour, IGridValidator
 {
@@ -18,6 +20,13 @@ public class GridManager : MonoBehaviour, IGridValidator
     public int cols = 10;
     public float cellSize = 1.1f;
 
+    [Header("Dynamic Grid Settings")]
+    public float screenPadding = 0.5f; // Padding en unidades del mundo
+    public float bottomUIOffset = 1.5f; // Espacio que reservamos abajo para los botones
+
+    [Header("Responsive Grid Positioning")]
+    [SerializeField] private float bottomVerticalOffset = 1.5f;
+
     [Header("Prefabs y Referencias")]
     public GameObject cellPrefab;
     public GameObject redPrefab, bluePrefab, whitePrefab, blackPrefab;
@@ -29,13 +38,32 @@ public class GridManager : MonoBehaviour, IGridValidator
     private GameObject[] boardRoots;
     private int currentlyViewedPlayer = 0;
     public int CurrentlyViewedPlayer => currentlyViewedPlayer;
-    private GameObject temporaryDie;
+
+    [Header("Animation References")]
+    [Tooltip("Drag your Draw Button / UI Bag here from the Canvas")]
+    public RectTransform drawButtonUI;
+    private bool isAnimatingPlacement = false;
+
+    [Header("AAA Highlight System")]
+    [Tooltip("Drag your PatternLightFX Prefab here")]
+    public GameObject patternLightPrefab;
+
+    [Tooltip("How much the dice zoom into the camera (1.10 = 10% bigger)")]
+    public float highlightZoomMultiplier = 1.10f;
+
+    [Tooltip("How fast the light spins behind the dice")]
+    public float lightRotationSpeed = 3f;
+
+
+    public float dragScaleMultiplier = 1.15f;
+    //private bool isDraggingDie = false;
 
     private float startX;
     private float startY;
 
     void Awake()
     {
+
         allBoardsLogic = new List<DieData[,]>();
         allCellsVisual = new List<CellComponent[,]>();
 
@@ -48,10 +76,14 @@ public class GridManager : MonoBehaviour, IGridValidator
         };
     }
 
+
+
     void Start()
     {
-        startX = -((cols - 1) * cellSize) / 2f;
-        startY = -((rows - 1) * cellSize) / 2f;
+        CalculateDynamicGridSize();
+
+        //startX = -((cols - 1) * cellSize) / 2f;
+        //startY = -((rows - 1) * cellSize) / 2f;
 
         int numPlayers = GameManager.Instance.numPlayers;
         boardRoots = new GameObject[numPlayers];
@@ -70,6 +102,29 @@ public class GridManager : MonoBehaviour, IGridValidator
         SwitchViewTo(0);
     }
 
+    private void CalculateDynamicGridSize()
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            Debug.LogError("Main Camera not found! Cannot calculate dynamic grid size.");
+            return;
+        }
+
+        // 1. Get screen dimensions in world units based on orthographic size
+        float screenHeight = mainCamera.orthographicSize * 2f;
+        float screenWidth = screenHeight * mainCamera.aspect;
+
+        // 2. Calculate cell size based on screen width and padding
+        float availableWidth = screenWidth - (screenPadding * 2f);
+        cellSize = availableWidth / cols;
+
+        // 3. Align horizontally (Centered with left/right padding)
+        startX = (-screenWidth / 2f) + screenPadding + (cellSize / 2f);
+
+        // 4. Align vertically (Anchored strictly to the bottom edge of the camera view)
+        startY = -mainCamera.orthographicSize + bottomVerticalOffset + (cellSize / 2f);
+    }
     void GenerateGridForPlayer(int playerIndex)
     {
         for (int r = 0; r < rows; r++)
@@ -82,7 +137,7 @@ public class GridManager : MonoBehaviour, IGridValidator
                 CellComponent cellScript = newCell.GetComponent<CellComponent>();
                 if (cellScript != null)
                 {
-                    // Mantenemos la configuraciÛn vital para que el multijugador sepa quiÈn es el dueÒo
+                    // Mantenemos la configuraci√≥n vital para que el multijugador sepa qui√©n es el due√±o
                     cellScript.Setup(r, c, playerIndex, this, GameManager.Instance, GameManager.Instance);
                     cellScript.gridCoordinate = new Vector2Int(c, r);
                     allCellsVisual[playerIndex][r, c] = cellScript;
@@ -93,10 +148,10 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     public void SwitchViewTo(int playerIndex)
     {
-        // ValidaciÛn de seguridad para no salirnos de los lÌmites del array
+        // Validaci√≥n de seguridad para no salirnos de los l√≠mites del array
         if (playerIndex < 0 || playerIndex >= boardRoots.Length) return;
 
-        currentlyViewedPlayer = playerIndex; // Actualizamos el Ìndice de seguimiento
+        currentlyViewedPlayer = playerIndex; // Actualizamos el √≠ndice de seguimiento
 
         for (int i = 0; i < boardRoots.Length; i++)
         {
@@ -105,7 +160,7 @@ public class GridManager : MonoBehaviour, IGridValidator
         }
 
         // =========================================================================
-        // SINCRONIZACI”N DE UI: Obligamos al HUD a mostrar los datos del tablero actual
+        // SINCRONIZACI√ìN DE UI: Obligamos al HUD a mostrar los datos del tablero actual
         // =========================================================================
         if (GameManager.Instance != null && GameManager.Instance.players != null)
         {
@@ -116,8 +171,8 @@ public class GridManager : MonoBehaviour, IGridValidator
                 // Actualizamos el score en pantalla
                 UIManager.Instance.UpdateScore(p.score);
 
-                // (Opcional): Si tienes una funciÛn para mostrar el nombre del jugador, 
-                // el avatar, o sus monedas, ll·mala tambiÈn aquÌ. Por ejemplo:
+                // (Opcional): Si tienes una funci√≥n para mostrar el nombre del jugador, 
+                // el avatar, o sus monedas, ll√°mala tambi√©n aqu√≠. Por ejemplo:
                 // UIManager.Instance.UpdatePlayerName(p.playerName);
             }
 
@@ -292,13 +347,13 @@ public class GridManager : MonoBehaviour, IGridValidator
         }
 
         // TAREA DE ARQUITECTURA: Si tienes un sistema que ilumina el tablero para el 
-        // SIGUIENTE dado en la mano, debes llamarlo justo aquÌ, DESPU…S de apagar las luces.
+        // SIGUIENTE dado en la mano, debes llamarlo justo aqu√≠, DESPU√âS de apagar las luces.
     
     }
 
     public void RemoveDie(int pIndex, int r, int c)
     {
-        // 1. Limpieza lÛgica
+        // 1. Limpieza l√≥gica
         allBoardsLogic[pIndex][r, c] = null;
 
         BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
@@ -307,7 +362,7 @@ public class GridManager : MonoBehaviour, IGridValidator
             boardLogic.occupiedCells.Remove(new Vector2Int(c, r));
         }
 
-        // 2. SOLUCI”N VISUAL: B˙squeda por Identidad en lugar de PosiciÛn Flotante
+        // 2. SOLUCI√ìN VISUAL: B√∫squeda por Identidad en lugar de Posici√≥n Flotante
         foreach (Transform child in boardRoots[pIndex].transform)
         {
             CellComponent dieComp = child.GetComponent<CellComponent>();
@@ -321,7 +376,7 @@ public class GridManager : MonoBehaviour, IGridValidator
             }
         }
 
-        // 3. Forzamos actualizaciÛn visual de luces
+        // 3. Forzamos actualizaci√≥n visual de luces
         if (GridInteractionManager.Instance != null)
         {
             GridInteractionManager.Instance.ClearBoardHighlights();
@@ -338,14 +393,14 @@ public class GridManager : MonoBehaviour, IGridValidator
         GameObject prefabAUsar = GetPrefabByColor(color);
         Vector3 position = new Vector3(startX + (c * cellSize), startY + (r * cellSize), -2);
 
-        GameObject nuevoDado = Instantiate(prefabAUsar, position, Quaternion.identity, boardRoots[pIndex].transform);
-        nuevoDado.transform.localScale = new Vector3(cellSize, cellSize, 1f);
+        GameObject NewDice = Instantiate(prefabAUsar, position, Quaternion.identity, boardRoots[pIndex].transform);
+        NewDice.transform.localScale = new Vector3(cellSize, cellSize, 1f);
 
-        SpriteRenderer renderer = nuevoDado.GetComponent<SpriteRenderer>();
+        SpriteRenderer renderer = NewDice.GetComponent<SpriteRenderer>();
         if (renderer != null) renderer.sprite = UIManager.Instance.GetSprite(color, number);
 
         // (Si el dado usa otro script, cambia "CellComponent" por el nombre de tu script).
-        CellComponent dieScript = nuevoDado.GetComponent<CellComponent>();
+        CellComponent dieScript = NewDice.GetComponent<CellComponent>();
         if (dieScript != null)
         {
             dieScript.gridCoordinate = new Vector2Int(c, r);
@@ -372,6 +427,8 @@ public class GridManager : MonoBehaviour, IGridValidator
     {
         if (pIndex < 0 || pIndex >= allCellsVisual.Count) return;
 
+        HighlightCompletedPattern(pIndex, cells);
+
         foreach (var cellPos in cells)
         {
             CellComponent cellComp = allCellsVisual[pIndex][cellPos.x, cellPos.y];
@@ -381,4 +438,188 @@ public class GridManager : MonoBehaviour, IGridValidator
             }
         }
     }
+
+    // --------------------------------------------------------
+    // DRAG AND DROP ELASTIC SYSTEM
+    // --------------------------------------------------------
+
+    public void AnimateAndPlaceDie(int row, int col, DieColor color, int number, Vector3 targetCellPos, IPlacementExecutor executor)
+    {
+        // 1. Prevent spam-clicking if a die is already flying
+        if (isAnimatingPlacement) return;
+        isAnimatingPlacement = true;
+
+        Vector3 startWorldPos = Vector3.zero;
+        CanvasGroup buttonCanvasGroup = null;
+
+        // 2. Hide the UI Button and calculate its exact screen position
+        if (drawButtonUI != null)
+        {
+            // Use CanvasGroup to hide the UI without deactivating the GameObject
+            buttonCanvasGroup = drawButtonUI.GetComponent<CanvasGroup>();
+            if (buttonCanvasGroup == null) buttonCanvasGroup = drawButtonUI.gameObject.AddComponent<CanvasGroup>();
+
+            buttonCanvasGroup.alpha = 0f; // Make UI invisible!
+            buttonCanvasGroup.blocksRaycasts = false; // Prevent accidental UI clicks
+
+            // Convert UI Canvas position to 2D World Space
+            Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(null, drawButtonUI.position);
+            startWorldPos = Camera.main.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, Camera.main.nearClipPlane));
+        }
+
+        startWorldPos.z = -9f; // Force it extremely close to the camera
+
+        // 3. Create the temporary flying die
+        GameObject flyingDie = Instantiate(GetPrefabByColor(color), startWorldPos, Quaternion.identity);
+
+        Collider2D col2D = flyingDie.GetComponent<Collider2D>();
+        if (col2D != null) col2D.enabled = false;
+
+        float scaleFactor = cellSize;
+        SpriteRenderer renderer = flyingDie.GetComponent<SpriteRenderer>();
+        if (renderer != null)
+        {
+            renderer.sprite = UIManager.Instance.GetSprite(color, number);
+            renderer.sortingOrder = 32000;
+
+            if (renderer.sprite != null)
+            {
+                scaleFactor = cellSize / renderer.sprite.bounds.size.x;
+            }
+        }
+        flyingDie.transform.localScale = new Vector3(scaleFactor, scaleFactor, 1f);
+
+        // 4. Trigger DOTween Animation
+        flyingDie.transform.DOMove(targetCellPos, 0.25f).SetEase(Ease.OutQuad).OnComplete(() =>
+        {
+            flyingDie.transform.DOPunchScale(new Vector3(0.12f, 0.12f, 0f), 0.15f, 5, 1f).OnComplete(() =>
+            {
+                // Execute the actual placement logic and destroy the fake flying die
+                executor.BeginPlacement(row, col);
+                Destroy(flyingDie);
+
+                // 5. Unhide the UI Button for the next turn!
+                if (buttonCanvasGroup != null)
+                {
+                    buttonCanvasGroup.alpha = 1f;
+                    buttonCanvasGroup.blocksRaycasts = true;
+                }
+
+                // Unlock the board for the next interaction
+                isAnimatingPlacement = false;
+            });
+        });
+    }
+
+    // --------------------------------------------------------
+    // AAA CELEBRATION SYSTEM
+    // --------------------------------------------------------
+
+    public void HighlightCompletedPattern(int playerIndex, List<Vector2Int> patternCoordinates)
+    {
+        if (patternCoordinates == null || patternCoordinates.Count == 0) return;
+
+        // Obtenemos la ra√≠z donde viven todos los objetos del tablero de este jugador
+        Transform boardRoot = boardRoots[playerIndex].transform;
+
+        foreach (Vector2Int coord in patternCoordinates)
+        {
+            // 1. Obtenemos la celda de fondo
+            CellComponent visualCell = allCellsVisual[playerIndex][coord.x, coord.y];
+            if (visualCell == null) continue;
+
+            // 2. üõ†Ô∏è RADAR ESPACIAL: Buscamos el dado independiente que est√° sobre esta celda
+            Transform dieTransform = null;
+            SpriteRenderer dieRenderer = null;
+
+            foreach (Transform child in boardRoot)
+            {
+                // Ignoramos la propia celda de fondo
+                if (child.gameObject == visualCell.gameObject) continue;
+
+                // Medimos la distancia 2D (ignorando el eje Z) entre el objeto y la celda
+                float distance = Vector2.Distance(child.position, visualCell.transform.position);
+
+                // Si est√°n a menos de 0.1 unidades, ¬°hemos encontrado el dado que est√° encima!
+                if (distance < 0.1f)
+                {
+                    SpriteRenderer sr = child.GetComponent<SpriteRenderer>();
+                    if (sr != null)
+                    {
+                        dieTransform = child;
+                        dieRenderer = sr;
+                        break;
+                    }
+                }
+            }
+
+            // Si por alguna raz√≥n no hay dado en esa celda, saltamos la animaci√≥n
+            if (dieTransform == null || dieRenderer == null) continue;
+
+            // 3. ANIMAMOS EXCLUSIVAMENTE EL DADO
+            int originalSortingOrder = dieRenderer.sortingOrder;
+            dieRenderer.sortingOrder = 500; // Al frente de todo
+
+            Vector3 originalPos = dieTransform.position;
+            Vector3 originalScale = dieTransform.localScale;
+            Vector3 targetScale = originalScale * highlightZoomMultiplier;
+
+            Sequence popSequence = DOTween.Sequence();
+
+            // Fase de salida
+            popSequence.Append(dieTransform.DOMoveZ(-4f, 0.6f).SetEase(Ease.OutQuad));
+            popSequence.Join(dieTransform.DOScale(targetScale, 0.6f).SetEase(Ease.OutBack, 0.8f));
+
+            // Pausa en el aire
+            popSequence.AppendInterval(1.2f);
+
+            // Fase de retorno
+            popSequence.Append(dieTransform.DOMoveZ(originalPos.z, 0.5f).SetEase(Ease.InOutSine));
+            popSequence.Join(dieTransform.DOScale(originalScale, 0.5f).SetEase(Ease.InOutSine));
+
+            popSequence.OnComplete(() =>
+            {
+                if (dieRenderer != null) dieRenderer.sortingOrder = originalSortingOrder;
+            });
+
+            // 4. SPAWN AND CLEAN UP THE LIGHT FX
+            if (patternLightPrefab != null)
+            {
+                Vector3 lightPos = new Vector3(visualCell.transform.position.x, visualCell.transform.position.y, -3f);
+                GameObject lightFX = Instantiate(patternLightPrefab, lightPos, Quaternion.identity, visualCell.transform);
+
+                lightFX.transform.localScale = Vector3.zero;
+                float targetLightScale = cellSize * 1.2f;
+
+                SpriteRenderer lightRenderer = lightFX.GetComponent<SpriteRenderer>();
+                if (lightRenderer != null)
+                {
+                    lightRenderer.sortingOrder = 450;
+
+                    //A√±adido .SetLink(lightFX) para limpiar el fade al destruirse
+                    lightRenderer.DOFade(0.4f, 0.8f)
+                        .SetLoops(-1, LoopType.Yoyo)
+                        .SetEase(Ease.InOutSine)
+                        .SetLink(lightFX);
+
+                    lightRenderer.DOFade(0f, 0.4f).SetDelay(1.9f).SetLink(lightFX);
+                }
+
+                //A√±adido .SetLink(lightFX) a la escala
+                lightFX.transform.DOScale(new Vector3(targetLightScale, targetLightScale, 1f), 0.6f)
+                    .SetEase(Ease.OutBack, 0.8f)
+                    .SetLink(lightFX);
+
+                //A√±adido .SetLink(lightFX) a la rotaci√≥n infinita
+                lightFX.transform.DORotate(new Vector3(0, 0, -360), lightRotationSpeed, RotateMode.FastBeyond360)
+                    .SetLoops(-1, LoopType.Restart)
+                    .SetEase(Ease.Linear)
+                    .SetLink(lightFX);
+
+                // El objeto se destruye limpiamente en 2.3 segundos sin dejar procesos hu√©rfanos
+                Destroy(lightFX, 2.3f);
+            }
+        }
+    }
+
 }

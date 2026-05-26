@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43871dfaba0ba8942ae26075d3a93707, type: 3}
   m_Name: Variante_2
   m_EditorClassIdentifier: 
-  variantName: 
+  variantName: Normal
   description: 
   patterns:
   - {fileID: 11400000, guid: 5dc446c898958ab48803aeb8f04e9742, type: 2}
@@ -21,3 +21,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 179366882c4210547a5f4fa9c174bdb5, type: 2}
   - {fileID: 11400000, guid: 50fabfcd67b5ecf47b3ddfb39c101568, type: 2}
   - {fileID: 11400000, guid: 34cd69c24a21d534aa107eec75e336ad, type: 2}
+  iconSprite: {fileID: 21300000, guid: 11b10e82eb0e04f299806bd7a5db9001, type: 3}
+  highlightColor: {r: 1, g: 1, b: 1, a: 1}

@@ -93,12 +93,15 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     // --- Facade Methods to handle UI Button Clicks ---
     public void DrawDie()
     {
+        // 1. Execute the logical draw
         diceManager.DrawDie();
+
     }
 
     public void UseReDraw()
     {
         diceManager.UseReDraw();
+
     }
 
     public void EnableDrawButton()

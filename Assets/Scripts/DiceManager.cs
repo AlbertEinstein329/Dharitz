@@ -81,14 +81,24 @@ public class DiceManager
 
         if (group == null || group.isClosed)
         {
-            int rolledNumber = Random.Range(1, 7);
+
+
+            // Roll the number and save it globally in the TurnManager
+            gm.turnManager.CurrentDrawnValue = Random.Range(1, 7);
+
             group = new GroupData
             {
                 id = Random.Range(10000, 99999),
                 color = gm.turnManager.CurrentDrawnColor,
-                targetSize = rolledNumber
+                // Use the global value here
+                targetSize = gm.turnManager.CurrentDrawnValue
             };
             currentPlayer.activeGroups[gm.turnManager.CurrentDrawnColor] = group;
+        }
+        else
+        {
+            // The drawn value must reflect the target size of the ongoing group!
+            gm.turnManager.CurrentDrawnValue = group.targetSize;
         }
 
         UIManager.Instance.UpdateHandUI(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize, () =>
@@ -106,7 +116,7 @@ public class DiceManager
 
                 if (gm.reDrawText != null)
                 {
-                    gm.reDrawText.text = $"Re-Draw ({currentPlayer.reDraws})";
+                    gm.reDrawText.text = $"{currentPlayer.reDraws}";
                 }
             }
             else

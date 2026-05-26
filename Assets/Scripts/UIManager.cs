@@ -43,7 +43,14 @@ public class UIManager : MonoBehaviour
     //[SerializeField] private Sprite emptySlotSprite; // OPCIONAL: Asigna aquí la imagen de fondo vacía si la tienes, si no, déjalo en null
     
     private Sprite originalSlotSprite;
-    private Sequence rollSequence; // Guarda la referencia de DOTween
+    private Sequence rollSequence;
+
+    //Variables for the fast-rolling Score HUD
+    private int currentVisualScore = 0;
+    private Tween scoreTween;
+
+    private Tween progressTextHeartbeatTween;
+    private const string TEXTO_INICIAL_DEFAULT = "EXTRACT DICE";
 
     void Awake()
     {
@@ -110,17 +117,21 @@ public class UIManager : MonoBehaviour
         // Finalización de la animación
         rollSequence.AppendCallback(() =>
         {
-            currentDieImage.sprite = finalSprite;
+            currentDieImage.sprite = finalSprite; //
 
-            // Ahora las variables sí existen en la cabecera y la resta funcionará
-            int missingDice = totalDice - placedDice;
+            //Matamos el latido lento porque el jugador ya extrajo el dado
+            progressTextHeartbeatTween?.Kill();
+            if (progressText != null) progressText.transform.localScale = Vector3.one; // Reseteamos escala
+
+            int missingDice = totalDice - placedDice; //
             if (progressText != null)
             {
-                progressText.text = $"{finalColor.ToString().ToUpper()} {finalNumber} / Faltan: {missingDice}";
+                //Formato limpio e independiente de idiomas/colores (Ej: "4 / FALTAN: 2")
+                progressText.text = $"{finalNumber} / {missingDice}";
             }
 
             // Disparamos el callback hacia el GameManager
-            onCompleteCallback?.Invoke();
+            onCompleteCallback?.Invoke(); //
         });
     }
 
@@ -130,22 +141,40 @@ public class UIManager : MonoBehaviour
     public void ClearDieUI()
     {
         // 1. Kill animation to prevent overlaps
-        rollSequence?.Kill();
+        rollSequence?.Kill(); //
 
         // 2. Restore the cached default sprite
-        if (currentDieImage != null)
+        if (currentDieImage != null) //
         {
-            currentDieImage.sprite = originalSlotSprite;
+            currentDieImage.sprite = originalSlotSprite; //
             currentDieImage.color = Color.white; // Ensures visibility
         }
 
-        UIDieInteractor interactor = currentDieImage.GetComponent<UIDieInteractor>();
-        if (interactor != null)
+        UIDieInteractor interactor = currentDieImage.GetComponent<UIDieInteractor>(); //
+        if (interactor != null) //
         {
             // Desbloqueamos el espacio: Vuelve a estar vacío, permitiendo el "Tap" para extraer el siguiente.
-            interactor.IsSlotEmpty = true;
+            interactor.IsSlotEmpty = true; //
         }
 
+        // =========================================================================
+        //  JUICE: REINICIO DE TEXTO Y ANIMACIÓN DE LATIDO (HEARTBEAT)
+        // =========================================================================
+        if (progressText != null)
+        {
+            // Restablecemos el texto base
+            progressText.text = TEXTO_INICIAL_DEFAULT;
+
+            // Aseguramos que cualquier latido anterior se detenga limpiamente
+            progressTextHeartbeatTween?.Kill();
+            progressText.transform.localScale = Vector3.one;
+
+            // Iniciamos un bucle infinito de escala (crece un 8% y encoge de forma elástica y suave)
+            progressTextHeartbeatTween = progressText.transform.DOScale(1.08f, 0.9f)
+                .SetEase(Ease.InOutSine)
+                .SetLoops(-1, LoopType.Yoyo)
+                .SetLink(progressText.gameObject); // Evita advertencias de memoria si se destruye la UI
+        }
     }
 
     public void RestoreDieToHand(DieColor color, int number)
@@ -185,13 +214,22 @@ public class UIManager : MonoBehaviour
         return listaSeleccionada[index];
     }
 
-    //Actualiza el texto en la pantalla durante el juego
-    public void UpdateScore(int nuevoScore)
+    public void UpdateScore(int targetScore)
     {
-        if (scoreHUDText != null)
+        if (scoreHUDText == null) return;
+
+        // 1. Kill any currently running score animation so they don't fight each other
+        scoreTween?.Kill();
+
+        // 2. Animate the 'currentVisualScore' up to the 'targetScore' over 0.5 seconds
+        scoreTween = DOTween.To(() => currentVisualScore, x =>
         {
-            scoreHUDText.text = $"PUNTOS: {nuevoScore}";
-        }
+            currentVisualScore = x;
+            // The "D5" format forces the number to have 5 digits (e.g., PUNTOS: 00450)
+            // It makes the counter look like a classic arcade machine!
+            scoreHUDText.text = $"PUNTOS: {currentVisualScore:D5}";
+
+        }, targetScore, 0.5f).SetEase(Ease.OutQuad);
     }
 
     public void ShowFinalResults(int playerIndex)
@@ -299,10 +337,11 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void UpdateProgressText(DieColor finalColor, int finalNumber, int placedDice, int totalDice)
     {
-        int missingDice = totalDice - placedDice;
+        int missingDice = totalDice - placedDice; 
         if (progressText != null)
         {
-            progressText.text = $"{finalColor.ToString().ToUpper()} {finalNumber} / Faltan: {missingDice}";
+            // Solo muestra número de cara y dados restantes
+            progressText.text = $"{finalNumber} / {missingDice}";
         }
     }
 

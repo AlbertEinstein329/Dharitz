@@ -4,7 +4,6 @@ using System.Linq;
 
 public static class PatternValidator
 {
-    // El método ahora recibe el ScriptableObject con las reglas específicas
     public static bool CheckPattern(List<Vector2Int> groupCells, PatternData patternData)
     {
         // El número 1 es un caso especial geométrico (1 sola celda siempre coincide consigo misma)
@@ -16,21 +15,34 @@ public static class PatternValidator
             return false;
         }
 
+        // ==========================================
+        // SOLUCIÓN AL EJE INVERTIDO (X/Y SWAP)
+        // ==========================================
+        // Transponemos las celdas del tablero (Row, Col) para que coincidan 
+        // con la orientación visual Cartesiana (X, Y) de la UI y del Inspector.
+        List<Vector2Int> alignedGroupCells = TransponerEjes(groupCells);
         List<Vector2Int> targetPattern = patternData.baseShape;
 
         // 1. Intentar hacer coincidir con la forma original (y sus rotaciones si están permitidas)
-        if (EvaluarRotaciones(groupCells, targetPattern, patternData.allowRotation))
+        if (EvaluarRotaciones(alignedGroupCells, targetPattern, patternData.allowRotation))
             return true;
 
         // 2. Si falló y el espejo está permitido, invertimos la figura y probamos de nuevo
         if (patternData.allowMirror)
         {
             List<Vector2Int> mirroredPattern = EspejarPatron(targetPattern);
-            if (EvaluarRotaciones(groupCells, mirroredPattern, patternData.allowRotation))
+            if (EvaluarRotaciones(alignedGroupCells, mirroredPattern, patternData.allowRotation))
                 return true;
         }
 
         return false;
+    }
+
+    // --- NUEVO MÉTODO PARA ALINEAR COORDENADAS ---
+    private static List<Vector2Int> TransponerEjes(List<Vector2Int> points)
+    {
+        // Intercambiamos X por Y para convertir (Fila, Columna) en (X, Y)
+        return points.Select(p => new Vector2Int(p.y, p.x)).ToList();
     }
 
     private static bool EvaluarRotaciones(List<Vector2Int> cells, List<Vector2Int> target, bool allowRotation)
@@ -57,9 +69,10 @@ public static class PatternValidator
 
         // Verifica si todas las coordenadas normalizadas coinciden exactamente
         return normA.All(a => normB.Any(b => b.x == a.x && b.y == a.y));
+
     }
 
-    // Lleva cualquier figura a su punto de origen (0,0) relativo para poder compararlas sin importar dónde se construyeron en el tablero
+    // Lleva cualquier figura a su punto de origen (0,0) relativo
     private static List<Vector2Int> Normalize(List<Vector2Int> points)
     {
         if (points.Count == 0) return points;
@@ -80,4 +93,3 @@ public static class PatternValidator
         return points.Select(p => new Vector2Int(-p.x, p.y)).ToList();
     }
 }
-

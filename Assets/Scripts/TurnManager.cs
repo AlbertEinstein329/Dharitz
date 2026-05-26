@@ -29,6 +29,7 @@ public class TurnManager
     }
     
     public DieColor CurrentDrawnColor { get; set; }
+    public int CurrentDrawnValue { get; set; }
 
     public TurnManager(GameManager gm)
     {

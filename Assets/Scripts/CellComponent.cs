@@ -17,7 +17,8 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
 
     [Header("Visual Configuration")]
     [Tooltip("Drag the child object containing the SpriteRenderer here.")]
-    [SerializeField] private SpriteRenderer childSpriteRenderer;
+    public SpriteRenderer childSpriteRenderer;
+
     [Tooltip("Drag the overlay sprite for completed patterns here.")]
     [SerializeField] private SpriteRenderer completionSpriteOverlay;
     private Color originalColor;
@@ -97,15 +98,54 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    [System.Obsolete]
     public void OnPointerClick(PointerEventData eventData)
     {
-        // El EventSystem llama a esto automáticamente. Solo filtramos el clic izquierdo.
-        if (eventData.button != PointerEventData.InputButton.Left) return;
+        if (turnProvider == null) return;
 
-        // Llamamos al motor lógico central
-        ProcessInteraction();
+        // 🛠️ THE FIX: We define what isOwnerTurn actually means mathematically!
+        bool isOwnerTurn = (turnProvider.CurrentPlayerIndex == playerOwnerIndex);
+
+        if (!GridInteractionManager.Instance.IsMoveModeActive && !isOwnerTurn)
+        {
+            Debug.LogWarning("Invalid turn.");
+            return;
+        }
+
+        if (!turnProvider.HasDrawn) return;
+
+        DieColor currentColor = turnProvider.CurrentDrawnColor;
+        PlayerData currentPlayer = turnProvider.GetCurrentPlayer();
+
+        if (currentPlayer == null) return;
+
+        int targetSize = 0;
+        int currentGroupId = 0;
+
+        if (currentPlayer.activeGroups.TryGetValue(currentColor, out GroupData group))
+        {
+            if (group != null && group.targetSize > 0)
+            {
+                targetSize = group.targetSize;
+                currentGroupId = group.id;
+            }
+        }
+
+        if (targetSize == 0) return;
+
+        int realRow = this.gridCoordinate.y;
+        int realCol = this.gridCoordinate.x;
+
+        if (gridValidator.IsValidPlacement(playerOwnerIndex, realRow, realCol, currentColor, currentGroupId, targetSize))
+        {
+            // Trigger the flying animation!
+            GridManager gridManager = FindObjectOfType<GridManager>();
+            if (gridManager != null)
+            {
+                gridManager.AnimateAndPlaceDie(realRow, realCol, currentColor, targetSize, transform.position, placementExecutor);
+            }
+        }
     }
-
     public void ProcessInteraction()
     {
 

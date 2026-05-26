@@ -40,47 +40,16 @@ public class UIDieInteractor : MonoBehaviour, IPointerClickHandler, IBeginDragHa
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (IsSlotEmpty) return;
-
-        canvasGroup.blocksRaycasts = false; // Let rays pass through to the 2D board
-        canvasGroup.alpha = 0.8f; // Make it slightly transparent while dragging
+        //Intentionally left empty to stop the translucent UI die bug!
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (IsSlotEmpty) return;
-        rectTransform.anchoredPosition += eventData.delta / canvas.scaleFactor;
+        // Intentionally left empty
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (IsSlotEmpty) return;
-
-        canvasGroup.blocksRaycasts = true;
-        canvasGroup.alpha = 1f;
-
-        if (Camera.main != null)
-        {
-            // POINT 3: Convert screen position to 2D world position and simulate a click on the cell
-            Vector3 worldPoint = Camera.main.ScreenToWorldPoint(eventData.position);
-            RaycastHit2D hit = Physics2D.Raycast(worldPoint, Vector2.zero);
-
-            if (hit.collider != null)
-            {
-                CellComponent targetCell = hit.collider.GetComponent<CellComponent>();
-                if (targetCell != null)
-                {
-                    // Simulate the click on the 2D cell to place the die
-                    targetCell.ProcessInteraction();
-                }
-            }
-        }
-        else
-        {
-            Debug.LogError("Main Camera is null! Cannot place die.");
-        }
-
-        // Return UI image to its original slot position
-        rectTransform.anchoredPosition = originalAnchoredPosition;
+        // Intentionally left empty
     }
 }

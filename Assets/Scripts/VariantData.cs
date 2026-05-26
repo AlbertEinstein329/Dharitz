@@ -10,7 +10,10 @@ public class VariantData : ScriptableObject
     [Header("Patterns for this Variant")]
     public List<PatternData> patterns = new List<PatternData>();
 
-    
+    [Header("UI")]
+    public Sprite iconSprite; // Sprite que se mostrará en el dropdown y como imagen principal
+    public Color highlightColor = Color.white; // Color principal asociado (p.ej. amarillo/naranja/rojo)
+
     // Helper function for GameManager to extract the correct pattern
     public PatternData GetPattern(int diceNumber)
     {
