@@ -63,7 +63,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             for (int i = 0; i < numPlayers; i++)
             {
                 PlayerSetup setup = currentSession.players[i];
-                players.Add(new PlayerData(i, setup.playerName, setup.isBot, setup.botDifficulty));
+                players.Add(new PlayerData(i, setup.playerName, setup.isBot, setup.avatarId));
             }
         }
         else

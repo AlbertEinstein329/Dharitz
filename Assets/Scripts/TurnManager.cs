@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,6 +6,7 @@ using UnityEngine;
 public class TurnManager
 {
     private GameManager gm;
+
 
     public int CurrentPlayerIndex { get; private set; } = 0;
     
@@ -41,6 +43,7 @@ public class TurnManager
         if (gm.players == null || gm.players.Count == 0) return null;
         return gm.players[CurrentPlayerIndex];
     }
+
 
     public void StartTurn()
     {

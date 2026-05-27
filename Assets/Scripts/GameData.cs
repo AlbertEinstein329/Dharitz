@@ -22,6 +22,7 @@ public class PlayerData
 {
     public int id;
     public string name;
+    public int avatarId;
     public int score = 0;
     public int placedDice = 0;
     public int[] patternCounts = new int[7];

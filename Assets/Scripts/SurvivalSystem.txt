@@ -16,7 +16,6 @@ o	13 Negros
 3.	El número resultante (1-6) determina el tamaño de la agrupación y el patrón a seguir.
 3.2 Reglas de Colocación
 •	Apertura de grupos: Solo se puede abrir una nueva agrupación de un color si la anterior de ese mismo color ya está "cerrada" (completada).
-•	Inamovilidad: Una vez colocado un dado, no se puede mover.
 •	Prohibición de contacto: Dos agrupaciones del mismo color no pueden tocarse entre sí (ortogonal).
 •	Estilo Tetris: El jugador decide en qué espacio y orientación colocar los patrones.
 •	Los dados deben estar en contacto con otro dado, exceptuando el primero. En una cuadricula de 3x3 alrededor de otro dado.

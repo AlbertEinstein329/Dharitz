@@ -193,6 +193,16 @@ public class UIManager : MonoBehaviour
             }
         }
     }
+    public void SetupPlayerDisplay(PlayerData player)
+    {
+ 
+        // Si tienes varios jugadores, busca el componente correspondiente
+        BoardPlayerDisplay display = GetComponentInChildren<BoardPlayerDisplay>();
+        if (display != null)
+        {
+            display.Setup(player.name, player.avatarId);
+        }
+    }
 
     public Sprite GetSprite(DieColor color, int number)
     {
@@ -227,7 +237,7 @@ public class UIManager : MonoBehaviour
             currentVisualScore = x;
             // The "D5" format forces the number to have 5 digits (e.g., PUNTOS: 00450)
             // It makes the counter look like a classic arcade machine!
-            scoreHUDText.text = $"PUNTOS: {currentVisualScore:D5}";
+            scoreHUDText.text = $"<align=\"center\">{currentVisualScore:D5}</align>";
 
         }, targetScore, 0.5f).SetEase(Ease.OutQuad);
     }
@@ -256,7 +266,7 @@ public class UIManager : MonoBehaviour
                 int bonoUnico = ScoreManager.Instance.GetPatternBonus(i);
                 int subtotal = player.patternCounts[i] * bonoUnico;
                 totalBonosPatrones += subtotal;
-                desglosePatrones += $"Patrones de {i} (x{player.patternCounts[i]}): +{subtotal} pts\n";
+                desglosePatrones += $"Patterns of {i} (x{player.patternCounts[i]}): +{subtotal} pts\n";
             }
         }
 
@@ -279,24 +289,24 @@ public class UIManager : MonoBehaviour
         int totalFinal = player.score;
 
         // 4. CONSTRUCCIÓN DE LA INTERFAZ
-        string textoCombos = puntosEstructura > 0 ? $"Combos Estructura: +{puntosEstructura} pts\n" : "";
-        string textoVariantes = puntosVariante > 0 ? $"Bonos de Variante: +{puntosVariante} pts\n" : "";
+        string textoCombos = puntosEstructura > 0 ? $"Col, Row, Inter: +{puntosEstructura} pts\n" : "";
+        string textoVariantes = puntosVariante > 0 ? $"Variant Bonuses: +{puntosVariante} pts\n" : "";
 
         string textoPenalizaciones = "";
         if (penalizacionHuecos < 0)
         {
-            textoPenalizaciones += $"<color=red>Huecos encerrados: {penalizacionHuecos} pts</color>\n";
+            textoPenalizaciones += $"<color=red>Gaps enclosed: {penalizacionHuecos} pts</color>\n";
         }
 
         resultsText.text =
-            $"<size=120%>{player.name.ToUpper()}</size>\n\n" +
-            $"Dados (+{ScoreManager.POINTS_PER_DIE} c/u): +{puntosBase} pts\n" +
+            $"<align=\"center\"><size=150%>{player.name.ToUpper()}</size></align>\n" +
+            $"Dice (+{ScoreManager.POINTS_PER_DIE} c/u): +{puntosBase} pts\n" +
             $"{desglosePatrones}" +
             $"{textoCombos}" +
             $"{textoVariantes}" +
             $"{textoPenalizaciones}" +
-            $"------------------------------\n" +
-            $"<size=140%>TOTAL: {Mathf.Max(0, totalFinal)} PTS</size>";
+            $"------------------------------\n\n" +
+            $"<align=\"center\"><size=150%>TOTAL: {Mathf.Max(0, totalFinal)} PTS</size></align>";
     }
 
     /// <summary>

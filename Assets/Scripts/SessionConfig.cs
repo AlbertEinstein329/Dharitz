@@ -1,5 +1,6 @@
-using UnityEngine;
+using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 [CreateAssetMenu(fileName = "SessionConfig", menuName = "Dharitz/Session Config")]
 public class SessionConfig : ScriptableObject
@@ -16,6 +17,7 @@ public class SessionConfig : ScriptableObject
     [Header("Abilities Settings")]
     public int baseUndoUses = 2;
     public int baseMoveUses = 1;
+
 
     // Initialize default list
     public void ResetSession()

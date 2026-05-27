@@ -37,7 +37,17 @@ public class AudioManager : MonoBehaviour
 
     public void PlayTickSound()
     {
-        if (sfxSource.mute) return;
+        if (sfxSource == null)
+        {
+            Debug.LogError("AudioManager: 'sfxSource' no está asignado. Revisa el Inspector.");
+            return;
+        }
+
+        // Tu línea 40 ahora está protegida contra colapsos
+        if (sfxSource.mute)
+        {
+            return;
+        }
         if (rollTickClip != null) sfxSource.PlayOneShot(rollTickClip);
     }
 
