@@ -244,69 +244,73 @@ public class UIManager : MonoBehaviour
 
     public void ShowFinalResults(int playerIndex)
     {
-        panelGameOver.SetActive(true);
-
-        //  Ocultamos el HUD de puntos en pantalla
-        if (scoreHUDText != null) scoreHUDText.gameObject.SetActive(false);
+        // Validación estricta de referencias antes de operar
+        if (GameManager.Instance == null || GameManager.Instance.players == null || playerIndex >= GameManager.Instance.players.Count)
+        {
+            Debug.LogError($"UIManager: Índice de jugador {playerIndex} inválido o GameManager ausente.");
+            return;
+        }
 
         PlayerData player = GameManager.Instance.players[playerIndex];
 
-        // 1. Puntos que el jugador ya ganó en tiempo real
+        if (panelGameOver != null) panelGameOver.SetActive(true);
+        if (scoreHUDText != null) scoreHUDText.gameObject.SetActive(false);
+
+        // 1. Puntos consolidados en tiempo real
         int puntosTiempoReal = player.score;
 
-        // --- DESGLOSE VISUAL (No se suman al total, solo se calculan para mostrar en texto) ---
+        // 2. Desglose visual (Cálculos de presentación)
         int puntosBase = player.placedDice * ScoreManager.POINTS_PER_DIE;
-
         int totalBonosPatrones = 0;
-        string desglosePatrones = "";
-        for (int i = 1; i <= 6; i++) // Ahora evaluamos desde el 1
+
+        // Uso de StringBuilder para evitar asignaciones innecesarias de memoria (GC) en el bucle
+        System.Text.StringBuilder desglosePatrones = new System.Text.StringBuilder();
+
+        for (int i = 1; i <= 6; i++)
         {
             if (player.patternCounts[i] > 0)
             {
                 int bonoUnico = ScoreManager.Instance.GetPatternBonus(i);
                 int subtotal = player.patternCounts[i] * bonoUnico;
                 totalBonosPatrones += subtotal;
-                desglosePatrones += $"Patterns of {i} (x{player.patternCounts[i]}): +{subtotal} pts\n";
+                desglosePatrones.AppendLine($"Patterns of {i} (x{player.patternCounts[i]}): +{subtotal} pts");
             }
         }
 
         int puntosEstructura = player.accumulatedStructurePoints;
-
-        // Puntos Exóticos: Lo que "sobra" del score total tras restar lo básico, son los combos de variantes.
         int puntosVariante = puntosTiempoReal - (puntosBase + totalBonosPatrones + puntosEstructura);
 
-        // 2. PENALIZACIONES DE FIN DE PARTIDA (AHORA SOLO HUECOS)
-        // Recordatorio: Debes usar la función que creamos para contar huecos agrupados
-        int penalizacionHuecos = GameManager.Instance.gridManager.CalculateGapPenalty(playerIndex, false);
-
-
-        // Los unos ya fueron restados del 'puntosTiempoReal' durante la partida. 
-        // Solo los obtenemos para mostrarlos como información al jugador.
-        int cantidadUnos = GameManager.Instance.gridManager.GetOnesPenalties(playerIndex);
-        int puntosRestadosPorUnos = cantidadUnos * 200;
-
-        // 2. CORRECCIÓN: El Score real YA TIENE la multa aplicada. ¡Están sincronizados!
-        int totalFinal = player.score;
-
-        // 4. CONSTRUCCIÓN DE LA INTERFAZ
-        string textoCombos = puntosEstructura > 0 ? $"Col, Row, Inter: +{puntosEstructura} pts\n" : "";
-        string textoVariantes = puntosVariante > 0 ? $"Variant Bonuses: +{puntosVariante} pts\n" : "";
-
-        string textoPenalizaciones = "";
-        if (penalizacionHuecos < 0)
+        // 3. Penalizaciones
+        int penalizacionHuecos = 0;
+        if (GameManager.Instance.gridManager != null)
         {
-            textoPenalizaciones += $"<color=red>Gaps enclosed: {penalizacionHuecos} pts</color>\n";
+            penalizacionHuecos = GameManager.Instance.gridManager.CalculateGapPenalty(playerIndex, false);
+
+            // Calculo de Unos (Solo para datos, tu string final no lo estaba imprimiendo, 
+            // pero lo dejamos calculado por si lo integras en la UI más adelante)
+            int cantidadUnos = GameManager.Instance.gridManager.GetOnesPenalties(playerIndex);
+            int puntosRestadosPorUnos = cantidadUnos * 200;
         }
 
-        resultsText.text =
-            $"<align=\"center\"><size=150%>{player.name.ToUpper()}</size></align>\n" +
-            $"Dice (+{ScoreManager.POINTS_PER_DIE} c/u): +{puntosBase} pts\n" +
-            $"{desglosePatrones}" +
-            $"{textoCombos}" +
-            $"{textoVariantes}" +
-            $"{textoPenalizaciones}" +
-            $"------------------------------\n\n" +
-            $"<align=\"center\"><size=150%>TOTAL: {Mathf.Max(0, totalFinal)} PTS</size></align>";
+        int totalFinal = player.score;
+
+        // 4. Construcción de Interfaz
+        string textoCombos = puntosEstructura > 0 ? $"Col, Row, Inter: +{puntosEstructura} pts\n" : "";
+        string textoVariantes = puntosVariante > 0 ? $"Variant Bonuses: +{puntosVariante} pts\n" : "";
+        string textoPenalizaciones = penalizacionHuecos < 0 ? $"<color=red>Gaps enclosed: {penalizacionHuecos} pts</color>\n" : "";
+
+        if (resultsText != null)
+        {
+            resultsText.text =
+                $"<align=\"center\"><size=150%>{player.name.ToUpper()}</size></align>\n" +
+                $"Dice (+{ScoreManager.POINTS_PER_DIE} c/u): +{puntosBase} pts\n" +
+                $"{desglosePatrones.ToString()}" +
+                $"{textoCombos}" +
+                $"{textoVariantes}" +
+                $"{textoPenalizaciones}" +
+                $"------------------------------\n\n" +
+                $"<align=\"center\"><size=150%>TOTAL: {Mathf.Max(0, totalFinal)} PTS</size></align>";
+        }
     }
 
     /// <summary>

@@ -1495,7 +1495,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 375828395}
         m_TargetAssemblyTypeName: GridManager, Assembly-CSharp
-        m_MethodName: ViewPreviousBoard
+        m_MethodName: PreviousBoard
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -3687,7 +3687,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &779701050
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4609,7 +4609,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 375828395}
         m_TargetAssemblyTypeName: GridManager, Assembly-CSharp
-        m_MethodName: ViewNextBoard
+        m_MethodName: NextBoard
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5122,7 +5122,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 375828395}
         m_TargetAssemblyTypeName: GridManager, Assembly-CSharp
-        m_MethodName: ViewPreviousBoard
+        m_MethodName: PreviousBoard
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5254,7 +5254,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 375828395}
         m_TargetAssemblyTypeName: GridManager, Assembly-CSharp
-        m_MethodName: ViewNextBoard
+        m_MethodName: NextBoard
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -6963,8 +6963,8 @@ MonoBehaviour:
     currentUndoUses: 0
     currentMoveUses: 0
   drawButton: {fileID: 0}
-  reDrawButton: {fileID: 0}
-  reDrawText: {fileID: 0}
+  reDrawButton: {fileID: 1272934014}
+  reDrawText: {fileID: 693372666}
   isGameOver: 0
 --- !u!4 &1476226385
 Transform:

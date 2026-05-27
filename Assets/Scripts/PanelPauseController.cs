@@ -73,7 +73,7 @@ namespace LapKan
         {
             if (global::GameManager.Instance != null && global::GameManager.Instance.gridManager != null)
             {
-                global::GameManager.Instance.gridManager.ViewNextBoard();
+                global::GameManager.Instance.gridManager.NextBoard();
             }
         }
 

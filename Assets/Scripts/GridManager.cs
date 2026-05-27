@@ -189,16 +189,34 @@ public class GridManager : MonoBehaviour, IGridValidator
         return true;
     }
 
-    public void ViewNextBoard()
+    public void NextBoard()
     {
-        int next = (currentlyViewedPlayer + 1) % boardRoots.Length;
-        SwitchViewTo(next);
+        // Cambia circularmente al siguiente jugador
+        currentlyViewedPlayer = (currentlyViewedPlayer + 1) % GameManager.Instance.numPlayers;
+        SwitchViewTo(currentlyViewedPlayer);
+
+        // Si la partida terminó, forzamos al UIManager a refrescar el desglose del jugador visualizado
+        if (GameManager.Instance.isGameOver)
+        {
+            UIManager.Instance.ShowFinalResults(currentlyViewedPlayer);
+        }
     }
 
-    public void ViewPreviousBoard()
+    public void PreviousBoard()
     {
-        int prev = (currentlyViewedPlayer - 1 + boardRoots.Length) % boardRoots.Length;
-        SwitchViewTo(prev);
+        // Cambia circularmente al jugador anterior
+        currentlyViewedPlayer--;
+        if (currentlyViewedPlayer < 0)
+        {
+            currentlyViewedPlayer = GameManager.Instance.numPlayers - 1;
+        }
+        SwitchViewTo(currentlyViewedPlayer);
+
+        // Sincronización inmediata con la pantalla de resultados del Endgame
+        if (GameManager.Instance.isGameOver)
+        {
+            UIManager.Instance.ShowFinalResults(currentlyViewedPlayer);
+        }
     }
 
     // --- DELEGATION TO PLACEMENT VALIDATOR ---
