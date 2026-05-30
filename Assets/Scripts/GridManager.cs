@@ -171,9 +171,15 @@ public class GridManager : MonoBehaviour, IGridValidator
                 // Actualizamos el score en pantalla
                 UIManager.Instance.UpdateScore(p.score);
 
-                // (Opcional): Si tienes una función para mostrar el nombre del jugador, 
-                // el avatar, o sus monedas, llámala también aquí. Por ejemplo:
-                // UIManager.Instance.UpdatePlayerName(p.playerName);
+            }
+            if (BoardPlayerDisplay.Instance != null && GameManager.Instance != null && GameManager.Instance.players != null)
+            {
+                // Validamos que el índice no desborde la lista de jugadores
+                if (playerIndex < GameManager.Instance.players.Count)
+                {
+                    PlayerData targetPlayer = GameManager.Instance.players[playerIndex];
+                    BoardPlayerDisplay.Instance.Setup(targetPlayer.name, targetPlayer.avatarId);
+                }
             }
 
         }
@@ -189,9 +195,9 @@ public class GridManager : MonoBehaviour, IGridValidator
         return true;
     }
 
-    public void NextBoard()
+public void NextBoard()
     {
-        // Cambia circularmente al siguiente jugador
+        // El operador módulo (%) devuelve el resto de la división, creando un ciclo infinito.
         currentlyViewedPlayer = (currentlyViewedPlayer + 1) % GameManager.Instance.numPlayers;
         SwitchViewTo(currentlyViewedPlayer);
 
@@ -253,10 +259,15 @@ public class GridManager : MonoBehaviour, IGridValidator
         return PlacementValidator.IsValidPlacement(allBoardsLogic[pIndex], rows, cols, r, c, color, currentGroupId, number, GameManager.Instance.players[pIndex], GameManager.Instance.currentVariant);
     }
 
-    // --- DELEGATION TO TOPOLOGY CALCULATOR ---
+    // =================================================================
+    // CÁLCULO Y ANIMACIÓN DE PENALIZACIONES (GAPS)
+    // =================================================================
+
     public int CalculateGapPenalty(int pIndex, bool showPopups = false)
     {
         if (!IsValidPlayerIndex(pIndex)) return 0;
+
+        // Ejecutamos la matemática topológica pura (sin interfaz visual)
         return TopologyCalculator.CalculateGapPenalty(allBoardsLogic[pIndex], rows, cols, out _);
     }
 
@@ -264,27 +275,43 @@ public class GridManager : MonoBehaviour, IGridValidator
     {
         if (!IsValidPlayerIndex(pIndex)) yield break;
 
+        // 1. Obtenemos la lista de grupos de huecos desde el motor lógico
         TopologyCalculator.CalculateGapPenalty(allBoardsLogic[pIndex], rows, cols, out List<List<Vector2Int>> enclosedGaps);
         bool foundAnyGap = enclosedGaps.Count > 0;
 
+        // 2. Iteramos grupo por grupo para crear drama visual
         foreach (var gapCells in enclosedGaps)
         {
+            // Obtenemos la multa exacta para este grupo
             int penalty = TopologyCalculator.GetPenaltyForGapSize(gapCells.Count);
 
+            // 3. Pintamos de rojo todas las celdas de este agujero específico
             foreach (Vector2Int cell in gapCells)
             {
+                // TopologyCalculator guarda la coordenada como (Row, Col) en (x, y)
                 CellComponent cellVisual = allCellsVisual[pIndex][cell.x, cell.y];
-                if (cellVisual != null) cellVisual.HighlightGapColor();
+                if (cellVisual != null)
+                {
+                    cellVisual.HighlightGapColor();
+                }
             }
 
-            Vector2Int centerCell = gapCells[gapCells.Count / 2];
-            Vector3 popupPos = allCellsVisual[pIndex][centerCell.x, centerCell.y].transform.position;
-            PopUpManager.Instance.ShowPopUp(popupPos, $"{penalty}", Color.red);
+            // 4. Lanzamos el texto flotante de penalización en el centro del hueco
+            if (PopUpManager.Instance != null && gapCells.Count > 0)
+            {
+                Vector2Int centerCell = gapCells[gapCells.Count / 2];
+                Vector3 popupPos = allCellsVisual[pIndex][centerCell.x, centerCell.y].transform.position;
+                PopUpManager.Instance.ShowPopUp(popupPos, $"{penalty}", Color.red);
+            }
 
+            // Pausa de medio segundo entre cada grupo para que el jugador asimile el castigo
             yield return new WaitForSeconds(0.5f);
         }
 
+        // Una última pausa si hubo multas antes de continuar a la pantalla final
         if (foundAnyGap) yield return new WaitForSeconds(0.5f);
+
+        // Avisamos al GameManager que la animación terminó
         onComplete?.Invoke();
     }
 
@@ -299,9 +326,14 @@ public class GridManager : MonoBehaviour, IGridValidator
         return ScoreCalculator.Count3x3Contacts(allBoardsLogic[pIndex], rows, cols, r, c, valorDado, out contactosDiagonales);
     }
 
-    public int ScanNewDiagonalConnections(int pIndex, int r, int c, DieColor color, int groupId)
+    public int GetOrthogonalConnections(int pIndex, int r, int c, DieColor color, int groupId)
     {
-        return ScoreCalculator.ScanNewDiagonalConnections(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId);
+        return ScoreCalculator.GetOrthogonalConnections(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId);
+    }
+
+    public int GetDiagonalConnections(int pIndex, int r, int c, DieColor color, int groupId)
+    {
+        return ScoreCalculator.GetDiagonalConnections(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId);
     }
 
     public int GetOnesPenalties(int pIndex)

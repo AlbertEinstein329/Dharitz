@@ -25,6 +25,7 @@ public class PlayerData
     public int avatarId;
     public int score = 0;
     public int placedDice = 0;
+    public bool isEliminated = false;
     public int[] patternCounts = new int[7];
     public int accumulatedStructurePoints = 0;
     public int accumulatedOnesPenalty = 0;

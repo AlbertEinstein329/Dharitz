@@ -34,7 +34,7 @@ public class UIDieInteractor : MonoBehaviour, IPointerClickHandler, IBeginDragHa
         if (IsSlotEmpty && !eventData.dragging && !isInputLocked)
         {
             GameManager.Instance.DrawDie(); // O el playerName de tu función
-            AudioManager.Instance.PlayDrawSound();
+            AudioManager.Instance.PlaySFX("Draw");
         }
     }
 

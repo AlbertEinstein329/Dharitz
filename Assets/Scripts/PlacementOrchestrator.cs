@@ -46,18 +46,23 @@ public class PlacementOrchestrator
         
         gm.gridManager.ClearHighlights(gm.turnManager.CurrentPlayerIndex);
 
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX("Placed");
+        }
+
         Vector3 posMundo = gm.gridManager.GetWorldPosition(gm.turnManager.CurrentPlayerIndex, r, c);
 
         PatternData currentPattern = gm.currentSession.selectedVariant.GetPattern(group.targetSize);
 
-        int contactosDiagonales = 0;
-        int contactosTotales = gm.gridManager.Count3x3Contacts(gm.turnManager.CurrentPlayerIndex, r, c, group.targetSize, out contactosDiagonales);
+        int orthContacts = gm.gridManager.GetOrthogonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id);
+        int diagContacts = gm.gridManager.GetDiagonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id);
 
         SpecialRule reglaActiva = (SpecialRule)(int)currentPattern.specialRule;
 
         bool isFirstDie = (p.placedDice == 1);
 
-        RuleEvaluationResult result = SpecialRuleEvaluator.EvaluatePlacement(reglaActiva, contactosTotales, contactosDiagonales, isFirstDie);
+        RuleEvaluationResult result = SpecialRuleEvaluator.EvaluatePlacement(reglaActiva, orthContacts, diagContacts, isFirstDie);
 
         if (result.ScoreDelta < 0)
         {
@@ -73,11 +78,14 @@ public class PlacementOrchestrator
 
         if (currentPattern != null && reglaActiva == SpecialRule.ExtraDiagonalContact)
         {
-            int conexionesNuevas = gm.gridManager.ScanNewDiagonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id);
+            // EL ÚNICO CAMBIO: Usamos el nuevo puente GetDiagonalConnections
+            int conexionesNuevas = gm.gridManager.GetDiagonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id);
+
             if (conexionesNuevas > 0)
             {
                 int bono = conexionesNuevas * 200;
                 p.score += bono;
+                // Esto asume que tienes posMundo definido antes en tu código
                 PopUpManager.Instance.ShowPopUp(posMundo + Vector3.up * 0.5f, $"+{bono}", Color.magenta);
             }
         }
@@ -86,6 +94,7 @@ public class PlacementOrchestrator
         if (puntosCombo > 0)
         {
             p.score += puntosCombo;
+            if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Nice");
             PopUpManager.Instance.ShowPopUp(posMundo + Vector3.up * 1f, $"COMBO! +{puntosCombo}", Color.yellow);
         }
 
@@ -96,6 +105,7 @@ public class PlacementOrchestrator
                 p.patternCounts[group.targetSize]++;
                 int bonoPatron = ScoreManager.Instance.GetPatternBonus(group.targetSize);
                 p.score += bonoPatron;
+                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Nice");
                 PopUpManager.Instance.ShowPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{bonoPatron}", Color.cyan);
                 
                 gm.gridManager.MarkGroupAsCompleted(gm.turnManager.CurrentPlayerIndex, group.occupiedCells);
@@ -115,9 +125,10 @@ public class PlacementOrchestrator
 
         gm.turnManager.HasDrawn = false;
 
-        if (gm.diceManager.diceBag.Count == 0 && !gm.turnManager.HasDrawn)
+        if (gm.diceManager.GetTotalDiceLeft() == 0 && !gm.turnManager.HasDrawn)
         {
             gm.EndMatch();
+            return;
         }
         else
         {
@@ -189,33 +200,64 @@ public class PlacementOrchestrator
 
         if (!foundValidSpot)
         {
-            Debug.LogWarning("[UX] Softlock topológico detectado. Ejecutando protocolo Anti-Softlock.");
+            Debug.LogWarning("[UX] Softlock topológico detectado. Evaluando supervivencia...");
 
-            // 1. Limpiamos el dado atascado de la UI de la mano del jugador
             UIManager.Instance.ClearDieUI();
-
-            // 2. Liberamos el candado de la interfaz
             UIManager.Instance.SetDrawInputLock(false);
-
-            // 3. Revertimos la memoria del turno: hacemos creer al juego que "aún no has robado"
             gm.turnManager.HasDrawn = false;
 
-            // 4. (Opcional) Si tu botón de Redraw se desactiva al robar, vuélvelo a encender
-            if (gm.reDrawButton != null) gm.reDrawButton.interactable = true;
 
-            // 5. Feedback Visual para que el jugador no piense que es un bug
-            if (PopUpManager.Instance != null)
+            if (p.reDraws > 0)
             {
-                // Mostramos el texto flotante en el centro del tablero
-                PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "DADO INJUGABLE\n¡Tiro devuelto!", Color.yellow);
+                // SE SALVA (AÚN TIENE REDRAWS)
+                if (gm.reDrawButton != null) gm.reDrawButton.interactable = true;
+                if (PopUpManager.Instance != null)
+                {
+                    PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "DADO INJUGABLE\n¡Usa un Re-Draw!", Color.yellow);
+                }
             }
+            else
+            {
+                // MUERTE SÚBITA (0 REDRAWS)
+                p.isEliminated = true;
 
-            /* * NOTA DE GAME DESIGN (MODO ESTRICTO):
-             * Si en el futuro decides que robar un dado injugable es "mala suerte" 
-             * y el jugador DEBE perder su turno en lugar de recibir un tiro gratis, 
-             * borra las líneas 2, 3 y 4 de arriba, y simplemente ejecuta:
-             * gm.turnManager.EndTurn();
-             */
+                // Calculamos cuántas rondas le quedaban (Ej: 52 dados máximos por tablero)
+                int maxDadosPorJugador = 52;
+                int rondasFaltantes = maxDadosPorJugador - p.placedDice;
+
+                // Contamos cuántos jugadores NO están eliminados
+                int jugadoresVivos = 0;
+                // NOTA: Ajusta esto a cómo se llame tu lista de jugadores en GameManager o TurnManager
+                // Asumo que tienes algo como gm.turnManager.GetAllPlayers() o puedes consultarlo
+                foreach (var player in gm.players) // Reemplaza 'playerList' por tu lista real
+                {
+                    if (!player.isEliminated) jugadoresVivos++;
+                }
+
+                if (jugadoresVivos == 0)
+                {
+                    // SINGLE PLAYER O ÚLTIMO JUGADOR VIVO: Se acaba la partida de inmediato
+                    if (PopUpManager.Instance != null)
+                        PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "TABLERO MUERTO", Color.red);
+
+                    gm.EndMatch();
+                }
+                else
+                {
+                    // MULTIJUGADOR: Quedan otros. Quemamos sus dados y pasamos turno
+                    if (rondasFaltantes > 0)
+                    {
+                        gm.diceManager.BurnRandomDice(rondasFaltantes);
+                    }
+
+                    if (PopUpManager.Instance != null)
+                        PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "¡JUGADOR ELIMINADO!", Color.red);
+
+                    // Pasamos turno forzosamente
+                    gm.turnManager.EndTurn();
+                }
+            }
+            return;
         }
 
     }

@@ -73,6 +73,11 @@ public void Undo()
 
         UIManager.Instance.SetDrawInputLock(false);
 
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX("Undo");
+        }
+
         Debug.Log("Undo executed: Reverted last placement.");
     }
 }

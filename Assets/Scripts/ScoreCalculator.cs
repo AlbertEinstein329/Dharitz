@@ -108,11 +108,34 @@ public static class ScoreCalculator
         return contactosTotales;
     }
 
-    public static int ScanNewDiagonalConnections(GridManager.DieData[,] logic, int rows, int cols, int r, int c, DieColor color, int groupId)
-    {
-        int conexionesNuevas = 0;
+    // MÉTODOS DE REEMPLAZO EN ScoreCalculator.cs
 
-        int[] dr = { -1, -1, 1, 1 };
+    public static int GetOrthogonalConnections(GridManager.DieData[,] logic, int rows, int cols, int r, int c, DieColor color, int groupId)
+    {
+        int conexiones = 0;
+        int[] dr = { -1, 1, 0, 0 }; // Solo Arriba, Abajo, Izquierda, Derecha
+        int[] dc = { 0, 0, -1, 1 };
+
+        for (int d = 0; d < 4; d++)
+        {
+            int nr = r + dr[d];
+            int nc = c + dc[d];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+            {
+                GridManager.DieData vecino = logic[nr, nc];
+                if (vecino != null && vecino.color == color && vecino.value == logic[r, c].value && vecino.groupId != groupId)
+                {
+                    conexiones++;
+                }
+            }
+        }
+        return conexiones;
+    }
+
+    public static int GetDiagonalConnections(GridManager.DieData[,] logic, int rows, int cols, int r, int c, DieColor color, int groupId)
+    {
+        int conexiones = 0;
+        int[] dr = { -1, -1, 1, 1 }; // Solo las 4 esquinas
         int[] dc = { -1, 1, -1, 1 };
 
         for (int d = 0; d < 4; d++)
@@ -124,11 +147,11 @@ public static class ScoreCalculator
                 GridManager.DieData vecino = logic[nr, nc];
                 if (vecino != null && vecino.color == color && vecino.value == logic[r, c].value && vecino.groupId != groupId)
                 {
-                    conexionesNuevas++;
+                    conexiones++;
                 }
             }
         }
-        return conexionesNuevas;
+        return conexiones;
     }
 
     public static int GetOnesPenalties(GridManager.DieData[,] logic, int rows, int cols)

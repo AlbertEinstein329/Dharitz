@@ -19,5 +19,5 @@ MonoBehaviour:
   - {x: 2, y: 2}
   allowRotation: 1
   allowMirror: 1
-  specialRule: 3
+  specialRule: 0
   allowDiagonalReservation: 1

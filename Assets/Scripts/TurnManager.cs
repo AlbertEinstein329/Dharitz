@@ -47,6 +47,9 @@ public class TurnManager
 
     public void StartTurn()
     {
+        // Si la partida ya terminó, no iniciamos nuevos turnos
+        if (gm.isGameOver) return;
+
         PlayerData currentPlayer = GetCurrentPlayer();
         if (currentPlayer == null) return;
 
@@ -69,13 +72,66 @@ public class TurnManager
         {
             GridInteractionManager.Instance.OnTurnChanged(CurrentPlayerIndex);
         }
+
+        // =========================================================
+        // NUEVO: ACTUALIZACIÓN DEL BOTÓN DE UNDO Y SU CONTADOR
+        // =========================================================
+        if (CommandManager.Instance != null)
+        {
+            CommandManager.Instance.RefreshCommandUI();
+        }
+        // =========================================================
+
+        // BLINDAJE VISUAL: Si la bolsa se vació 
+        if (gm.diceManager.diceBag.Count == 0 && !HasDrawn)
+        {
+            if (gm.drawButton != null)
+            {
+                gm.drawButton.interactable = false;
+                TMPro.TextMeshProUGUI drawButtonText = gm.drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                if (drawButtonText != null) drawButtonText.text = "Match End";
+            }
+        }
+        else
+        {
+            // Restauración normal
+            if (gm.drawButton != null && !HasDrawn)
+            {
+                gm.drawButton.interactable = true;
+                TMPro.TextMeshProUGUI drawButtonText = gm.drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                if (drawButtonText != null) drawButtonText.text = "EXTRACT DICE";
+            }
+        }
     }
 
     public void EndTurn()
     {
+        
         // Al finalizar el turno solo apagamos la bandera, no destruimos datos.
-        hasDrawn = false; 
-        CurrentPlayerIndex = (CurrentPlayerIndex + 1) % gm.numPlayers;
+        hasDrawn = false;
+
+        // =========================================================
+        // PROTOCOLO DE SALTO DE TURNO (Ignorar Tableros Muertos)
+        // =========================================================
+        int startIndex = CurrentPlayerIndex;
+
+        do
+        {
+            // Avanzamos al siguiente jugador
+            CurrentPlayerIndex = (CurrentPlayerIndex + 1) % gm.numPlayers;
+
+            // Si dimos toda la vuelta y llegamos al mismo jugador, y también está muerto:
+            // Significa que ya no queda NADIE vivo en la partida.
+            if (CurrentPlayerIndex == startIndex && gm.players[CurrentPlayerIndex].isEliminated)
+            {
+                Debug.LogWarning("[TurnManager] Todos los jugadores han sido eliminados. Forzando fin de partida.");
+                gm.EndMatch();
+                return; // Abortamos el cambio de turno
+            }
+
+        } while (gm.players[CurrentPlayerIndex].isEliminated); // Repetimos el bucle si el jugador destino está eliminado
+        // =========================================================
+
 
         if (SaveManager.Instance != null)
         {
@@ -91,7 +147,6 @@ public class TurnManager
         }
 
         UIManager.Instance.SetDrawInputLock(false);
-
 
         // LEVANTAMOS EL ESCUDO ANTI-EXPLOIT DE TRANSICIÓN
         if (CommandManager.Instance != null)

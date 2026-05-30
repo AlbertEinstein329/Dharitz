@@ -151,4 +151,27 @@ public class DiceManager
 
         DrawDie();
     }
+
+    public int GetTotalDiceLeft()
+    {
+        return diceBag != null ? diceBag.Count : 0;
+    }
+
+    public void BurnRandomDice(int count)
+    {
+        int burnedCount = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (diceBag.Count > 0)
+            {
+                int randomIndex = UnityEngine.Random.Range(0, diceBag.Count);
+                diceBag.RemoveAt(randomIndex);
+                burnedCount++;
+            }
+        }
+        Debug.Log($"[Muerte Súbita] Se han quemado {burnedCount} dados de la bolsa.");
+
+        // (Opcional) Si tienes un método para actualizar la UI del contador global, llámalo aquí
+        // UIManager.Instance.UpdateDiceCounters(); 
+    }
 }

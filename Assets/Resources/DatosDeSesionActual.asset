@@ -16,15 +16,9 @@ MonoBehaviour:
   selectedVariant: {fileID: 11400000, guid: 19037e4b182d3c24ea0ef85df20a70e2, type: 2}
   playerCount: 1
   players:
-  - playerName: Player 1
+  - playerName: Gabriel
     isBot: 0
     botDifficulty: 0
-  - playerName: Player 2
-    isBot: 0
-    botDifficulty: 0
-  - playerName: Player 3
-    isBot: 0
-    botDifficulty: 0
-  - playerName: Player 4
-    isBot: 0
-    botDifficulty: 0
+    avatarId: 0
+  baseUndoUses: 2
+  baseMoveUses: 1

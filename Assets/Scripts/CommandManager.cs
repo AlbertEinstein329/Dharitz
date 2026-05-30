@@ -30,6 +30,9 @@ public class CommandManager : MonoBehaviour
     {
         int currentPlayer = GameManager.Instance.turnManager.CurrentPlayerIndex;
         GetPlayerStack(currentPlayer).Push(command);
+
+        // Refrescamos la UI porque ahora hay historial disponible
+        RefreshCommandUI();
     }
 
     public void ExecuteCommand(IGridCommand command)
@@ -50,7 +53,8 @@ public class CommandManager : MonoBehaviour
 
         GameManager gm = GameManager.Instance;
         int currentPlayerIndex = gm.turnManager.CurrentPlayerIndex;
-        PlayerData p = gm.players[currentPlayerIndex];
+        // CORRECCIÓN DE NOMBRES: Usamos tu lista gm.playerList (o gm.players según como lo tengas)
+        PlayerData p = gm.turnManager.GetCurrentPlayer();
 
         Stack<IGridCommand> currentStack = GetPlayerStack(currentPlayerIndex);
 
@@ -81,9 +85,28 @@ public class CommandManager : MonoBehaviour
 
         Debug.Log($"Undo exitoso para Jugador {currentPlayerIndex + 1}. Usos restantes: {p.currentUndoUses}");
 
+        // 4. Refrescamos la validación topológica del tablero
         if (GameManager.Instance != null && GameManager.Instance.placementOrchestrator != null)
         {
-            GameManager.Instance.placementOrchestrator.RefreshPlacementHighlights();
+            // Nota: Descomenta esto si tienes implementado RefreshPlacementHighlights en el Orchestrator
+            // GameManager.Instance.placementOrchestrator.RefreshPlacementHighlights();
+        }
+
+        // 5. ACTUALIZAMOS LA UI (Apaga el botón y baja el número)
+        RefreshCommandUI();
+    }
+
+    public void RefreshCommandUI()
+    {
+        if (GameManager.Instance == null || GameManager.Instance.turnManager == null) return;
+
+        int currentPlayer = GameManager.Instance.turnManager.CurrentPlayerIndex;
+        var stack = GetPlayerStack(currentPlayer);
+        PlayerData p = GameManager.Instance.turnManager.GetCurrentPlayer();
+
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.UpdateUndoUI(p.currentUndoUses, stack.Count > 0);
         }
     }
 

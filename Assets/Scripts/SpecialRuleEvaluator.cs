@@ -3,10 +3,10 @@
 public enum SpecialRule
 {
     None,
-    PenalizeOnContact,    // Regla Variante 1
-    RewardOnContact,      // Regla Variante 3
-    ExtraDiagonalContact, // Regla Variante 1 del dado 2
-    DiagonalOneContact    // Regla Variante 2 del 1
+    PenalizeOnContact,    // Regla Variante 1 (Dado 1)
+    RewardOnContact,      // Regla Variante 3 (Dado 1)
+    ExtraDiagonalContact, // Regla Variante 1 (Dado 2)
+    DiagonalOneContact    // Regla Variante 2 (Dado 1)
 }
 
 public struct RuleEvaluationResult
@@ -23,45 +23,51 @@ public struct RuleEvaluationResult
 
 public static class SpecialRuleEvaluator
 {
-    private const int ISOLATION_PENALTY = -250;
+    // El valor exacto del bono del patrón 1 (Para restarlo si se rompe la regla)
+    private const int PATTERN_1_BONUS = 100; 
     private const int CONTACT_BONUS = 100;
 
-    // NUEVO: Añadimos 'bool isFirstDieOnBoard' a la función
-    public static RuleEvaluationResult EvaluatePlacement(SpecialRule activeRule, int totalContactos, int contactosDiagonales, bool isFirstDieOnBoard)
+    // Renombramos totalContactos a contactosOrtogonales para evitar confusiones
+    public static RuleEvaluationResult EvaluatePlacement(SpecialRule activeRule, int contactosOrtogonales, int contactosDiagonales, bool isFirstDieOnBoard)
     {
         switch (activeRule)
         {
             case SpecialRule.PenalizeOnContact: // Variante 1
-                if (totalContactos > 0)
+                // Regla 1: Si un 1 toca ortogonalmente a otro 1, NO gana el bono (false).
+                // Además, RESTAMOS los 100 puntos de CADA dado adyacente que ya los había cobrado antes.
+                if (contactosOrtogonales > 0)
                 {
-                    return new RuleEvaluationResult(totalContactos * ISOLATION_PENALTY, false);
+                    return new RuleEvaluationResult(-(contactosOrtogonales * PATTERN_1_BONUS), false);
                 }
+                
+                // Si está completamente aislado, gana sus 100 puntos normales en el GameManager sin restar nada.
                 return new RuleEvaluationResult(0, true);
 
             case SpecialRule.DiagonalOneContact: // Variante 2
-                // EXCEPCIÓN: Si es el primer dado de todos, se salva de la multa y gana el bono base.
                 if (isFirstDieOnBoard) return new RuleEvaluationResult(0, true);
 
-                if (contactosDiagonales > 0)
+                // Variante 2: SOLO premia el contacto diagonal puro. Si toca algo ortogonal, se arruina el patrón.
+                if (contactosDiagonales > 0 && contactosOrtogonales == 0)
                 {
                     return new RuleEvaluationResult(contactosDiagonales * CONTACT_BONUS, true);
                 }
                 else
                 {
-                    return new RuleEvaluationResult(ISOLATION_PENALTY, false);
+                    return new RuleEvaluationResult(0, false);
                 }
 
             case SpecialRule.RewardOnContact: // Variante 3
-                // EXCEPCIÓN: Si es el primer dado de todos, se salva de la multa y gana el bono base.
                 if (isFirstDieOnBoard) return new RuleEvaluationResult(0, true);
 
-                if (totalContactos > 0)
+                // Variante 3 ESTRICTA: Solo da puntos por contactos Ortogonales.
+                if (contactosOrtogonales > 0)
                 {
-                    return new RuleEvaluationResult(totalContactos * CONTACT_BONUS, true);
+                    return new RuleEvaluationResult(contactosOrtogonales * CONTACT_BONUS, true);
                 }
                 else
                 {
-                    return new RuleEvaluationResult(ISOLATION_PENALTY, false);
+                    // Si está aislado o solo toca en diagonal, no gana bono.
+                    return new RuleEvaluationResult(0, false);
                 }
 
             case SpecialRule.None:

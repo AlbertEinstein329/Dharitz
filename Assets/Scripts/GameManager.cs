@@ -14,10 +14,11 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
     [Header("Configuracion de Partida")]
     public SessionConfig currentSession;
-    [HideInInspector] public VariantData currentVariant;
+    public VariantData currentVariant;
     [HideInInspector] public int numPlayers;
     public int maxDicePerPlayer = 52;
     public List<PlayerData> players = new List<PlayerData>();
+    [HideInInspector] public bool isRestarting = false;
 
     [Header("UI Elements")]
     public Button drawButton;
@@ -60,10 +61,15 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             numPlayers = currentSession.playerCount;
 
             players = new List<PlayerData>();
-            for (int i = 0; i < numPlayers; i++)
+            for (int i = 0; i < currentSession.players.Count; i++)
             {
                 PlayerSetup setup = currentSession.players[i];
-                players.Add(new PlayerData(i, setup.playerName, setup.isBot, setup.avatarId));
+                PlayerData newPlayer = new PlayerData(i, setup.playerName, setup.isBot, setup.botDifficulty);
+
+                
+                newPlayer.avatarId = setup.avatarId;
+
+                players.Add(newPlayer);
             }
         }
         else
@@ -127,8 +133,37 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
     public void EndMatch()
     {
-        Debug.Log("Fin de la bolsa. Calculando resultados...");
+
         isGameOver = true;
+
+        // =========================================================
+        // APAGADO FORZOSO DEL BOTÓN AL TERMINAR LA PARTIDA
+        // =========================================================
+        if (drawButton != null)
+        {
+            drawButton.interactable = false; // Lo bloqueamos para que no puedan hacer clic
+            TMPro.TextMeshProUGUI drawButtonText = drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (drawButtonText != null)
+            {
+                drawButtonText.text = "MATCH END"; // Cambiamos el texto
+            }
+        }
+
+        // DOBLE ESCUDO: Si estamos reiniciando O el juego ya terminó previamente, ignorar.
+        if (isRestarting || isGameOver) return;
+
+        Debug.Log("Fin de la bolsa. Calculando resultados...");
+
+        if (drawButton != null)
+        {
+            drawButton.interactable = false;
+            TMPro.TextMeshProUGUI drawButtonText = drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (drawButtonText != null) drawButtonText.text = "<color=#FFA500>MATCH END</color>";
+        }
+
+        if (reDrawButton != null) reDrawButton.interactable = false;
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Victory");
+
         int viewedPlayer = gridManager.CurrentlyViewedPlayer;
         UIManager.Instance.ShowFinalResults(viewedPlayer);
     }
