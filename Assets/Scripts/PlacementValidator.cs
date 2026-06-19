@@ -11,18 +11,22 @@ public static class PlacementValidator
 
     public static bool IsValidPlacement(GridManager.DieData[,] logic, int rows, int cols, int r, int c, DieColor color, int currentGroupId, int number, PlayerData player, VariantData variant)
     {
+
+        
+        // VALIDACIÓN ESTRICTA DE LÍMITES ESPACIALES
+        if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
+
         // ESCUDO ANTI-SUPERPOSICIÓN: Si la celda ya tiene un dado, se rechaza inmediatamente.
         if (logic[r, c] != null) return false;
-
 
         bool isBoardEmpty = (player.placedDice == 0);
 
         PatternData currentPattern = variant.GetPattern(number);
 
         bool hasDiceInGroup = false;
-        if (player.activeGroups.ContainsKey(color) && player.activeGroups[color] != null)
+        if (player.activeGroups.TryGetValue(color, out GroupData groupData) && groupData != null)
         {
-            hasDiceInGroup = player.activeGroups[color].occupiedCells.Count > 0;
+            hasDiceInGroup = groupData.occupiedCells.Count > 0;
         }
 
         bool touchesOwnGroup = false;

@@ -41,6 +41,8 @@ public class GridInteractionManager : MonoBehaviour
     // Se ejecuta de forma segura al cambiar de turno
     public void OnTurnChanged(int newPlayerIndex)
     {
+        if (GameManager.Instance.isTrainingMode) return;
+
         if (!playerMoveUses.ContainsKey(newPlayerIndex))
         {
             playerMoveUses[newPlayerIndex] = 0;
@@ -297,16 +299,30 @@ public class GridInteractionManager : MonoBehaviour
     public void ClearBoardHighlights()
     {
         GameManager gm = GameManager.Instance;
-        if (gm == null || gm.gridManager == null) return;
 
-        // CORRECCIÓN MULTIJUGADOR: Limpiamos los brillos del tablero correcto
+        // 1. Guardas de seguridad: Si cualquier manager es nulo, abortamos
+        if (gm == null || gm.gridManager == null || gm.gridManager.allCellsVisual == null) return;
+
         int playerIndex = gm.turnManager.CurrentPlayerIndex;
 
-        for (int r = 0; r < 10; r++)
+        // 2. Validación de Índice: Verificamos si el playerIndex existe en la lista
+        // Esto evita el ArgumentOutOfRangeException
+        if (playerIndex < 0 || playerIndex >= gm.gridManager.allCellsVisual.Count)
         {
-            for (int c = 0; c < 8; c++)
+            Debug.LogWarning($"[GridInteractionManager] Indice de jugador {playerIndex} fuera de rango. Abortando limpieza.");
+            return;
+        }
+
+        // 3. Validación de Matriz: Verificamos que la matriz visual esté instanciada
+        var playerBoard = gm.gridManager.allCellsVisual[playerIndex];
+        if (playerBoard == null) return;
+
+        // 4. Iteración segura sobre las dimensiones reales de la matriz
+        for (int r = 0; r < playerBoard.GetLength(0); r++)
+        {
+            for (int c = 0; c < playerBoard.GetLength(1); c++)
             {
-                CellComponent cell = gm.gridManager.allCellsVisual[playerIndex][r, c];
+                CellComponent cell = playerBoard[r, c];
                 if (cell != null) cell.SetHighlight(false);
             }
         }

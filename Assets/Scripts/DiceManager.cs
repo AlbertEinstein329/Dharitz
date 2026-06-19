@@ -26,7 +26,12 @@ public class DiceManager
         }
 
         ShuffleBag();
-        Debug.Log($"Bolsa creada con {diceBag.Count} dados para {gm.numPlayers} players.");
+
+        // Bloqueo estricto
+        if (!gm.isTrainingMode)
+        {
+            Debug.Log($"Bolsa creada con {diceBag.Count} dados para {gm.numPlayers} players.");
+        }
 
         UpdateDiceCountersUI();
     }
@@ -44,6 +49,8 @@ public class DiceManager
 
     public void UpdateDiceCountersUI()
     {
+        if (gm.isTrainingMode) return; // BYPASS: No actualiza elementos UI de Canvas en modo IA
+
         int redLeft = diceBag.Count(d => d == DieColor.Red);
         int blueLeft = diceBag.Count(d => d == DieColor.Blue);
         int whiteLeft = diceBag.Count(d => d == DieColor.White);
@@ -56,7 +63,7 @@ public class DiceManager
     {
         if (diceBag == null || diceBag.Count == 0)
         {
-            Debug.Log("Bolsa vacía. ¡Es tu último movimiento!");
+            if (!gm.isTrainingMode) Debug.Log("Bolsa vacía. ¡Es tu último movimiento!");
             if (gm.drawButton != null) gm.drawButton.interactable = false;
             return;
         }
@@ -99,6 +106,12 @@ public class DiceManager
         {
             // The drawn value must reflect the target size of the ongoing group!
             gm.turnManager.CurrentDrawnValue = group.targetSize;
+        }
+
+        if (gm.isTrainingMode)
+        {
+            // Retorno inmediato: el motor de reglas ya tiene los datos, no necesitamos callbacks visuales
+            return;
         }
 
         UIManager.Instance.UpdateHandUI(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize, () =>

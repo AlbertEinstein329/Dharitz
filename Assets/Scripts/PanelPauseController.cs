@@ -16,6 +16,8 @@ namespace LapKan
         public Button backToMenuButton;
         public Toggle toggleMusicButton;
         public Toggle toggleSfxButton;
+        public Button PlayAgainButton;
+        public Button MainMenuButton;
 
         public override void Awake()
         {
@@ -31,12 +33,16 @@ namespace LapKan
             if (resumeButton != null) resumeButton.onClick.AddListener(ClosePauseMenu);
             if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
             if (backToMenuButton != null) backToMenuButton.onClick.AddListener(ReturnToMainMenu);
+            if (PlayAgainButton != null) PlayAgainButton.onClick.AddListener(RestartGame);
+            if (MainMenuButton != null) MainMenuButton.onClick.AddListener(ReturnToMainMenu);
 
             // Vinculamos sonido Click genérico a los botones
             if (pauseButton != null) pauseButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
             if (resumeButton != null) resumeButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
             if (restartButton != null) restartButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
             if (backToMenuButton != null) backToMenuButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
+            if (PlayAgainButton != null) PlayAgainButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
+            if (MainMenuButton != null) MainMenuButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
 
             // 2. CONFIGURACIÓN REACTIVA DE TOGGLES ANTI-DESINCRONIZACIÓN
             if (AudioManager.Instance != null)

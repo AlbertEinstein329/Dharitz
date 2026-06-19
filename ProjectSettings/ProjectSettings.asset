@@ -83,7 +83,7 @@ PlayerSettings:
   androidApplicationEntry: 1
   defaultIsNativeResolution: 1
   macRetinaSupport: 1
-  runInBackground: 0
+  runInBackground: 1
   muteOtherAudioSources: 0
   Prepare IOS For Recording: 0
   Force IOS Speakers When Recording: 0
@@ -790,7 +790,7 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
-    Android: DOTWEEN;DOTWEEN_UITOOLKIT;LEVELPLAY_DEPENDENCIES_INSTALLED
+    Android: DOTWEEN;DOTWEEN_UITOOLKIT;LEVELPLAY_DEPENDENCIES_INSTALLED;SENTIS_ANALYTICS_ENABLED;APP_UI_EDITOR_ONLY
     EmbeddedLinux: DOTWEEN;DOTWEEN_UITOOLKIT
     GameCoreScarlett: DOTWEEN;DOTWEEN_UITOOLKIT
     GameCoreXboxOne: DOTWEEN;DOTWEEN_UITOOLKIT

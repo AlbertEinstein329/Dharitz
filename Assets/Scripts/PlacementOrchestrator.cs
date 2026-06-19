@@ -22,6 +22,46 @@ public class PlacementOrchestrator
 
     public void ConfirmAndProcessScore(int r, int c)
     {
+        // ==========================================
+        // INYECCIÓN DE BYPASS DE SIMULACIÓN PURA IA
+        // ==========================================
+        if (gm.isTrainingMode)
+        {
+            PlayerData agentPlayer = gm.turnManager.GetCurrentPlayer();
+
+            if (!agentPlayer.activeGroups.TryGetValue(gm.turnManager.CurrentDrawnColor, out GroupData agentGroup) || agentGroup == null)
+            {
+                Debug.LogWarning("El Agente intentó colocar sin un grupo activo. Ignorando comando.");
+                return;
+            }
+
+            gm.gridManager.CommitDieToLogic(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, agentGroup.id, agentGroup.targetSize);
+
+            // Al ejecutar esta adición, la propiedad isClosed de GameData se vuelve true automáticamente si alcanza el límite
+            agentGroup.occupiedCells.Add(new Vector2Int(r, c));
+            agentPlayer.placedDice++;
+
+            PatternData agentPattern = gm.currentSession.selectedVariant.GetPattern(agentGroup.targetSize);
+            int agentOrth = gm.gridManager.GetOrthogonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, agentGroup.id);
+            int agentDiag = gm.gridManager.GetDiagonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, agentGroup.id);
+
+            SpecialRule agentRule = (SpecialRule)(int)agentPattern.specialRule;
+            bool agentFirst = (agentPlayer.placedDice == 1);
+
+            RuleEvaluationResult agentResult = SpecialRuleEvaluator.EvaluatePlacement(agentRule, agentOrth, agentDiag, agentFirst);
+
+            if (agentResult.ScoreDelta < 0) agentPlayer.score += agentResult.ScoreDelta;
+            else agentPlayer.score += (50 + agentResult.ScoreDelta);
+
+            if (agentPattern != null && agentRule == SpecialRule.ExtraDiagonalContact)
+            {
+                int newDiagConnections = gm.gridManager.GetDiagonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, agentGroup.id);
+                if (newDiagConnections > 0) agentPlayer.score += (newDiagConnections * 200);
+            }
+
+            return;
+        }
+
         UIManager.Instance.SetDrawInputLock(true);
 
         // ==========================================

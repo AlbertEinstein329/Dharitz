@@ -26,6 +26,10 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     public TMPro.TextMeshProUGUI reDrawText;
     public bool isGameOver = false;
 
+    [Header("ML-Agents Integration")]
+    public bool isTrainingMode = false;
+    public MLAgentsMetricsController metricsController;
+
     // Sub-Systems
     public DiceManager diceManager { get; private set; }
     public TurnManager turnManager { get; private set; }
@@ -82,6 +86,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
     void Start()
     {
+        UnityEngine.Time.timeScale = 1f;
         diceManager.InitializeBag();
         turnManager.StartTurn();
     }
@@ -133,8 +138,23 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
     public void EndMatch()
     {
-
+        if (isRestarting || isGameOver) return;
         isGameOver = true;
+
+        // Inyección nativa hacia TensorBoard
+        if (isTrainingMode && metricsController != null)
+        {
+            int remainingDices = diceManager.diceBag.Count;
+            // Extrae el score del Player 1 (El Agente) de forma autoritaria.
+            int finalScore = players.Count > 0 ? players[0].score : 0;
+
+            // Deducción del fin de partida
+            GameEndReason reason = remainingDices == 0 ? GameEndReason.BagDepleted : GameEndReason.BoardLocked;
+            metricsController.RecordEpisodeTerminationMetrics(remainingDices, finalScore, reason);
+        }
+
+        if (drawButton != null) drawButton.interactable = false;
+        if (reDrawButton != null) reDrawButton.interactable = false;
 
         // =========================================================
         // APAGADO FORZOSO DEL BOTÓN AL TERMINAR LA PARTIDA
@@ -149,8 +169,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             }
         }
 
-        // DOBLE ESCUDO: Si estamos reiniciando O el juego ya terminó previamente, ignorar.
-        if (isRestarting || isGameOver) return;
+
 
         Debug.Log("Fin de la bolsa. Calculando resultados...");
 
@@ -166,6 +185,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
         int viewedPlayer = gridManager.CurrentlyViewedPlayer;
         UIManager.Instance.ShowFinalResults(viewedPlayer);
+
     }
 
     public IEnumerator EndGameSequence()
@@ -200,5 +220,47 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         }
 
         UIManager.Instance.ShowFinalResults(0);
+    }
+
+    public void ResetGame()
+    {
+        isGameOver = false;
+
+        // 1. Resetear datos lógicos de cada jugador
+        foreach (var player in players)
+        {
+            player.score = 0;
+            player.placedDice = 0;
+            player.isEliminated = false;
+            player.reDraws = PlayerData.DEFAULT_REDRAWS;
+            player.activeGroups.Clear();
+            System.Array.Clear(player.patternCounts, 0, player.patternCounts.Length);
+
+            // Deshabilitar por completo el uso de Undo para evitar exploits de la IA
+            player.currentUndoUses = 0;
+        }
+
+        // 2. Limpiar historiales del CommandManager sin destruir instancias
+        if (CommandManager.Instance != null)
+        {
+            for (int i = 0; i < numPlayers; i++)
+            {
+                CommandManager.Instance.ClearHistory(i);
+            }
+        }
+
+        // 3. Reiniciar la bolsa de dados a su estado inicial
+        diceManager.InitializeBag();
+
+        // 4. Limpiar matrices del tablero
+        gridManager.ResetGrid();
+
+        if (turnManager != null)
+        {
+            turnManager.ResetTurnState(); // Delegación correcta de autoridad
+        }
+
+        // 5. Forzar el arranque del ciclo lógico del primer turno
+        turnManager.StartTurn();
     }
 }

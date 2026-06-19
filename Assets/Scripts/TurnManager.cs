@@ -15,21 +15,24 @@ public class TurnManager
     // El historial solo se borra cuando el jugador decide robar un nuevo dado.
     // =========================================================================
     private bool hasDrawn = false;
-    public bool HasDrawn 
-    { 
-        get => hasDrawn; 
-        set 
+    public bool HasDrawn
+    {
+        get => hasDrawn;
+        set
         {
             hasDrawn = value;
             if (hasDrawn && CommandManager.Instance != null)
             {
-                // Al robar un nuevo dado, confirmas tu tablero pasado y se borra la pila vieja
                 CommandManager.Instance.ClearHistory(CurrentPlayerIndex);
-                Debug.Log($"[Fase de Turno] Dado extraído. Historial previo del Jugador {CurrentPlayerIndex + 1} limpiado.");
+                // Bloqueo estricto del Log durante el entrenamiento
+                if (!gm.isTrainingMode)
+                {
+                    Debug.Log($"[Fase de Turno] Dado extraído. Historial previo del Jugador {CurrentPlayerIndex + 1} limpiado.");
+                }
             }
         }
     }
-    
+
     public DieColor CurrentDrawnColor { get; set; }
     public int CurrentDrawnValue { get; set; }
 
@@ -58,7 +61,7 @@ public class TurnManager
         if (currentPlayer.isBot)
         {
             UIManager.Instance.SetDrawInputLock(true);
-            Debug.Log($"Turno de ML-Agent ({currentPlayer.name}). Esperando red neuronal...");
+            if (!gm.isTrainingMode) Debug.Log($"Turno de ML-Agent ({currentPlayer.name}). Esperando red neuronal...");
         }
         else
         {
@@ -102,6 +105,11 @@ public class TurnManager
                 if (drawButtonText != null) drawButtonText.text = "EXTRACT DICE";
             }
         }
+
+        if (currentPlayer.isBot && currentPlayer.agentComponent != null)
+        {
+            currentPlayer.agentComponent.RequestDecision(); // Pide a la IA que juegue su turno
+        }
     }
 
     public void EndTurn()
@@ -138,7 +146,10 @@ public class TurnManager
             SaveManager.Instance.SaveLocal();
         }
 
-        Debug.Log($"Turno finalizado. Ahora es el turno del Jugador {CurrentPlayerIndex + 1}");
+        if (!GameManager.Instance.isTrainingMode)
+        {
+            Debug.Log($"Turno finalizado. Ahora es el turno del Jugador {CurrentPlayerIndex + 1}");
+        }
 
         // FORZAMOS a que el GridManager vuelva a mostrar el tablero del jugador que ahora tiene el turno
         if (gm.gridManager != null)
@@ -162,5 +173,11 @@ public class TurnManager
         float tiempoDeEspera = (gm.numPlayers == 1) ? 1.0f : 1.5f;
         yield return new WaitForSeconds(tiempoDeEspera);
         EndTurn();
+    }
+
+    public void ResetTurnState()
+    {
+        CurrentPlayerIndex = 0;
+        HasDrawn = false;
     }
 }

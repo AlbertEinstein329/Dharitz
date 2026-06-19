@@ -1,11 +1,12 @@
 ﻿<Solution>
+  <Project Path="LeanGUI.csproj" />
   <Project Path="UnityEngine.UI.Tests.csproj" />
   <Project Path="UnityEngine.UI.csproj" />
   <Project Path="LeanLocalization.csproj" />
   <Project Path="LeanCommon.csproj" />
   <Project Path="LeanTransition.csproj" />
-  <Project Path="Google.Play.Games.Editor.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Google.Play.Games.Editor.csproj" />
   <Project Path="Unity.TextMeshPro.csproj" />
   <Project Path="Unity.TextMeshPro.Editor.csproj" />
   <Project Path="ProceduralTextAnimator.csproj" />
@@ -18,7 +19,6 @@
   <Project Path="CFXREditor.csproj" />
   <Project Path="CW.Common.csproj" />
   <Project Path="Assembly-CSharp-firstpass.csproj" />
-  <Project Path="LeanGUI.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="UnityEditor.UI.Analytics.csproj" />
   <Project Path="KinoBloom.Runtime.csproj" />

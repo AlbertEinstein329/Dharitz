@@ -1330,7 +1330,7 @@ MonoBehaviour:
     - m_Text: "Espa\xF1ol"
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
-    - m_Text: Portugays
+    - m_Text: "Portugu\xEAs"
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_OnValueChanged:
@@ -4609,7 +4609,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Campain (WIP)
+  m_text: Online (WIP)
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d522af450d2df40cc9af2bdfa5acf0e8, type: 2}
   m_sharedMaterial: {fileID: 6225363804125160479, guid: d522af450d2df40cc9af2bdfa5acf0e8, type: 2}
@@ -7224,7 +7224,7 @@ GameObject:
   - component: {fileID: 1667516118}
   - component: {fileID: 1667516117}
   m_Layer: 5
-  m_Name: "Campa\xF1a"
+  m_Name: OnlineMode
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
