@@ -1126,6 +1126,114 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 282831390}
   m_CullTransparentMesh: 1
+--- !u!1 &292610381
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 292610382}
+  - component: {fileID: 292610383}
+  m_Layer: 0
+  m_Name: GridSensorPivot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &292610382
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 292610381}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2064037063}
+  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
+--- !u!114 &292610383
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 292610381}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a501962d056745d1a30e99146ee39fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Sensors.GridSensorComponent
+  m_SensorName: GridSensor
+  m_CellScale: {x: 1.1, y: 1, z: 1.1}
+  m_GridSize: {x: 10, y: 1, z: 10}
+  m_RotateWithAgent: 1
+  m_AgentGameObject: {fileID: 0}
+  m_DetectableTags:
+  - DieRed1
+  - DieRed2
+  - DieRed3
+  - DieRed4
+  - DieRed5
+  - DieRed6
+  - DieBlue1
+  - DieBlue2
+  - DieBlue3
+  - DieBlue4
+  - DieBlue5
+  - DieBlue6
+  - DieWhite1
+  - DieWhite2
+  - DieWhite3
+  - DieWhite4
+  - DieWhite5
+  - DieWhite6
+  - DieBlack1
+  - DieBlack2
+  - DieBlack3
+  - DieBlack4
+  - DieBlack5
+  - DieBlack6
+  m_ColliderMask:
+    serializedVersion: 2
+    m_Bits: 8
+  m_MaxColliderBufferSize: 500
+  m_InitialColliderBufferSize: 4
+  m_DebugColors:
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  m_GizmoYOffset: 0
+  m_ShowGizmos: 1
+  m_CompressionType: 0
+  m_ObservationStacks: 1
 --- !u!1 &294432593
 GameObject:
   m_ObjectHideFlags: 0
@@ -6982,7 +7090,7 @@ MonoBehaviour:
   maxDicePerPlayer: 52
   players:
   - id: 0
-    name: Gabriel
+    name: Gabriel1
     avatarId: 0
     score: 0
     placedDice: 0
@@ -9840,7 +9948,6 @@ GameObject:
   - component: {fileID: 2064037063}
   - component: {fileID: 2064037062}
   - component: {fileID: 2064037061}
-  - component: {fileID: 2064037064}
   m_Layer: 0
   m_Name: Darithz_ML_Agent
   m_TagString: Untagged
@@ -9890,7 +9997,7 @@ MonoBehaviour:
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
   m_BehaviorType: 0
-  m_BehaviorName: DarithzBrain
+  m_BehaviorName: DarithzBrain_V8
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1
@@ -9904,49 +10011,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2064037059}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 292610382}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
---- !u!114 &2064037064
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2064037059}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2a501962d056745d1a30e99146ee39fe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Sensors.GridSensorComponent
-  m_SensorName: GridSensor
-  m_CellScale: {x: 1.1, y: 1, z: 1.1}
-  m_GridSize: {x: 10, y: 1, z: 10}
-  m_RotateWithAgent: 1
-  m_AgentGameObject: {fileID: 0}
-  m_DetectableTags:
-  - DieRed
-  - DieBlack
-  - DieWhite
-  - DieBlue
-  m_ColliderMask:
-    serializedVersion: 2
-    m_Bits: 8
-  m_MaxColliderBufferSize: 500
-  m_InitialColliderBufferSize: 4
-  m_DebugColors:
-  - {r: 1, g: 0, b: 0, a: 0}
-  - {r: 0, g: 0, b: 0, a: 0}
-  - {r: 1, g: 1, b: 1, a: 0}
-  - {r: 0, g: 0, b: 1, a: 0}
-  m_GizmoYOffset: 0
-  m_ShowGizmos: 1
-  m_CompressionType: 0
-  m_ObservationStacks: 1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2085973958
 GameObject:
   m_ObjectHideFlags: 0

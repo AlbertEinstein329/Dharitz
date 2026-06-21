@@ -4,10 +4,30 @@
 TagManager:
   serializedVersion: 3
   tags:
-  - DieRed
-  - DieBlue
-  - DieWhite
-  - DieBlack
+  - DieRed1
+  - DieRed2
+  - DieRed3
+  - DieRed4
+  - DieRed5
+  - DieRed6
+  - DieBlue1
+  - DieBlue2
+  - DieBlue3
+  - DieBlue4
+  - DieBlue5
+  - DieBlue6
+  - DieWhite2
+  - DieWhite3
+  - DieWhite1
+  - DieWhite4
+  - DieWhite5
+  - DieWhite6
+  - DieBlack1
+  - DieBlack2
+  - DieBlack3
+  - DieBlack4
+  - DieBlack5
+  - DieBlack6
   layers:
   - Default
   - TransparentFX

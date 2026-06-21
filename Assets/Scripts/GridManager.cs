@@ -479,18 +479,23 @@ public void NextBoard()
             dieScript.Setup(r, c, pIndex, this, GameManager.Instance, GameManager.Instance);
         }
 
-        // =========================================
-        // INYECCIÓN OBLIGATORIA PARA ML-AGENTS
-        // =========================================
+        // =========================================================
+        // INYECCIÓN ML-AGENTS: ASIGNACIÓN DE TAGS DINÁMICOS
+        // =========================================================
         MLAgentsColliderEnforcer enforcer = NewDice.GetComponentInChildren<MLAgentsColliderEnforcer>();
 
         if (enforcer != null)
         {
-            enforcer.InjectSensorData(color);
+            // Código limpio: El enforcer hace todo el trabajo usando el Color y el Número
+            enforcer.InjectSensorData(color, number);
         }
         else
         {
-            Debug.LogWarning($"[Arquitectura] El prefab del color {color} no tiene el objeto hijo 'ML_SensorTarget' con el script enforcer.");
+            // Plan de Respaldo de Seguridad: Por si el prefab pierde su objeto hijo
+            string exactTag = $"Die{color}{number}";
+            NewDice.tag = exactTag;
+            NewDice.layer = LayerMask.NameToLayer("MLGrid"); // Asegúrate de que sea el mismo nombre que usas (MLGrid o MLAgents)
+            Debug.LogWarning($"[Arquitectura] El prefab del color {color} no tiene el objeto hijo 'ML_SensorTarget'. Tag asignado al padre.");
         }
     }
 

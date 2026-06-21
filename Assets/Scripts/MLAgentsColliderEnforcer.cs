@@ -5,37 +5,26 @@ public class MLAgentsColliderEnforcer : MonoBehaviour
 {
     private void Awake()
     {
-        // 1. Configuración del colisionador (Esto sí es estático y va en Awake)
         BoxCollider col = GetComponent<BoxCollider>();
         col.isTrigger = true;
         col.size = new Vector3(1f, 1f, 0.5f);
 
-        // 2. Aislamiento de Capa Inmediato
-        int mlLayer = LayerMask.NameToLayer("MLGrid");
+        int mlLayer = LayerMask.NameToLayer("MLGrid"); // Asegúrate de que esta capa exista en tu proyecto
         if (mlLayer != -1)
         {
             gameObject.layer = mlLayer;
         }
     }
 
-    /// <summary>
-    /// DEBE ser invocado por el PlacementOrchestrator o GridManager
-    /// inmediatamente después de instanciar el dado en la celda.
-    /// </summary>
-    public void InjectSensorData(DieColor assignedColor)
+    // 🔥 AHORA RECIBE EL COLOR Y EL NÚMERO
+    public void InjectSensorData(DieColor assignedColor, int dieValue)
     {
-        gameObject.tag = GetTagForColor(assignedColor);
+        gameObject.tag = GetTagForDie(assignedColor, dieValue);
     }
 
-    private string GetTagForColor(DieColor color)
+    // Constructor automático del Tag
+    private string GetTagForDie(DieColor color, int value)
     {
-        return color switch
-        {
-            DieColor.Red => "DieRed",
-            DieColor.Blue => "DieBlue",
-            DieColor.White => "DieWhite",
-            DieColor.Black => "DieBlack",
-            _ => "Untagged"
-        };
+        return $"Die{color}{value}";
     }
 }

@@ -77,15 +77,15 @@ public class DarithzAgent : Agent
             {
                 agentData.reDraws--;
                 gm.diceManager.UseReDraw();
-                AddReward(-0.05f); // Micro-castigo por descartar
+                // Cambio 3: Descarte usando reDraw reducido a -0.02f
+                AddReward(-0.02f);
                 RequestDecision();
                 return;
             }
             else
             {
-                // 🔥 EL SUICIDIO TÁCTICO: Un castigo devastador (-5.0 = -5000 puntos virtuales)
-                // Le enseña que rendirse es la PEOR opción posible en el universo.
-                AddReward(-5.0f);
+                // Cambio 4: Pasar turno (sin jugada posible) reducido a -0.10f
+                AddReward(-0.10f);
                 gm.turnManager.EndTurn();
                 CheckGameOver();
                 return;
@@ -110,7 +110,8 @@ public class DarithzAgent : Agent
         if (!isValid)
         {
             agentData.isEliminated = true;
-            AddReward(-2.0f);
+            // Cambio 5: Movimiento inválido (eliminación) reducido a -1.0f
+            AddReward(-1.0f);
             if (gm.players.Count == 1) gm.isGameOver = true;
             EndEpisode();
             return;
@@ -118,28 +119,38 @@ public class DarithzAgent : Agent
 
         int previousDiceCount = agentData.placedDice;
 
-        // 1. Tomamos "foto" a la estructura antes de poner el dado
+        // =======================================================
+        // 1. FOTO ANTES DE LA JUGADA
+        // =======================================================
         int structureScoreBefore = CalculateCurrentStructureScore();
+        float patternScoreBefore = CalculateTotalPatternScore();
 
+        // El juego procesa físicamente la colocación del dado
         gm.placementOrchestrator.ConfirmAndProcessScore(targetRow, targetCol);
 
-        // 2. Tomamos "foto" a la estructura después de poner el dado
+        // =======================================================
+        // 2. FOTO DESPUÉS DE LA JUGADA
+        // =======================================================
         int structureScoreAfter = CalculateCurrentStructureScore();
+        float patternScoreAfter = CalculateTotalPatternScore();
+
+        // Diferencias matemáticas
         int pointsGained = structureScoreAfter - structureScoreBefore;
+        float patternRewardGained = patternScoreAfter - patternScoreBefore;
 
         gm.turnManager.EndTurn();
         CheckGameOver();
 
         if (agentData.placedDice > previousDiceCount)
         {
-            // Avaricia base
-            float progress = Mathf.Clamp01((float)agentData.placedDice / MaxTargetDice);
-            float premioBase = Mathf.Pow(progress, 2f) * 1.0f;
+            // Cambio 1: Muy pequeña recompensa base por poner el dado reducida a +0.01f
+            float premioBase = 0.01f;
 
-            // Premio de estructura alineado (Si cerró una fila de 120 pts, gana +0.12f extra)
-            float premioEstructura = pointsGained / 1000f;
+            // Cambio 2: Recompensas normalizadas
+            float premioEstructura = pointsGained / 12800f;
 
-            AddReward(premioBase + premioEstructura);
+            // (patternRewardGained ya viene normalizado por /12800f desde CalculateTotalPatternScore)
+            AddReward(premioBase + premioEstructura + patternRewardGained);
         }
     }
 
@@ -154,12 +165,12 @@ public class DarithzAgent : Agent
         {
             PlayerData agentData = gm.players[targetPlayerIndex];
 
-            // 🔥 APLICAMOS EL CASTIGO POR HUECOS TOPOLÓGICOS
+            // 🔥 APLICAMOS EL CASTIGO POR HUECOS TOPOLÓGICOS (Ajustado)
             float gapPenalty = CalculateGapPenaltyForIA();
             AddReward(gapPenalty);
-            // Si el tablero quedó lleno de huecos de 3 celdas, recibirá un castigo masivo (ej: -6.0f)
 
-            AddReward(agentData.isEliminated ? -2.0f : 1.0f);
+            // Cambio 7 y 8: Recompensa terminal (+1.5f victoria, -1.0f eliminación)
+            AddReward(agentData.isEliminated ? -1.0f : 1.5f);
             EndEpisode();
         }
     }
@@ -190,8 +201,6 @@ public class DarithzAgent : Agent
 
         bool hasValidMove = false;
 
-        // ELIMINAMOS EL BUG: Siempre evaluamos el tablero, no importa si targetSize es 0
-        // Dejamos que GridManager decida si se puede empezar un grupo nuevo.
         for (int i = 0; i < TotalCells; i++)
         {
             int row = i / BoardCols;
@@ -206,7 +215,6 @@ public class DarithzAgent : Agent
             }
         }
 
-        // TÁCTICA AGRESIVA: Bloqueamos "Pasar Turno" obligatoriamente si hay un movimiento válido.
         actionMask.SetActionEnabled(0, PassTurnAction, !hasValidMove);
     }
 
@@ -288,15 +296,109 @@ public class DarithzAgent : Agent
                         }
                     }
 
-                    // Aplicamos TU regla de penalización exacta
-                    if (gapSize == 1) totalPenaltyPoints += (gapSize * -500);
-                    else if (gapSize == 2) totalPenaltyPoints += (gapSize * -700);
-                    else if (gapSize >= 3) totalPenaltyPoints += (gapSize * -1000);
+                    // Cambio 6: Penalización por gaps reducida para estabilidad
+                    if (gapSize == 1) totalPenaltyPoints += 40;
+                    else if (gapSize == 2) totalPenaltyPoints += 60;
+                    else if (gapSize >= 3) totalPenaltyPoints += (gapSize * 80);
                 }
             }
         }
 
-        // Devolvemos la penalización escalada para la Red Neuronal (dividido entre 1000)
-        return totalPenaltyPoints / 1000f;
+        // Cambio 6: Retornar como negativo dividido por 1000f
+        return -(totalPenaltyPoints / 1000f);
+    }
+
+    // 3. Calcula el puntaje total de los patrones
+    private float CalculateTotalPatternScore()
+    {
+        var logic = gridManager.allBoardsLogic[targetPlayerIndex];
+        int rows = gridManager.rows;
+        int cols = gridManager.cols;
+        bool[,] visited = new bool[rows, cols];
+
+        float totalPatternScore = 0f;
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                var die = logic[r, c];
+                // Evaluamos dados que no hayamos visitado aún
+                if (die != null && !visited[r, c])
+                {
+                    int patternSize = 0;
+                    DieColor color = die.color;
+                    int groupId = die.groupId; // Usamos el ID para asegurar que es el mismo patrón
+
+                    Queue<Vector2Int> queue = new Queue<Vector2Int>();
+                    queue.Enqueue(new Vector2Int(r, c));
+                    visited[r, c] = true;
+
+                    // BFS para medir el tamaño de este patrón
+                    while (queue.Count > 0)
+                    {
+                        Vector2Int curr = queue.Dequeue();
+                        patternSize++;
+
+                        int[] dr = { -1, 1, 0, 0 };
+                        int[] dc = { 0, 0, -1, 1 };
+
+                        for (int i = 0; i < 4; i++)
+                        {
+                            int nr = curr.x + dr[i];
+                            int nc = curr.y + dc[i];
+
+                            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+                            {
+                                var neighbor = logic[nr, nc];
+                                if (neighbor != null && !visited[nr, nc] && neighbor.color == color && neighbor.groupId == groupId)
+                                {
+                                    visited[nr, nc] = true;
+                                    queue.Enqueue(new Vector2Int(nr, nc));
+                                }
+                            }
+                        }
+                    }
+
+                    // Cambio 2: Fórmula de patrón escalada a puntos reales
+                    float scoreForThisPattern = patternSize switch
+                    {
+                        1 => 100f,
+                        2 => 100f,
+                        3 => 200f,
+                        4 => 300f,
+                        5 => 400f,
+                        6 => 500f,
+                        _ => 500f
+                    };
+
+                    totalPatternScore += scoreForThisPattern;
+                }
+            }
+        }
+
+        // Cambio 2: Normalizamos el total entre 12800f
+        return totalPatternScore / 12800f;
+    }
+
+    // Nuevo método para construir el tag compuesto
+    public static string GetTagForDie(DieColor color, int value)
+    {
+        return $"Die{color}{value}";
+    }
+
+    // Actualización del método de inyección
+    public void InjectSensorData(DieColor assignedColor, int dieValue)
+    {
+        gameObject.layer = LayerMask.NameToLayer("MLAgents");
+
+        string exactTag = GetTagForDie(assignedColor, dieValue);
+        gameObject.tag = exactTag;
+
+        BoxCollider bc = GetComponent<BoxCollider>();
+        if (bc != null)
+        {
+            bc.size = new Vector3(0.9f, 0.9f, 0.9f);
+        }
     }
 }
