@@ -1,6 +1,7 @@
 ﻿<Solution>
   <Project Path="UnityEngine.UI.Tests.csproj" />
   <Project Path="UnityEngine.UI.csproj" />
+  <Project Path="Fusion.Menu.csproj" />
   <Project Path="LeanLocalization.csproj" />
   <Project Path="LeanCommon.csproj" />
   <Project Path="LeanTransition.csproj" />
@@ -24,6 +25,7 @@
   <Project Path="KinoBloom.Runtime.csproj" />
   <Project Path="LeanLocalizationEditor.csproj" />
   <Project Path="CFXR.WelcomeScreen.csproj" />
+  <Project Path="Fusion.Menu.Editor.csproj" />
   <Project Path="Unity.TextMeshPro.Editor.Tests.csproj" />
   <Project Path="ToonyColorsPro.Demo.Editor.csproj" />
   <Project Path="Unity.TextMeshPro.Tests.csproj" />
