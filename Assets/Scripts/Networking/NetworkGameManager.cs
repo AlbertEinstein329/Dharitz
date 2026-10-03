@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 using MyGame.Core;
+using CoreDieColor = MyGame.Core.DieColor; // El DieColor global (GameData.cs) gana sobre 'using MyGame.Core', asi que aliasamos el de Core
 
 namespace MyGame.Networking
 {
@@ -16,7 +17,7 @@ namespace MyGame.Networking
         public NetworkVariable<int> NetworkCurrentPlayerIndex = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         public NetworkVariable<int> NetworkMatchPhase = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-        public event Action<int, int, int, DieColor, int, int> OnServerDiePlaced; // playerIndex, row, col, color, val, score
+        public event Action<int, int, int, CoreDieColor, int, int> OnServerDiePlaced; // playerIndex, row, col, color, val, score
 
         private void Awake()
         {
@@ -92,12 +93,18 @@ namespace MyGame.Networking
                 return;
             }
 
-            CoreDrawProcessor.ProcessDraw(serverState);
+            var drawCommand = new DrawDieCommand { PlayerId = playerIndex };
+            if (!CoreDrawProcessor.ProcessDrawIntent(serverState, drawCommand, serverState.ServerRNG))
+            {
+                Debug.LogWarning("[NetworkGameManager] DrawDie rechazado por reglas autoritativas.");
+                return;
+            }
+
             NotifyDieDrawnClientRpc(playerIndex, serverState.CurrentDrawnColor.Value, serverState.CurrentDrawnValue.Value);
         }
 
         [ClientRpc]
-        private void NotifyDieDrawnClientRpc(int playerIndex, DieColor color, int value)
+        private void NotifyDieDrawnClientRpc(int playerIndex, CoreDieColor color, int value)
         {
             Debug.Log($"[NetworkGameManager] Dado robado por Jugador {playerIndex}: Color={color}, Valor={value}");
             if (GameManager.Instance != null)
@@ -127,10 +134,28 @@ namespace MyGame.Networking
                 return;
             }
 
-            DieColor color = serverState.CurrentDrawnColor.Value;
+            CoreDieColor color = serverState.CurrentDrawnColor.Value;
             int value = serverState.CurrentDrawnValue.Value;
 
-            bool success = CoreMatchProcessor.ProcessPlacementIntent(serverState, playerIndex, row, col, color, value);
+            // Grupo activo y patron: salen del estado autoritativo del servidor, nunca del cliente
+            GroupDataDTO group = serverState.PlayerProfiles[playerIndex].ActiveGroups[color];
+            PatternDefDTO pattern = serverState.VariantConfig?.GetPattern(value);
+            ScoringConfigDTO sc = serverState.ScoringConfig;
+
+            // Convencion del juego local: X = fila, Y = columna (ver GridManager.GetBoardStateDTO)
+            var placeCommand = new PlaceDieCommand
+            {
+                PlayerId = playerIndex,
+                TargetCell = new GridPos(row, col),
+                Color = color,
+                GroupId = group.Id,
+                Number = value
+            };
+
+            bool success = CoreMatchProcessor.ProcessPlacementIntent(
+                serverState, placeCommand, pattern, pattern,
+                sc.RowCompleteBonus, sc.ColCompleteBonus, sc.IntersectionBonus,
+                sc.RowMultipliers, sc.ColMultipliers);
             if (!success)
             {
                 Debug.LogWarning($"[NetworkGameManager] Placement en ({row},{col}) rechazado por reglas autoritativas.");
@@ -138,7 +163,7 @@ namespace MyGame.Networking
                 return;
             }
 
-            int updatedScore = serverState.PlayerProfiles.ContainsKey(playerIndex) ? serverState.PlayerProfiles[playerIndex].TotalScore : 0;
+            int updatedScore = serverState.PlayerProfiles.ContainsKey(playerIndex) ? serverState.PlayerProfiles[playerIndex].Score : 0;
             NotifyDiePlacedClientRpc(playerIndex, row, col, color, value, updatedScore);
 
             // Avanzar turno en el servidor
@@ -150,7 +175,7 @@ namespace MyGame.Networking
         }
 
         [ClientRpc]
-        private void NotifyDiePlacedClientRpc(int playerIndex, int row, int col, DieColor color, int value, int score)
+        private void NotifyDiePlacedClientRpc(int playerIndex, int row, int col, CoreDieColor color, int value, int score)
         {
             Debug.Log($"[NetworkGameManager] Dado colocado autoritativamente. Jugador: {playerIndex}, Pos: ({row},{col}), Score: {score}");
             OnServerDiePlaced?.Invoke(playerIndex, row, col, color, value, score);
