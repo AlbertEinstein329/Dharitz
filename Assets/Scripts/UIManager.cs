@@ -25,6 +25,14 @@ public class UIManager : MonoBehaviour
     public TextMeshProUGUI progressText;
     public TextMeshProUGUI scoreHUDText;
 
+    [Header("Layout Settings")]
+    [Tooltip("El RectTransform del panel contenedor de extracción de dados.")]
+    public RectTransform diceExtractionPanel;
+
+    [Header("Botones de Comandos (Undo / Move)")]
+    public Button undoButton;
+    public TextMeshProUGUI undoUsesText;
+
     [Header("Base de Datos de Sprites")]
     public Sprite[] redSprites;
     public Sprite[] blueSprites;
@@ -38,9 +46,9 @@ public class UIManager : MonoBehaviour
     public DiceCounterUI blackCounter;
 
     [Header("Animation Settings")]
-    [SerializeField] private float rollDuration = 0.5f; // Duración total de la animación en segundos
-    [SerializeField] private int rollAnimationSteps = 6; // Cuántas veces cambiará de sprite
-    //[SerializeField] private Sprite emptySlotSprite; // OPCIONAL: Asigna aquí la imagen de fondo vacía si la tienes, si no, déjalo en null
+    [SerializeField] private float rollDuration = 0.5f;
+    [SerializeField] private int rollAnimationSteps = 6; 
+    
     
     private Sprite originalSlotSprite;
     private Sequence rollSequence;
@@ -67,6 +75,23 @@ public class UIManager : MonoBehaviour
 
     }
 
+    private void Start()
+    {
+        // ... (el código que ya tengas en tu Start) ...
+
+        // CONEXIÓN POR CÓDIGO DEL BOTÓN UNDO
+        if (undoButton != null)
+        {
+            // Cada vez que hagan clic, ejecutará UndoLastCommand en el CommandManager
+            undoButton.onClick.AddListener(() =>
+            {
+                if (CommandManager.Instance != null)
+                {
+                    CommandManager.Instance.UndoLastCommand();
+                }
+            });
+        }
+    }
 
     /// <summary>
     /// Locks or unlocks the draw area to prevent inputs during turn transitions.
@@ -109,7 +134,7 @@ public class UIManager : MonoBehaviour
                 int randomFace = UnityEngine.Random.Range(1, 7);
 
                 currentDieImage.sprite = GetSprite(randomColor, randomFace);
-                AudioManager.Instance.PlayTickSound();
+                AudioManager.Instance.PlaySFX("Tick");
             });
             rollSequence.AppendInterval(intervalDuration);
         }
@@ -302,7 +327,7 @@ public class UIManager : MonoBehaviour
         if (resultsText != null)
         {
             resultsText.text =
-                $"<align=\"center\"><size=150%>{player.name.ToUpper()}</size></align>\n" +
+                $"<align=\"center\"><size=150%>{player.name.ToUpper()}</size></align>\n\n\n" +
                 $"Dice (+{ScoreManager.POINTS_PER_DIE} c/u): +{puntosBase} pts\n" +
                 $"{desglosePatrones.ToString()}" +
                 $"{textoCombos}" +
@@ -310,6 +335,7 @@ public class UIManager : MonoBehaviour
                 $"{textoPenalizaciones}" +
                 $"------------------------------\n\n" +
                 $"<align=\"center\"><size=150%>TOTAL: {Mathf.Max(0, totalFinal)} PTS</size></align>";
+
         }
     }
 
@@ -356,6 +382,51 @@ public class UIManager : MonoBehaviour
         {
             // Solo muestra número de cara y dados restantes
             progressText.text = $"{finalNumber} / {missingDice}";
+        }
+    }
+
+    /// <summary>
+    /// Reubica el panel de extracción según la configuración de zurdo/diestro.
+    /// Ejecutar en Start().
+    /// </summary>
+    public void ApplyHandednessLayout()
+    {
+        if (diceExtractionPanel == null) return;
+
+        // Lee la configuración guardada por MainMenuManager (1 = Zurdo, 0 = Diestro)
+        bool isLeftHanded = PlayerPrefs.GetInt("Setting_LeftHanded", 0) == 1;
+
+        // Ajustamos Anclajes (Anchors) y Pivotes dinámicamente
+        if (isLeftHanded)
+        {
+            diceExtractionPanel.anchorMin = new Vector2(0f, diceExtractionPanel.anchorMin.y);
+            diceExtractionPanel.anchorMax = new Vector2(0f, diceExtractionPanel.anchorMax.y);
+            diceExtractionPanel.pivot = new Vector2(0f, diceExtractionPanel.pivot.y);
+            diceExtractionPanel.anchoredPosition = new Vector2(25f, diceExtractionPanel.anchoredPosition.y); // Margen de 25px
+        }
+        else
+        {
+            diceExtractionPanel.anchorMin = new Vector2(1f, diceExtractionPanel.anchorMin.y);
+            diceExtractionPanel.anchorMax = new Vector2(1f, diceExtractionPanel.anchorMax.y);
+            diceExtractionPanel.pivot = new Vector2(1f, diceExtractionPanel.pivot.y);
+            diceExtractionPanel.anchoredPosition = new Vector2(-25f, diceExtractionPanel.anchoredPosition.y); // Margen de -25px
+        }
+    }
+
+    public void UpdateUndoUI(int usesLeft, bool hasHistory)
+    {
+        if (undoButton != null)
+        {
+            // El botón SOLO se enciende si hay algo que deshacer Y le quedan usos al jugador
+            undoButton.interactable = hasHistory && usesLeft > 0;
+        }
+
+        if (undoUsesText != null)
+        {
+            undoUsesText.text = usesLeft.ToString();
+
+            // Opcional: Pintar de rojo si le quedan 0 usos para mayor claridad
+            undoUsesText.color = usesLeft > 0 ? Color.white : Color.red;
         }
     }
 

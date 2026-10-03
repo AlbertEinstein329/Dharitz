@@ -21,6 +21,10 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
 
     [Tooltip("Drag the overlay sprite for completed patterns here.")]
     [SerializeField] private SpriteRenderer completionSpriteOverlay;
+
+    [Tooltip("Arrastra aquí tu sprite ROJO para las celdas penalizadas.")]
+    [SerializeField] private Sprite gapPenaltySprite;
+
     private Color originalColor;
 
     [Header("Datos de la Entidad")]
@@ -71,23 +75,40 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
         placementExecutor = executor;
     }
 
-    public void SetHighlight(bool highlight)
+    public void SetHighlight(bool isHighlighted)
     {
-
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr != null)
+        if (isHighlighted)
         {
-            // Cambia el color a amarillo suave si está iluminado, y vuelve al blanco (normal) si no.
-            sr.color = highlight ? new Color(1f, 1f, 0f, 0.5f) : Color.white;
+            // 1. Matamos la animación previa
+            childSpriteRenderer.DOKill();
+
+            // 2. Calculamos el color al 20% de iluminación. 
+            // Lerp mezcla el originalColor con el Blanco. El 0.2f representa el 20% hacia el blanco.
+            Color colorIluminacionMinima = Color.Lerp(originalColor, Color.white, 0.8f);
+
+            // 3. Establecemos este color semi-iluminado como el punto de partida (el suelo de la respiración)
+            childSpriteRenderer.color = colorIluminacionMinima;
+
+            // 4. Animamos hacia el Blanco Puro (100%).
+            // Como usamos Yoyo, DOTween rebotará eternamente entre el 100% y el 20% que establecimos arriba.
+            childSpriteRenderer.DOColor(Color.greenYellow, 0.6f)
+                .SetLoops(-1, LoopType.Yoyo)
+                .SetEase(Ease.InOutSine);
         }
-
-        if (childSpriteRenderer == null) return;
-        childSpriteRenderer.color = highlight ? new Color(0.5f, 1f, 0.5f, 1f) : originalColor;
-        childSpriteRenderer.sortingOrder = 0;
-
-
+        else
+        {
+            ClearHighlight();
+        }
     }
 
+    public void ClearHighlight()
+    {
+        // 1. Detenemos la animación de pulsación inmediatamente
+        childSpriteRenderer.DOKill();
+
+        // 2. Restauramos la celda a su color y opacidad 100% original
+        childSpriteRenderer.color = originalColor;
+    }
 
 
     public void ToggleCompletionSprite(bool isActive)
@@ -216,6 +237,13 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
         int realRow = this.gridCoordinate.y;
         int realCol = this.gridCoordinate.x;
 
+        // F4.1: Si estamos en partida online, enviamos el ServerRpc al servidor autoritativo
+        if (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsClient && MyGame.Networking.NetworkGameManager.Instance != null)
+        {
+            MyGame.Networking.NetworkGameManager.Instance.RequestPlaceDieServerRpc(realRow, realCol);
+            return;
+        }
+
         if (gridValidator.IsValidPlacement(playerOwnerIndex, realRow, realCol, currentColor, currentGroupId, targetSize))
         {
             placementExecutor.BeginPlacement(realRow, realCol);
@@ -228,7 +256,25 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
 
     public void HighlightGapColor()
     {
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.color = new Color(1f, 0.3f, 0.3f, 1f);
+        if (childSpriteRenderer != null && gapPenaltySprite != null)
+        {
+            // 1. Detenemos cualquier efecto de respiración o brillo que pudiera estar activo
+            childSpriteRenderer.DOKill();
+
+            // 2. Cambiamos el sprite físico al rojo que asignaste en el Inspector
+            childSpriteRenderer.sprite = gapPenaltySprite;
+
+            // 3. Restauramos el color a Blanco (White) con 100% de opacidad. 
+            // NOTA: En Unity, poner el SpriteRenderer en Color.white asegura que 
+            // el sprite se vea con sus colores originales (Rojo) sin tintes extraños.
+            childSpriteRenderer.color = Color.white;
+
+            // 4. (Opcional - UX Premium) Un pequeño efecto de "latido de error" al aparecer
+            childSpriteRenderer.transform.DOPunchScale(new Vector3(0.2f, 0.2f, 0f), 0.5f, 5, 1f);
+        }
+        else
+        {
+            Debug.LogWarning("CellComponent: No has asignado el gapPenaltySprite en el Inspector.");
+        }
     }
 }

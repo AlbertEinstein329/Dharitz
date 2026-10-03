@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using MyGame.Core;
 
 public class GridManager : MonoBehaviour, IGridValidator
 {
@@ -171,9 +172,15 @@ public class GridManager : MonoBehaviour, IGridValidator
                 // Actualizamos el score en pantalla
                 UIManager.Instance.UpdateScore(p.score);
 
-                // (Opcional): Si tienes una función para mostrar el nombre del jugador, 
-                // el avatar, o sus monedas, llámala también aquí. Por ejemplo:
-                // UIManager.Instance.UpdatePlayerName(p.playerName);
+            }
+            if (BoardPlayerDisplay.Instance != null && GameManager.Instance != null && GameManager.Instance.players != null)
+            {
+                // Validamos que el índice no desborde la lista de jugadores
+                if (playerIndex < GameManager.Instance.players.Count)
+                {
+                    PlayerData targetPlayer = GameManager.Instance.players[playerIndex];
+                    BoardPlayerDisplay.Instance.Setup(targetPlayer.name, targetPlayer.avatarId);
+                }
             }
 
         }
@@ -189,9 +196,9 @@ public class GridManager : MonoBehaviour, IGridValidator
         return true;
     }
 
-    public void NextBoard()
+public void NextBoard()
     {
-        // Cambia circularmente al siguiente jugador
+        // El operador módulo (%) devuelve el resto de la división, creando un ciclo infinito.
         currentlyViewedPlayer = (currentlyViewedPlayer + 1) % GameManager.Instance.numPlayers;
         SwitchViewTo(currentlyViewedPlayer);
 
@@ -253,55 +260,79 @@ public class GridManager : MonoBehaviour, IGridValidator
         return PlacementValidator.IsValidPlacement(allBoardsLogic[pIndex], rows, cols, r, c, color, currentGroupId, number, GameManager.Instance.players[pIndex], GameManager.Instance.currentVariant);
     }
 
-    // --- DELEGATION TO TOPOLOGY CALCULATOR ---
+    // =================================================================
+    // CÁLCULO Y ANIMACIÓN DE PENALIZACIONES (GAPS)
+    // =================================================================
+
     public int CalculateGapPenalty(int pIndex, bool showPopups = false)
     {
         if (!IsValidPlayerIndex(pIndex)) return 0;
-        return TopologyCalculator.CalculateGapPenalty(allBoardsLogic[pIndex], rows, cols, out _);
+
+        // 1. Fotografiamos el tablero ineficiente 2D a la estructura de alto rendimiento 1D
+        BoardStateDTO boardDTO = GetBoardStateDTO(pIndex);
+
+        // 2. Delegamos la matemática a la Capa Core
+        return CoreTopologyCalculator.CalculateGapPenalty(boardDTO.Cells, rows, cols, out _);
     }
 
     public System.Collections.IEnumerator AnimateGapPenaltiesFlow(int pIndex, System.Action onComplete)
     {
         if (!IsValidPlayerIndex(pIndex)) yield break;
 
-        TopologyCalculator.CalculateGapPenalty(allBoardsLogic[pIndex], rows, cols, out List<List<Vector2Int>> enclosedGaps);
+        // 1. Fotografiamos el estado actual para la validación estricta
+        BoardStateDTO boardDTO = GetBoardStateDTO(pIndex);
+
+        // 2. Extraemos los huecos cerrados usando nuestras estructuras inmutables GridPos
+        CoreTopologyCalculator.CalculateGapPenalty(boardDTO.Cells, rows, cols, out List<List<GridPos>> enclosedGaps);
         bool foundAnyGap = enclosedGaps.Count > 0;
 
+        // 3. Iteramos grupo por grupo para crear el drama visual
         foreach (var gapCells in enclosedGaps)
         {
-            int penalty = TopologyCalculator.GetPenaltyForGapSize(gapCells.Count);
+            // Obtenemos la multa exacta para el tamaño del grupo
+            int penalty = CoreTopologyCalculator.GetPenaltyForGapSize(gapCells.Count);
 
-            foreach (Vector2Int cell in gapCells)
+            // Mapeo inverso seguro de GridPos matemático a UI
+            foreach (GridPos cell in gapCells)
             {
-                CellComponent cellVisual = allCellsVisual[pIndex][cell.x, cell.y];
-                if (cellVisual != null) cellVisual.HighlightGapColor();
+                CellComponent cellVisual = allCellsVisual[pIndex][cell.X, cell.Y];
+                if (cellVisual != null)
+                {
+                    cellVisual.HighlightGapColor();
+                }
             }
 
-            Vector2Int centerCell = gapCells[gapCells.Count / 2];
-            Vector3 popupPos = allCellsVisual[pIndex][centerCell.x, centerCell.y].transform.position;
-            PopUpManager.Instance.ShowPopUp(popupPos, $"{penalty}", Color.red);
+            // Instanciamos el popup de la UI
+            if (PopUpManager.Instance != null && gapCells.Count > 0)
+            {
+                GridPos centerCell = gapCells[gapCells.Count / 2];
+                Vector3 popupPos = allCellsVisual[pIndex][centerCell.X, centerCell.Y].transform.position;
+                PopUpManager.Instance.ShowPopUp(popupPos, $"{penalty}", Color.red);
+            }
 
             yield return new WaitForSeconds(0.5f);
         }
 
         if (foundAnyGap) yield return new WaitForSeconds(0.5f);
+
         onComplete?.Invoke();
     }
 
     // --- DELEGATION TO SCORE CALCULATOR ---
-    public int EvaluateAndApplyCombos(int pIndex)
-    {
-        return ScoreCalculator.EvaluateAndApplyCombos(allBoardsLogic[pIndex], rows, cols, GameManager.Instance.players[pIndex]);
-    }
 
     public int Count3x3Contacts(int pIndex, int r, int c, int valorDado, out int contactosDiagonales)
     {
         return ScoreCalculator.Count3x3Contacts(allBoardsLogic[pIndex], rows, cols, r, c, valorDado, out contactosDiagonales);
     }
 
-    public int ScanNewDiagonalConnections(int pIndex, int r, int c, DieColor color, int groupId)
+    public int GetOrthogonalConnections(int pIndex, int r, int c, DieColor color, int groupId)
     {
-        return ScoreCalculator.ScanNewDiagonalConnections(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId);
+        return ScoreCalculator.GetOrthogonalConnections(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId);
+    }
+
+    public int GetDiagonalConnections(int pIndex, int r, int c, DieColor color, int groupId)
+    {
+        return ScoreCalculator.GetDiagonalConnections(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId);
     }
 
     public int GetOnesPenalties(int pIndex)
@@ -638,6 +669,41 @@ public class GridManager : MonoBehaviour, IGridValidator
                 Destroy(lightFX, 2.3f);
             }
         }
+    }
+    // EL PUENTE: Transforma la matriz visual ineficiente 2D a un array 1D puro
+    public BoardStateDTO GetBoardStateDTO(int playerIndex)
+    {
+        DieData[,] logic = GetBoardLogic(playerIndex);
+        int rows = logic.GetLength(0);
+        int cols = logic.GetLength(1);
+
+        BoardStateDTO boardDTO = new BoardStateDTO(rows, cols);
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                int flatIndex = boardDTO.GetIndex(r, c);
+                DieData cellData = logic[r, c];
+
+                if (cellData != null)
+                {
+                    boardDTO.Cells[flatIndex] = new CellStateDTO
+                    {
+                        IsOccupied = true,
+                        Color = (MyGame.Core.DieColor)(int)cellData.color,
+                        GroupId = cellData.groupId,
+                        Value = cellData.value
+                    };
+                }
+                else
+                {
+                    boardDTO.Cells[flatIndex] = new CellStateDTO { IsOccupied = false };
+                }
+            }
+        }
+
+        return boardDTO;
     }
 
 }

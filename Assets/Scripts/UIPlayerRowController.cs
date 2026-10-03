@@ -113,4 +113,20 @@ public class UIPlayerRowController : MonoBehaviour
             avatarImage.sprite = availableAvatars[currentAvatarId];
         }
     }
+
+    public void ChangeAvatar(int direction)
+    {
+        if (availableAvatars == null || availableAvatars.Length == 0) return;
+
+        // Cambio circular del índice
+        currentAvatarId += direction;
+        if (currentAvatarId >= availableAvatars.Length) currentAvatarId = 0;
+        if (currentAvatarId < 0) currentAvatarId = availableAvatars.Length - 1;
+
+        // 1. Actualizamos la UI local
+        avatarImage.sprite = availableAvatars[currentAvatarId];
+
+        // 2. GUARDA ESTRICTO EN EL ARCHIVO DE SESIÓN (Esta es la línea que te falta)
+        MainMenuManager.Instance.UpdatePlayerAvatar(playerIndex, currentAvatarId);
+    }
 }

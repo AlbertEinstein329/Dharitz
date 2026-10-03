@@ -1,5 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
+using MyGame.Core;
 
 [CreateAssetMenu(fileName = "NewVariant", menuName = "Dharitz/Variant Data")]
 public class VariantData : ScriptableObject
@@ -11,12 +13,25 @@ public class VariantData : ScriptableObject
     public List<PatternData> patterns = new List<PatternData>();
 
     [Header("UI")]
-    public Sprite iconSprite; // Sprite que se mostrará en el dropdown y como imagen principal
-    public Color highlightColor = Color.white; // Color principal asociado (p.ej. amarillo/naranja/rojo)
+    public Sprite iconSprite;
+    public Color highlightColor = Color.white;
 
-    // Helper function for GameManager to extract the correct pattern
     public PatternData GetPattern(int diceNumber)
     {
         return patterns.Find(p => p.targetNumber == diceNumber);
+    }
+
+    // =========================================================
+    // EL PUENTE: Convierte el ScriptableObject a DTO del servidor
+    // =========================================================
+    public VariantDefDTO ToDTO()
+    {
+        var dto = new VariantDefDTO { VariantName = this.variantName };
+        foreach (PatternData p in patterns)
+        {
+            if (p != null)
+                dto.Patterns[p.targetNumber] = p.ToDTO();
+        }
+        return dto;
     }
 }

@@ -8,30 +8,13 @@ namespace LapKan
     {
         public static PanelPauseController Instance { get; private set; }
 
-        [Header("Pause Menu Buttons (Asigna los botones aquí)")]
-
-        [Tooltip("Botón para abrir el menú de pausa")]
+        [Header("Menu Buttons")]
         public Button pauseButton;
-
-        [Tooltip("Botón para cerrar el menú de pausa y volver al juego")]
         public Button resumeButton;
-        
-        [Tooltip("Botón para abrir las opciones avanzadas (opcional)")]
         public Button optionsButton;
-        
-        [Tooltip("Botón para reiniciar el nivel actual")]
         public Button restartButton;
-        
-        [Tooltip("Botón para volver al menú principal")]
         public Button backToMenuButton;
-        
-        [Tooltip("Botón para alternar la vista entre los tableros de los jugadores")]
-        public Button changeBoardButton;
-        
-        [Tooltip("Botón para encender/apagar la música")]
         public Toggle toggleMusicButton;
-        
-        [Tooltip("Botón para encender/apagar los efectos de sonido (SFX)")]
         public Toggle toggleSfxButton;
 
         public override void Awake()
@@ -43,56 +26,65 @@ namespace LapKan
 
         private void Start()
         {
-            if (pauseButton != null) pauseButton.onClick.AddListener(() => Show());
-            if (resumeButton != null) resumeButton.onClick.AddListener(() => Hide());
-            if (optionsButton != null) optionsButton.onClick.AddListener(() => OptionsPanel.Instance.Show(this));
-            
-            if (restartButton != null) restartButton.onClick.AddListener(() => RestartGame());
-            if (backToMenuButton != null) backToMenuButton.onClick.AddListener(() => ReturnToMainMenu());
-            
-            if (changeBoardButton != null) changeBoardButton.onClick.AddListener(() => ChangeBoard());
-            
-            if (toggleMusicButton != null) toggleMusicButton.onValueChanged.AddListener((value) => ToggleMusic());
-            if (toggleSfxButton != null) toggleSfxButton.onValueChanged.AddListener((value) => ToggleSFX());
+            // 1. Vinculación de botones de navegación normales
+            if (pauseButton != null) pauseButton.onClick.AddListener(OpenPauseMenu);
+            if (resumeButton != null) resumeButton.onClick.AddListener(ClosePauseMenu);
+            if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
+            if (backToMenuButton != null) backToMenuButton.onClick.AddListener(ReturnToMainMenu);
+
+            // Vinculamos sonido Click genérico a los botones
+            if (pauseButton != null) pauseButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
+            if (resumeButton != null) resumeButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
+            if (restartButton != null) restartButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
+            if (backToMenuButton != null) backToMenuButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
+
+            // 2. CONFIGURACIÓN REACTIVA DE TOGGLES ANTI-DESINCRONIZACIÓN
+            if (AudioManager.Instance != null)
+            {
+                if (toggleMusicButton != null)
+                {
+                    // Forzamos al Toggle visual a reflejar el estado real del componente sin disparar eventos
+                    toggleMusicButton.SetIsOnWithoutNotify(!AudioManager.Instance.IsMusicMuted);
+                    // El estado del Toggle (isOn = true) significa "Sonando", por ende pasamos el valor invertido al Mute
+                    toggleMusicButton.onValueChanged.AddListener((isOn) => AudioManager.Instance.SetMusicMute(!isOn));
+                }
+
+                if (toggleSfxButton != null)
+                {
+                    toggleSfxButton.SetIsOnWithoutNotify(!AudioManager.Instance.IsSFXMuted);
+                    toggleSfxButton.onValueChanged.AddListener((isOn) => AudioManager.Instance.SetSFXMute(!isOn));
+                }
+            }
+        }
+
+        private void OpenPauseMenu()
+        {
+            Show();
+            if (AudioManager.Instance != null)
+            {
+                if (toggleMusicButton != null) toggleMusicButton.SetIsOnWithoutNotify(!AudioManager.Instance.IsMusicMuted);
+                if (toggleSfxButton != null) toggleSfxButton.SetIsOnWithoutNotify(!AudioManager.Instance.IsSFXMuted);
+            }
+        }
+
+        private void ClosePauseMenu()
+        {
+            Hide();
+            Time.timeScale = 1f;
         }
 
         private void RestartGame()
         {
+            Time.timeScale = 1f;
             DG.Tweening.DOTween.KillAll();
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         private void ReturnToMainMenu()
         {
             Time.timeScale = 1f;
-            global::GameManager.Instance = null;
+            DG.Tweening.DOTween.KillAll();
             SceneManager.LoadScene(1);
-        }
-
-        private void ChangeBoard()
-        {
-            if (global::GameManager.Instance != null && global::GameManager.Instance.gridManager != null)
-            {
-                global::GameManager.Instance.gridManager.NextBoard();
-            }
-        }
-
-        private void ToggleMusic()
-        {
-            if (AudioManager.Instance != null)
-            {
-                AudioManager.Instance.ToggleMusic();
-                // Aquí podrías agregar lógica para cambiar la imagen del botón (ej. ícono tachado)
-            }
-        }
-
-        private void ToggleSFX()
-        {
-            if (AudioManager.Instance != null)
-            {
-                AudioManager.Instance.ToggleSFX();
-                // Aquí podrías agregar lógica para cambiar la imagen del botón (ej. ícono tachado)
-            }
         }
     }
 }

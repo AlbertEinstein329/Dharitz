@@ -19,6 +19,7 @@
   <Project Path="CW.Common.csproj" />
   <Project Path="Assembly-CSharp-firstpass.csproj" />
   <Project Path="LeanGUI.csproj" />
+  <Project Path="MyGame.Core.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="UnityEditor.UI.Analytics.csproj" />
   <Project Path="KinoBloom.Runtime.csproj" />
