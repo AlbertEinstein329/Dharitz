@@ -33,7 +33,7 @@ namespace GooglePlayGames.BasicApi
         private ResponseStatus mStatus;
         private ulong mApproxCount;
         private string mTitle;
-        private IScore mPlayerScore;
+        private PlayGamesScore mPlayerScore;
         private ScorePageToken mPrevPage;
         private ScorePageToken mNextPage;
         private List<PlayGamesScore> mScores = new List<PlayGamesScore>();
@@ -113,30 +113,11 @@ namespace GooglePlayGames.BasicApi
         /// <summary>
         /// Gets or sets the player's score in the leaderboard.
         /// </summary>
-        public IScore PlayerScore
+        public PlayGamesScore PlayerScore
         {
             get { return mPlayerScore; }
 
             internal set { mPlayerScore = value; }
-        }
-
-        /// <summary>
-        /// Gets an array of the scores in the leaderboard.
-        /// </summary>
-        public IScore[] Scores
-        {
-            get { return mScores.ToArray(); }
-        }
-
-        /// <summary>
-        /// Adds a score to the leaderboard data.
-        /// </summary>
-        /// <param name="score">The score to add.</param>
-        /// <returns>The count of scores after the addition.</returns>
-        internal int AddScore(PlayGamesScore score)
-        {
-            mScores.Add(score);
-            return mScores.Count;
         }
 
         /// <summary>
@@ -157,6 +138,23 @@ namespace GooglePlayGames.BasicApi
             get { return mNextPage; }
 
             internal set { mNextPage = value; }
+        }
+
+        /// <summary>
+        /// Gets the array of loaded scores as IScore[].
+        /// </summary>
+        public IScore[] Scores
+        {
+            get { return mScores.ToArray(); }
+        }
+
+        /// <summary>
+        /// Adds a score to the internal list of scores.
+        /// </summary>
+        /// <param name="score">Score to add.</param>
+        internal void AddScore(PlayGamesScore score)
+        {
+            mScores.Add(score);
         }
 
         /// <summary>

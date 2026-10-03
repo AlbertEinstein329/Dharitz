@@ -1,28 +1,27 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
+using MyGame.Core;
 
-[CreateAssetMenu(fileName = "NuevoPatron", menuName = "Dharitz/Datos de Patron")]
+[CreateAssetMenu(fileName = "NewPattern", menuName = "Dharitz/Pattern Data")]
 public class PatternData : ScriptableObject
 {
-    [Header("Identificador")]
-    [Tooltip("Die face number (1 to 6)")]
     public int targetNumber;
-
-    [Header("Geometric Shape")]
-    [Tooltip("Relative coordinates. Ex: (0,0), (1,0)")]
+    public bool allowRotation;
+    public bool allowMirror;
+    public bool allowDiagonalReservation;
     public List<Vector2Int> baseShape = new List<Vector2Int>();
 
-    [Header("Transformation Rules")]
-    public bool allowRotation = true;
-    public bool allowMirror = true;
-
-    [Header("Special Rules (Variants)")]
-    [Tooltip("Defines if this pattern has special scoring or reservation behavior")]
-    public SpecialRule specialRule = SpecialRule.None;
-    
-    [Tooltip("If true, this pattern allows reserving spaces diagonally for survival checks")]
-    public bool allowDiagonalReservation = false;
-
-    // NOTE: SpecialRule enum is defined globally in SpecialRuleEvaluator.cs
-    // Do NOT add a duplicate enum here.
+    // EL PUENTE: Convierte la data serializada de Unity a Data del Servidor
+    public PatternDefDTO ToDTO()
+    {
+        return new PatternDefDTO
+        {
+            TargetNumber = this.targetNumber,
+            AllowRotation = this.allowRotation,
+            AllowMirror = this.allowMirror,
+            AllowDiagonalReservation = this.allowDiagonalReservation,
+            BaseShape = this.baseShape.Select(v => new GridPos(v.x, v.y)).ToList()
+        };
+    }
 }
