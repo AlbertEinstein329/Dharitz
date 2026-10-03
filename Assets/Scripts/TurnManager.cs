@@ -107,6 +107,15 @@ public class TurnManager
         }
     }
 
+    // Online: el turno lo decide el servidor; solo copiamos su estado (sin efectos de UI ni guardado)
+    public void SyncFromServer(int currentPlayerIndex, bool serverHasDrawn, DieColor drawnColor, int drawnValue)
+    {
+        CurrentPlayerIndex = currentPlayerIndex;
+        hasDrawn = serverHasDrawn;
+        CurrentDrawnColor = drawnColor;
+        CurrentDrawnValue = drawnValue;
+    }
+
     public void EndTurn()
     {
         

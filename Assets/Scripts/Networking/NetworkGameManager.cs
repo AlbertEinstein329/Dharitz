@@ -7,6 +7,11 @@ using CoreDieColor = MyGame.Core.DieColor; // El DieColor global (GameData.cs) g
 
 namespace MyGame.Networking
 {
+    /// <summary>
+    /// Autoridad de la partida online. El servidor ejecuta toda regla en la Capa 0 (MyGame.Core)
+    /// y, tras cada cambio, difunde un NetworkMatchSnapshot completo que los clientes pintan.
+    /// Los clientes solo envían intenciones (robar, re-robar, colocar).
+    /// </summary>
     public class NetworkGameManager : NetworkBehaviour
     {
         public static NetworkGameManager Instance { get; private set; }
@@ -17,7 +22,17 @@ namespace MyGame.Networking
         public NetworkVariable<int> NetworkCurrentPlayerIndex = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         public NetworkVariable<int> NetworkMatchPhase = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-        public event Action<int, int, int, CoreDieColor, int, int> OnServerDiePlaced; // playerIndex, row, col, color, val, score
+        // Slot de jugador de esta máquina (-1 = espectador o aún sin snapshot)
+        public int LocalPlayerIndex { get; private set; } = -1;
+        public bool IsMatchStarted => matchStarted;
+
+        public event Action<NetworkMatchSnapshot> OnSnapshotApplied;
+
+        private bool matchStarted;
+        private NetworkMatchSnapshot pendingSnapshot;
+        private bool hasPendingSnapshot;
+
+        private int ExpectedPlayers => GameManager.Instance != null ? GameManager.Instance.numPlayers : 2;
 
         private void Awake()
         {
@@ -37,7 +52,16 @@ namespace MyGame.Networking
             {
                 NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
                 NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+
+                // El host (o clientes muy rápidos) pueden haberse conectado antes de que este objeto spawneara
+                foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
+                {
+                    RegisterClient(clientId);
+                }
+                TryStartMatch();
             }
+
+            OnlineMatchPresenter.ResetPresentation();
         }
 
         public override void OnNetworkDespawn()
@@ -49,12 +73,53 @@ namespace MyGame.Networking
             }
         }
 
+        private void Update()
+        {
+            // El snapshot puede llegar antes de que GridManager.Start haya creado los tableros
+            if (hasPendingSnapshot && OnlineMatchPresenter.IsSceneReady(pendingSnapshot.Players.Length))
+            {
+                hasPendingSnapshot = false;
+                ApplySnapshot(pendingSnapshot);
+            }
+        }
+
+        // =========================================================
+        // CONEXIONES Y ARRANQUE (solo servidor)
+        // =========================================================
+
         private void HandleClientConnected(ulong clientId)
         {
-            int slot = clientIdToPlayerIndex.Count;
+            if (!IsServer) return;
+
+            if (matchStarted)
+            {
+                // TODO(reconexión): los ClientId cambian al reconectar; hace falta identificar al jugador por PlayerId de UGS
+                Debug.LogWarning($"[NetworkGameManager] ClientId {clientId} intentó unirse con la partida ya iniciada. Desconectando.");
+                NetworkManager.Singleton.DisconnectClient(clientId);
+                return;
+            }
+
+            RegisterClient(clientId);
+            TryStartMatch();
+        }
+
+        private void RegisterClient(ulong clientId)
+        {
+            if (clientIdToPlayerIndex.ContainsKey(clientId)) return;
+
+            if (clientIdToPlayerIndex.Count >= ExpectedPlayers)
+            {
+                Debug.LogWarning($"[NetworkGameManager] Sala llena ({ExpectedPlayers}). Rechazando ClientId {clientId}.");
+                NetworkManager.Singleton.DisconnectClient(clientId);
+                return;
+            }
+
+            int slot = 0;
+            while (playerIndexToClientId.ContainsKey(slot)) slot++;
+
             clientIdToPlayerIndex[clientId] = slot;
             playerIndexToClientId[slot] = clientId;
-            Debug.Log($"[NetworkGameManager] Cliente conectado. ClientId: {clientId} -> Slot de Jugador: {slot}");
+            Debug.Log($"[NetworkGameManager] Cliente conectado. ClientId: {clientId} -> Slot de Jugador: {slot} ({clientIdToPlayerIndex.Count}/{ExpectedPlayers})");
         }
 
         private void HandleClientDisconnected(ulong clientId)
@@ -62,6 +127,15 @@ namespace MyGame.Networking
             if (clientIdToPlayerIndex.TryGetValue(clientId, out int slot))
             {
                 Debug.LogWarning($"[NetworkGameManager] Cliente desconectado. ClientId: {clientId} (Slot: {slot})");
+
+                if (!matchStarted)
+                {
+                    // En la sala de espera el hueco se libera para otro jugador
+                    clientIdToPlayerIndex.Remove(clientId);
+                    playerIndexToClientId.Remove(slot);
+                    return;
+                }
+
                 if (ReconnectionManager.Instance != null)
                 {
                     ReconnectionManager.Instance.HandlePlayerDisconnect(slot);
@@ -69,29 +143,46 @@ namespace MyGame.Networking
             }
         }
 
+        private void TryStartMatch()
+        {
+            if (matchStarted || clientIdToPlayerIndex.Count < ExpectedPlayers) return;
+
+            GameManager gm = GameManager.Instance;
+            if (gm == null || gm.gridManager == null)
+            {
+                Debug.LogError("[NetworkGameManager] No hay GameManager/GridManager en la escena; no se puede iniciar la partida.");
+                return;
+            }
+
+            var names = new List<string>(ExpectedPlayers);
+            for (int i = 0; i < ExpectedPlayers; i++) names.Add($"Jugador {i + 1}");
+
+            int seed = Environment.TickCount;
+            VariantDefDTO variant = gm.currentVariant != null ? gm.currentVariant.ToDTO() : null;
+
+            MatchStateDTO state = CoreMatchSetup.CreateMatch(seed, names, gm.gridManager.rows, gm.gridManager.cols, variant);
+            gm.AdoptServerState(state);
+            matchStarted = true;
+
+            Debug.Log($"[NetworkGameManager] Partida iniciada. Jugadores: {ExpectedPlayers}, Semilla: {seed}, Dados en bolsa: {state.DiceBag.Count}");
+
+            SyncTurnVariables(state);
+            BroadcastSnapshot(new NetworkActionSnapshot { Type = NetworkActionType.MatchStarted });
+        }
+
         public int GetPlayerIndex(ulong clientId)
         {
             return clientIdToPlayerIndex.TryGetValue(clientId, out int index) ? index : -1;
         }
 
+        // =========================================================
+        // INTENCIONES DEL CLIENTE
+        // =========================================================
+
         [ServerRpc(RequireOwnership = false)]
         public void RequestDrawDieServerRpc(ServerRpcParams rpcParams = default)
         {
-            ulong senderId = rpcParams.Receive.SenderClientId;
-            int playerIndex = GetPlayerIndex(senderId);
-
-            if (playerIndex != NetworkCurrentPlayerIndex.Value)
-            {
-                Debug.LogWarning($"[NetworkGameManager] Intento de DrawDie rechazado. No es el turno de ClientId {senderId}.");
-                return;
-            }
-
-            var serverState = GameManager.Instance.ServerState;
-            if (serverState == null || serverState.HasDrawn)
-            {
-                Debug.LogWarning("[NetworkGameManager] DrawDie rechazado: ya ha robado este turno.");
-                return;
-            }
+            if (!TryGetActingPlayer(rpcParams, "DrawDie", out int playerIndex, out MatchStateDTO serverState)) return;
 
             var drawCommand = new DrawDieCommand { PlayerId = playerIndex };
             if (!CoreDrawProcessor.ProcessDrawIntent(serverState, drawCommand, serverState.ServerRNG))
@@ -100,35 +191,32 @@ namespace MyGame.Networking
                 return;
             }
 
-            NotifyDieDrawnClientRpc(playerIndex, serverState.CurrentDrawnColor.Value, serverState.CurrentDrawnValue.Value);
+            BroadcastSnapshot(new NetworkActionSnapshot { Type = NetworkActionType.Drew, PlayerIndex = playerIndex });
         }
 
-        [ClientRpc]
-        private void NotifyDieDrawnClientRpc(int playerIndex, CoreDieColor color, int value)
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestReDrawServerRpc(ServerRpcParams rpcParams = default)
         {
-            Debug.Log($"[NetworkGameManager] Dado robado por Jugador {playerIndex}: Color={color}, Valor={value}");
-            if (GameManager.Instance != null)
+            if (!TryGetActingPlayer(rpcParams, "ReDraw", out int playerIndex, out MatchStateDTO serverState)) return;
+
+            if (!CoreDrawProcessor.ProcessReDrawIntent(serverState, new ReDrawCommand { PlayerId = playerIndex }, serverState.ServerRNG))
             {
-                GameManager.Instance.ServerState.HasDrawn = true;
-                GameManager.Instance.ServerState.CurrentDrawnColor = color;
-                GameManager.Instance.ServerState.CurrentDrawnValue = value;
+                Debug.LogWarning("[NetworkGameManager] ReDraw rechazado por reglas autoritativas.");
+                return;
             }
+
+            // Igual que DiceManager.UseReDraw en local: devolver el dado implica robar otro al instante
+            CoreDrawProcessor.ProcessDrawIntent(serverState, new DrawDieCommand { PlayerId = playerIndex }, serverState.ServerRNG);
+            BroadcastSnapshot(new NetworkActionSnapshot { Type = NetworkActionType.Drew, PlayerIndex = playerIndex });
         }
 
         [ServerRpc(RequireOwnership = false)]
         public void RequestPlaceDieServerRpc(int row, int col, ServerRpcParams rpcParams = default)
         {
             ulong senderId = rpcParams.Receive.SenderClientId;
-            int playerIndex = GetPlayerIndex(senderId);
+            if (!TryGetActingPlayer(rpcParams, "Placement", out int playerIndex, out MatchStateDTO serverState)) return;
 
-            if (playerIndex != NetworkCurrentPlayerIndex.Value)
-            {
-                Debug.LogWarning($"[NetworkGameManager] Placement rechazado. No es el turno de ClientId {senderId}.");
-                return;
-            }
-
-            var serverState = GameManager.Instance.ServerState;
-            if (serverState == null || !serverState.HasDrawn || !serverState.CurrentDrawnColor.HasValue)
+            if (!serverState.HasDrawn || !serverState.CurrentDrawnColor.HasValue)
             {
                 Debug.LogWarning("[NetworkGameManager] Placement rechazado: no hay dado robado disponible.");
                 return;
@@ -136,13 +224,20 @@ namespace MyGame.Networking
 
             CoreDieColor color = serverState.CurrentDrawnColor.Value;
             int value = serverState.CurrentDrawnValue.Value;
+            PlayerDataDTO profile = serverState.PlayerProfiles[playerIndex];
 
-            // Grupo activo y patron: salen del estado autoritativo del servidor, nunca del cliente
-            GroupDataDTO group = serverState.PlayerProfiles[playerIndex].ActiveGroups[color];
+            // Grupo activo y patrón: salen del estado autoritativo del servidor, nunca del cliente
+            if (!profile.ActiveGroups.TryGetValue(color, out GroupDataDTO group))
+            {
+                Debug.LogError($"[NetworkGameManager] Estado incoherente: el jugador {playerIndex} tiene dado {color} sin grupo activo.");
+                return;
+            }
+
             PatternDefDTO pattern = serverState.VariantConfig?.GetPattern(value);
             ScoringConfigDTO sc = serverState.ScoringConfig;
+            int scoreBefore = profile.Score;
 
-            // Convencion del juego local: X = fila, Y = columna (ver GridManager.GetBoardStateDTO)
+            // Convención del juego local: X = fila, Y = columna (ver GridManager.GetBoardStateDTO)
             var placeCommand = new PlaceDieCommand
             {
                 PlayerId = playerIndex,
@@ -156,6 +251,7 @@ namespace MyGame.Networking
                 serverState, placeCommand, pattern, pattern,
                 sc.RowCompleteBonus, sc.ColCompleteBonus, sc.IntersectionBonus,
                 sc.RowMultipliers, sc.ColMultipliers);
+
             if (!success)
             {
                 Debug.LogWarning($"[NetworkGameManager] Placement en ({row},{col}) rechazado por reglas autoritativas.");
@@ -163,22 +259,143 @@ namespace MyGame.Networking
                 return;
             }
 
-            int updatedScore = serverState.PlayerProfiles.ContainsKey(playerIndex) ? serverState.PlayerProfiles[playerIndex].Score : 0;
-            NotifyDiePlacedClientRpc(playerIndex, row, col, color, value, updatedScore);
-
-            // Avanzar turno en el servidor
-            if (GameManager.Instance != null && GameManager.Instance.turnManager != null)
+            var action = new NetworkActionSnapshot
             {
-                GameManager.Instance.turnManager.EndTurn();
-                NetworkCurrentPlayerIndex.Value = GameManager.Instance.ServerState.CurrentPlayerIndex;
+                Type = NetworkActionType.Placed,
+                PlayerIndex = playerIndex,
+                Row = row,
+                Col = col,
+                ScoreDelta = profile.Score - scoreBefore,
+                ClosedGroup = profile.ActiveGroups[color].IsClosed
+            };
+
+            FinishTurn(serverState);
+            BroadcastSnapshot(action);
+        }
+
+        private bool TryGetActingPlayer(ServerRpcParams rpcParams, string actionName, out int playerIndex, out MatchStateDTO serverState)
+        {
+            ulong senderId = rpcParams.Receive.SenderClientId;
+            playerIndex = GetPlayerIndex(senderId);
+            serverState = GameManager.Instance != null ? GameManager.Instance.ServerState : null;
+
+            if (!matchStarted || serverState == null || serverState.CurrentPhase != MatchPhase.PlayerTurn)
+            {
+                Debug.LogWarning($"[NetworkGameManager] {actionName} rechazado: la partida no está en juego.");
+                return false;
+            }
+
+            if (playerIndex < 0 || playerIndex != serverState.CurrentPlayerIndex)
+            {
+                Debug.LogWarning($"[NetworkGameManager] {actionName} rechazado. No es el turno de ClientId {senderId}.");
+                return false;
+            }
+
+            return true;
+        }
+
+        // =========================================================
+        // TURNOS (solo servidor)
+        // =========================================================
+
+        /// <summary>
+        /// Cierra el turno actual sin colocar (tiempo agotado o abandono): el dado en mano vuelve a la bolsa.
+        /// </summary>
+        public void ServerForceEndTurn()
+        {
+            if (!IsServer || !matchStarted) return;
+
+            MatchStateDTO state = GameManager.Instance.ServerState;
+            if (state.CurrentPhase != MatchPhase.PlayerTurn) return;
+
+            int playerIndex = state.CurrentPlayerIndex;
+            CoreMatchSetup.DiscardDrawnDie(state);
+            FinishTurn(state);
+            BroadcastSnapshot(new NetworkActionSnapshot { Type = NetworkActionType.TurnForced, PlayerIndex = playerIndex });
+        }
+
+        /// <summary>
+        /// Difunde el estado tras un cambio hecho fuera de un RPC (p. ej. eliminación por abandono).
+        /// </summary>
+        public void ServerPushState()
+        {
+            if (!IsServer || !matchStarted) return;
+
+            MatchStateDTO state = GameManager.Instance.ServerState;
+            CoreSessionProcessor.EvaluateSessionState(state, GameManager.Instance.maxDicePerPlayer);
+            SyncTurnVariables(state, restartTimer: false);
+            BroadcastSnapshot(default);
+        }
+
+        private void FinishTurn(MatchStateDTO state)
+        {
+            CoreSessionProcessor.EvaluateSessionState(state, GameManager.Instance.maxDicePerPlayer);
+
+            if (state.CurrentPhase != MatchPhase.GameOver)
+            {
+                CoreMatchSetup.AdvanceTurn(state);
+
+                // Bolsa vacía sin dado en mano: nadie puede volver a jugar, se cierra la partida.
+                // maxDicePerPlayer = 0 fuerza a EvaluateSessionState a aplicar las multas finales.
+                if (state.CurrentPhase != MatchPhase.GameOver && state.DiceBag.Count == 0)
+                {
+                    CoreSessionProcessor.EvaluateSessionState(state, 0);
+                }
+            }
+
+            SyncTurnVariables(state);
+        }
+
+        private void SyncTurnVariables(MatchStateDTO state, bool restartTimer = true)
+        {
+            NetworkCurrentPlayerIndex.Value = state.CurrentPlayerIndex;
+            NetworkMatchPhase.Value = (int)state.CurrentPhase;
+
+            if (NetworkTurnManager.Instance != null)
+            {
+                if (state.CurrentPhase == MatchPhase.PlayerTurn && restartTimer)
+                    NetworkTurnManager.Instance.AdvanceTurn(state.CurrentPlayerIndex);
+                else if (state.CurrentPhase != MatchPhase.PlayerTurn)
+                    NetworkTurnManager.Instance.StopTurnTimer();
             }
         }
 
-        [ClientRpc]
-        private void NotifyDiePlacedClientRpc(int playerIndex, int row, int col, CoreDieColor color, int value, int score)
+        // =========================================================
+        // REPLICACIÓN
+        // =========================================================
+
+        private void BroadcastSnapshot(NetworkActionSnapshot action)
         {
-            Debug.Log($"[NetworkGameManager] Dado colocado autoritativamente. Jugador: {playerIndex}, Pos: ({row},{col}), Score: {score}");
-            OnServerDiePlaced?.Invoke(playerIndex, row, col, color, value, score);
+            var slots = new ulong[ExpectedPlayers];
+            for (int i = 0; i < slots.Length; i++)
+            {
+                slots[i] = playerIndexToClientId.TryGetValue(i, out ulong id) ? id : ulong.MaxValue;
+            }
+
+            NetworkMatchSnapshot snapshot = NetworkMatchSnapshot.FromState(GameManager.Instance.ServerState, slots, action);
+            ReceiveSnapshotClientRpc(snapshot);
+        }
+
+        [ClientRpc]
+        private void ReceiveSnapshotClientRpc(NetworkMatchSnapshot snapshot)
+        {
+            LocalPlayerIndex = Array.IndexOf(snapshot.SlotClientIds, NetworkManager.Singleton.LocalClientId);
+
+            if (!OnlineMatchPresenter.IsSceneReady(snapshot.Players.Length))
+            {
+                // Si llegan varios antes de estar listos, basta con el más reciente (es un estado completo)
+                pendingSnapshot = snapshot;
+                hasPendingSnapshot = true;
+                return;
+            }
+
+            ApplySnapshot(snapshot);
+        }
+
+        private void ApplySnapshot(NetworkMatchSnapshot snapshot)
+        {
+            OnlineMatchPresenter.Apply(snapshot, LocalPlayerIndex, IsServer);
+            OnSnapshotApplied?.Invoke(snapshot);
         }
 
         [ClientRpc]
@@ -187,6 +404,10 @@ namespace MyGame.Networking
             if (NetworkManager.Singleton.LocalClientId == targetClientId)
             {
                 Debug.LogWarning($"[Cliente Local] Placement rechazado por el servidor: {reason}");
+                if (PopUpManager.Instance != null)
+                {
+                    PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "Movimiento no válido", Color.red);
+                }
             }
         }
     }

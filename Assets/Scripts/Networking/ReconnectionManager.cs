@@ -70,13 +70,13 @@ namespace MyGame.Networking
 
             OnPlayerEliminatedByTimeout?.Invoke(playerIndex);
 
-            // Si era el turno del jugador eliminado, avanzar turno inmediatamente
-            if (GameManager.Instance != null && GameManager.Instance.ServerState != null)
+            // Si era su turno, se cierra (el dado en mano vuelve a la bolsa); si no, solo se difunde la eliminación
+            if (NetworkGameManager.Instance != null && GameManager.Instance != null && GameManager.Instance.ServerState != null)
             {
                 if (GameManager.Instance.ServerState.CurrentPlayerIndex == playerIndex)
-                {
-                    GameManager.Instance.turnManager.EndTurn();
-                }
+                    NetworkGameManager.Instance.ServerForceEndTurn();
+                else
+                    NetworkGameManager.Instance.ServerPushState();
             }
         }
     }

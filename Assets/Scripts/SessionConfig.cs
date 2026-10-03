@@ -7,6 +7,8 @@ public class SessionConfig : ScriptableObject
 {
     [Header("Game Mode")]
     public bool isCampaignMode = false;
+    [Tooltip("Partida en red: el servidor reparte y valida; playerCount debe ser el numero de jugadores online")]
+    public bool isOnlineMatch = false;
 
     [Header("Selected Rules")]
     public VariantData selectedVariant;
@@ -23,6 +25,7 @@ public class SessionConfig : ScriptableObject
     public void ResetSession()
     {
         isCampaignMode = false;
+        isOnlineMatch = false;
         playerCount = 1;
         baseUndoUses = 2;
         baseMoveUses = 1;
