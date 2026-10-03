@@ -237,13 +237,6 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
         int realRow = this.gridCoordinate.y;
         int realCol = this.gridCoordinate.x;
 
-        // F4.1: Si estamos en partida online, enviamos el ServerRpc al servidor autoritativo
-        if (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsClient && MyGame.Networking.NetworkGameManager.Instance != null)
-        {
-            MyGame.Networking.NetworkGameManager.Instance.RequestPlaceDieServerRpc(realRow, realCol);
-            return;
-        }
-
         if (gridValidator.IsValidPlacement(playerOwnerIndex, realRow, realCol, currentColor, currentGroupId, targetSize))
         {
             placementExecutor.BeginPlacement(realRow, realCol);
