@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Services.Core;
 using Unity.Services.Authentication;
 using System.Threading.Tasks;
@@ -10,7 +10,7 @@ public class AuthManager : MonoBehaviour
 {
     public static AuthManager Instance { get; private set; }
 
-
+    public event System.Action OnAuthenticationComplete;
 
     private void Awake()
     {
@@ -74,6 +74,8 @@ public class AuthManager : MonoBehaviour
                 // La forma correcta con el nuevo nombre
                 await CloudSaveManager.Instance.LoadMetaProgress();
             }
+
+            OnAuthenticationComplete?.Invoke();
 
             // NUEVO: Cambiamos a la escena del menú principal.
             // Asegúrate de escribir el nombre de tu escena EXACTAMENTE igual (respetando mayúsculas)

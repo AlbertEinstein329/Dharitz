@@ -8,6 +8,7 @@
     "com.unity.inputsystem": "1.18.0",
     "com.unity.multiplayer.center.quickstart": "1.1.2",
     "com.unity.multiplayer.playmode": "2.0.2",
+    "com.unity.netcode.gameobjects": "2.13.2",
     "com.unity.nuget.mono-cecil": "1.10.2",
     "com.unity.purchasing": "5.3.0",
     "com.unity.render-pipelines.universal": "17.3.0",

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using MyGame.Core;
 
 public class GridManager : MonoBehaviour, IGridValidator
 {
@@ -267,59 +268,57 @@ public void NextBoard()
     {
         if (!IsValidPlayerIndex(pIndex)) return 0;
 
-        // Ejecutamos la matemática topológica pura (sin interfaz visual)
-        return TopologyCalculator.CalculateGapPenalty(allBoardsLogic[pIndex], rows, cols, out _);
+        // 1. Fotografiamos el tablero ineficiente 2D a la estructura de alto rendimiento 1D
+        BoardStateDTO boardDTO = GetBoardStateDTO(pIndex);
+
+        // 2. Delegamos la matemática a la Capa Core
+        return CoreTopologyCalculator.CalculateGapPenalty(boardDTO.Cells, rows, cols, out _);
     }
 
     public System.Collections.IEnumerator AnimateGapPenaltiesFlow(int pIndex, System.Action onComplete)
     {
         if (!IsValidPlayerIndex(pIndex)) yield break;
 
-        // 1. Obtenemos la lista de grupos de huecos desde el motor lógico
-        TopologyCalculator.CalculateGapPenalty(allBoardsLogic[pIndex], rows, cols, out List<List<Vector2Int>> enclosedGaps);
+        // 1. Fotografiamos el estado actual para la validación estricta
+        BoardStateDTO boardDTO = GetBoardStateDTO(pIndex);
+
+        // 2. Extraemos los huecos cerrados usando nuestras estructuras inmutables GridPos
+        CoreTopologyCalculator.CalculateGapPenalty(boardDTO.Cells, rows, cols, out List<List<GridPos>> enclosedGaps);
         bool foundAnyGap = enclosedGaps.Count > 0;
 
-        // 2. Iteramos grupo por grupo para crear drama visual
+        // 3. Iteramos grupo por grupo para crear el drama visual
         foreach (var gapCells in enclosedGaps)
         {
-            // Obtenemos la multa exacta para este grupo
-            int penalty = TopologyCalculator.GetPenaltyForGapSize(gapCells.Count);
+            // Obtenemos la multa exacta para el tamaño del grupo
+            int penalty = CoreTopologyCalculator.GetPenaltyForGapSize(gapCells.Count);
 
-            // 3. Pintamos de rojo todas las celdas de este agujero específico
-            foreach (Vector2Int cell in gapCells)
+            // Mapeo inverso seguro de GridPos matemático a UI
+            foreach (GridPos cell in gapCells)
             {
-                // TopologyCalculator guarda la coordenada como (Row, Col) en (x, y)
-                CellComponent cellVisual = allCellsVisual[pIndex][cell.x, cell.y];
+                CellComponent cellVisual = allCellsVisual[pIndex][cell.X, cell.Y];
                 if (cellVisual != null)
                 {
                     cellVisual.HighlightGapColor();
                 }
             }
 
-            // 4. Lanzamos el texto flotante de penalización en el centro del hueco
+            // Instanciamos el popup de la UI
             if (PopUpManager.Instance != null && gapCells.Count > 0)
             {
-                Vector2Int centerCell = gapCells[gapCells.Count / 2];
-                Vector3 popupPos = allCellsVisual[pIndex][centerCell.x, centerCell.y].transform.position;
+                GridPos centerCell = gapCells[gapCells.Count / 2];
+                Vector3 popupPos = allCellsVisual[pIndex][centerCell.X, centerCell.Y].transform.position;
                 PopUpManager.Instance.ShowPopUp(popupPos, $"{penalty}", Color.red);
             }
 
-            // Pausa de medio segundo entre cada grupo para que el jugador asimile el castigo
             yield return new WaitForSeconds(0.5f);
         }
 
-        // Una última pausa si hubo multas antes de continuar a la pantalla final
         if (foundAnyGap) yield return new WaitForSeconds(0.5f);
 
-        // Avisamos al GameManager que la animación terminó
         onComplete?.Invoke();
     }
 
     // --- DELEGATION TO SCORE CALCULATOR ---
-    public int EvaluateAndApplyCombos(int pIndex)
-    {
-        return ScoreCalculator.EvaluateAndApplyCombos(allBoardsLogic[pIndex], rows, cols, GameManager.Instance.players[pIndex]);
-    }
 
     public int Count3x3Contacts(int pIndex, int r, int c, int valorDado, out int contactosDiagonales)
     {
@@ -670,6 +669,41 @@ public void NextBoard()
                 Destroy(lightFX, 2.3f);
             }
         }
+    }
+    // EL PUENTE: Transforma la matriz visual ineficiente 2D a un array 1D puro
+    public BoardStateDTO GetBoardStateDTO(int playerIndex)
+    {
+        DieData[,] logic = GetBoardLogic(playerIndex);
+        int rows = logic.GetLength(0);
+        int cols = logic.GetLength(1);
+
+        BoardStateDTO boardDTO = new BoardStateDTO(rows, cols);
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                int flatIndex = boardDTO.GetIndex(r, c);
+                DieData cellData = logic[r, c];
+
+                if (cellData != null)
+                {
+                    boardDTO.Cells[flatIndex] = new CellStateDTO
+                    {
+                        IsOccupied = true,
+                        Color = (MyGame.Core.DieColor)(int)cellData.color,
+                        GroupId = cellData.groupId,
+                        Value = cellData.value
+                    };
+                }
+                else
+                {
+                    boardDTO.Cells[flatIndex] = new CellStateDTO { IsOccupied = false };
+                }
+            }
+        }
+
+        return boardDTO;
     }
 
 }

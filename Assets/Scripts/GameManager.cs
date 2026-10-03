@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using MyGame.Core; // Acceso a la Capa 0
 
 public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 {
@@ -17,6 +18,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     public VariantData currentVariant;
     [HideInInspector] public int numPlayers;
     public int maxDicePerPlayer = 52;
+
+    // Capa 1: Wrappers visuales
     public List<PlayerData> players = new List<PlayerData>();
     [HideInInspector] public bool isRestarting = false;
 
@@ -30,6 +33,11 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     public DiceManager diceManager { get; private set; }
     public TurnManager turnManager { get; private set; }
     public PlacementOrchestrator placementOrchestrator { get; private set; }
+
+    // ==========================================
+    // ANCLA DE LA CAPA 0 (ESTADO AUTORITATIVO)
+    // ==========================================
+    public MatchStateDTO ServerState { get; private set; }
 
     // --- ITurnProvider Implementation ---
     public int CurrentPlayerIndex => turnManager != null ? turnManager.CurrentPlayerIndex : 0;
@@ -49,40 +57,72 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             return;
         }
 
-        Random.InitState((int)System.DateTime.Now.Ticks);
+        // Semilla determinista: en partida online, el servidor la provee.
+        // En modo local, usamos DateTime para variabilidad natural.
+        int matchSeed = (int)System.DateTime.Now.Ticks;
+        Random.InitState(matchSeed);
 
         diceManager = new DiceManager(this);
         turnManager = new TurnManager(this);
         placementOrchestrator = new PlacementOrchestrator(this);
+
+        // 1. INICIALIZACIÓN ESTRICTA DE LA MÁQUINA DE ESTADOS (Capa 0)
+        ServerState = new MyGame.Core.MatchStateDTO();
+        ServerState.CurrentPhase = MyGame.Core.MatchPhase.WaitingForPlayers;
+
+        // F0.5 / F1.8: RNG determinista único — solo el GameManager lo posee
+        ServerState.InitializeRNG(matchSeed);
 
         if (currentSession != null)
         {
             currentVariant = currentSession.selectedVariant;
             numPlayers = currentSession.playerCount;
 
+            // F0.4: Inyectar configuración de variante y puntaje en el estado maestro
+            if (currentVariant != null)
+                ServerState.VariantConfig = currentVariant.ToDTO();
+            // ScoringConfig ya se inicializa con Default() en el constructor
+
             players = new List<PlayerData>();
             for (int i = 0; i < currentSession.players.Count; i++)
             {
                 PlayerSetup setup = currentSession.players[i];
                 PlayerData newPlayer = new PlayerData(i, setup.playerName, setup.isBot, setup.botDifficulty);
-
-                
                 newPlayer.avatarId = setup.avatarId;
 
                 players.Add(newPlayer);
+
+                // Mapeo inicial hacia el Servidor
+                MyGame.Core.PlayerDataDTO profileDTO = newPlayer.ToDTO();
+                if (SaveManager.Instance != null && SaveManager.Instance.CurrentProfile != null)
+                {
+                    profileDTO.TotalCoins = SaveManager.Instance.CurrentProfile.totalCoins;
+                }
+                ServerState.PlayerProfiles[i] = profileDTO;
+
+                // F1.6: Inicializar tablero del jugador en el estado maestro
+                ServerState.PlayerBoards[i] = new MyGame.Core.BoardStateDTO(gridManager != null ? gridManager.rows : 8,
+                                                                              gridManager != null ? gridManager.cols : 10);
             }
         }
         else
         {
             Debug.LogError("Falta el SessionConfig. Cargando configuraciones por defecto a prueba de fallos.");
-            numPlayers = 2; 
-            InitializeFallbackPlayers(); 
+            numPlayers = 2;
+            InitializeFallbackPlayers();
         }
     }
 
     void Start()
     {
+        // 2. ARRANQUE LÓGICO (Fase de resolución cruzada)
+        ServerState.CurrentPhase = MyGame.Core.MatchPhase.PlayerTurn;
+        ServerState.HasDrawn = false;
         diceManager.InitializeBag();
+
+        // F1.1: La bolsa ya se inicializa dentro de DiceManager usando ServerState.DiceBag directamente.
+        // El DiceBag del ServerState se llena en DiceManager.InitializeBag().
+
         turnManager.StartTurn();
     }
 
@@ -91,23 +131,20 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         players.Clear();
         for (int i = 0; i < numPlayers; i++)
         {
-            players.Add(new PlayerData(i, $"Jugador Fallback {i + 1}", false, 0));
+            PlayerData fallbackPlayer = new PlayerData(i, $"Jugador Fallback {i + 1}", false, 0);
+            players.Add(fallbackPlayer);
+            ServerState.PlayerProfiles[i] = fallbackPlayer.ToDTO();
         }
     }
 
-
-    // --- Facade Methods to handle UI Button Clicks ---
     public void DrawDie()
     {
-        // 1. Execute the logical draw
         diceManager.DrawDie();
-
     }
 
     public void UseReDraw()
     {
         diceManager.UseReDraw();
-
     }
 
     public void EnableDrawButton()
@@ -115,15 +152,14 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         if (drawButton != null) drawButton.interactable = true;
     }
 
-    // --- IPlacementExecutor Implementation ---
     public void BeginPlacement(int row, int col)
     {
         placementOrchestrator.BeginPlacement(row, col);
     }
 
-    // --- End Match Logic ---
     public bool AreAllPlayersFinished()
     {
+        // El cliente visual ya no decide. Solo leemos el perfil local clonado del servidor.
         foreach (PlayerData p in players)
         {
             if (p.placedDice < maxDicePerPlayer) return false;
@@ -133,33 +169,21 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
     public void EndMatch()
     {
-
         isGameOver = true;
-
-        // =========================================================
-        // APAGADO FORZOSO DEL BOTÓN AL TERMINAR LA PARTIDA
-        // =========================================================
-        if (drawButton != null)
-        {
-            drawButton.interactable = false; // Lo bloqueamos para que no puedan hacer clic
-            TMPro.TextMeshProUGUI drawButtonText = drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (drawButtonText != null)
-            {
-                drawButtonText.text = "MATCH END"; // Cambiamos el texto
-            }
-        }
-
-        // DOBLE ESCUDO: Si estamos reiniciando O el juego ya terminó previamente, ignorar.
-        if (isRestarting || isGameOver) return;
-
-        Debug.Log("Fin de la bolsa. Calculando resultados...");
 
         if (drawButton != null)
         {
             drawButton.interactable = false;
             TMPro.TextMeshProUGUI drawButtonText = drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (drawButtonText != null) drawButtonText.text = "<color=#FFA500>MATCH END</color>";
+            if (drawButtonText != null)
+            {
+                drawButtonText.text = "MATCH END";
+            }
         }
+
+        if (isRestarting || isGameOver) return;
+
+        Debug.Log("Fin de la bolsa. Calculando resultados...");
 
         if (reDrawButton != null) reDrawButton.interactable = false;
         if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Victory");
@@ -170,24 +194,23 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
     public IEnumerator EndGameSequence()
     {
+        isGameOver = true;
+
         for (int i = 0; i < players.Count; i++)
         {
             PlayerData p = players[i];
-            int gapPenalties = gridManager.CalculateGapPenalty(i);
-            p.score += gapPenalties;
-
+            // La multa fue calculada matemáticamente en CoreSessionProcessor
             yield return StartCoroutine(gridManager.AnimateGapPenaltiesFlow(i, null));
             UIManager.Instance.UpdateScore(p.score);
-
             yield return new WaitForSeconds(1.0f);
         }
 
         PlayerData jugadorLocal = players[0];
+
         int monedasGanadas = Mathf.Max(0, jugadorLocal.score / 10);
-        
-        int nivelActual = 1; // Aquí se usaría un valor real de SessionConfig en el futuro
-        int estrellasObtenidas = jugadorLocal.score >= 1000 ? 1 : 0; // Lógica provisional de estrellas
-        
+        int nivelActual = currentSession != null ? 1 : 1;
+        int estrellasObtenidas = jugadorLocal.score >= 1000 ? 1 : 0;
+
         if (SaveManager.Instance != null)
         {
             SaveManager.Instance.AddCoins(monedasGanadas);
@@ -199,6 +222,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             _ = CloudSaveManager.Instance.SaveMetaProgress();
         }
 
-        UIManager.Instance.ShowFinalResults(0);
+        int viewedPlayer = gridManager.CurrentlyViewedPlayer;
+        UIManager.Instance.ShowFinalResults(viewedPlayer);
     }
 }

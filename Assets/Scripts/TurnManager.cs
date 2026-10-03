@@ -21,6 +21,10 @@ public class TurnManager
         set 
         {
             hasDrawn = value;
+            // F1.5: Sincronizar con el estado maestro
+            if (gm.ServerState != null)
+                gm.ServerState.HasDrawn = value;
+
             if (hasDrawn && CommandManager.Instance != null)
             {
                 // Al robar un nuevo dado, confirmas tu tablero pasado y se borra la pila vieja
@@ -29,7 +33,6 @@ public class TurnManager
             }
         }
     }
-    
     public DieColor CurrentDrawnColor { get; set; }
     public int CurrentDrawnValue { get; set; }
 
@@ -120,16 +123,19 @@ public class TurnManager
             // Avanzamos al siguiente jugador
             CurrentPlayerIndex = (CurrentPlayerIndex + 1) % gm.numPlayers;
 
+            // F1.6: Sincronizar con el estado maestro
+            if (gm.ServerState != null)
+                gm.ServerState.CurrentPlayerIndex = CurrentPlayerIndex;
+
             // Si dimos toda la vuelta y llegamos al mismo jugador, y también está muerto:
-            // Significa que ya no queda NADIE vivo en la partida.
             if (CurrentPlayerIndex == startIndex && gm.players[CurrentPlayerIndex].isEliminated)
             {
                 Debug.LogWarning("[TurnManager] Todos los jugadores han sido eliminados. Forzando fin de partida.");
                 gm.EndMatch();
-                return; // Abortamos el cambio de turno
+                return;
             }
 
-        } while (gm.players[CurrentPlayerIndex].isEliminated); // Repetimos el bucle si el jugador destino está eliminado
+        } while (gm.players[CurrentPlayerIndex].isEliminated);
         // =========================================================
 
 

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections.Generic;
@@ -19,6 +19,7 @@ public class MainMenuManager : MonoBehaviour
     public GameObject mainPanel;
     public GameObject freePlayPanel;
     public GameObject settingsPanel;
+    public GameObject onlinePanel;
 
     [Header("Componentes Modo Libre Dinámico")]
     [SerializeField] private TMP_Dropdown variantDropdown;
@@ -72,6 +73,7 @@ public class MainMenuManager : MonoBehaviour
         mainPanel.SetActive(true);
         freePlayPanel.SetActive(false);
         settingsPanel.SetActive(false);
+        if (onlinePanel != null) onlinePanel.SetActive(false);
     }
 
     public void ShowSettingsPanel()
@@ -79,7 +81,41 @@ public class MainMenuManager : MonoBehaviour
         mainPanel.SetActive(false);
         freePlayPanel.SetActive(false);
         settingsPanel.SetActive(true);
+        if (onlinePanel != null) onlinePanel.SetActive(false);
         LoadSettings();
+    }
+
+    public void ShowOnlinePanel()
+    {
+        mainPanel.SetActive(false);
+        freePlayPanel.SetActive(false);
+        settingsPanel.SetActive(false);
+        if (onlinePanel != null) onlinePanel.SetActive(true);
+    }
+
+    public async void StartMatchmaking2P()
+    {
+        if (MyGame.Networking.MultiplayerMatchmaker.Instance != null)
+        {
+            await MyGame.Networking.MultiplayerMatchmaker.Instance.StartMatchmakingAsync(MyGame.Networking.MatchMode.TwoPlayers);
+        }
+    }
+
+    public async void StartMatchmaking4P()
+    {
+        if (MyGame.Networking.MultiplayerMatchmaker.Instance != null)
+        {
+            await MyGame.Networking.MultiplayerMatchmaker.Instance.StartMatchmakingAsync(MyGame.Networking.MatchMode.FourPlayers);
+        }
+    }
+
+    public void CancelMatchmaking()
+    {
+        if (MyGame.Networking.MultiplayerMatchmaker.Instance != null)
+        {
+            MyGame.Networking.MultiplayerMatchmaker.Instance.CancelMatchmaking();
+        }
+        ShowMainPanel();
     }
 
     public void ShowFreePlayPanel()

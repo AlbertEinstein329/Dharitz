@@ -11,12 +11,9 @@ public static class PlacementValidator
 
     public static bool IsValidPlacement(GridManager.DieData[,] logic, int rows, int cols, int r, int c, DieColor color, int currentGroupId, int number, PlayerData player, VariantData variant)
     {
-        // ESCUDO ANTI-SUPERPOSICIÓN: Si la celda ya tiene un dado, se rechaza inmediatamente.
         if (logic[r, c] != null) return false;
 
-
         bool isBoardEmpty = (player.placedDice == 0);
-
         PatternData currentPattern = variant.GetPattern(number);
 
         bool hasDiceInGroup = false;
@@ -43,14 +40,6 @@ public static class PlacementValidator
 
                     if (neighbor != null)
                     {
-                        if (number == 1 && neighbor.value == 1)
-                        {
-                            if (currentPattern.specialRule == SpecialRule.PenalizeOnContact)
-                            {
-                                if (neighbor.color == color) return false;
-                            }
-                        }
-
                         if (neighbor.groupId == currentGroupId)
                         {
                             touchesOwnGroup = true;
@@ -77,9 +66,51 @@ public static class PlacementValidator
         }
 
         if (isBoardEmpty) return true;
-        if (hasDiceInGroup && !touchesOwnGroup) return false; 
+        if (hasDiceInGroup && !touchesOwnGroup) return false;
         if (!touchesAnyDie) return false;
 
-        return TopologyCalculator.ValidateSurvival(logic, rows, cols, r, c, color, currentGroupId, number, player, variant);
+        // 1. Traducimos la matriz visual 2D pesada a un array 1D ligero
+        MyGame.Core.BoardStateDTO boardDTO = new MyGame.Core.BoardStateDTO(rows, cols);
+        for (int row = 0; row < rows; row++)
+        {
+            for (int col = 0; col < cols; col++)
+            {
+                int idx = boardDTO.GetIndex(row, col);
+                if (logic[row, col] != null)
+                {
+                    boardDTO.Cells[idx] = new MyGame.Core.CellStateDTO
+                    {
+                        IsOccupied = true,
+                        Color = (MyGame.Core.DieColor)(int)logic[row, col].color,
+                        GroupId = logic[row, col].groupId,
+                        Value = logic[row, col].value
+                    };
+                }
+            }
+        }
+
+        // 2. Extraemos los patrones de la variante
+        MyGame.Core.PatternDefDTO pVariant = null;
+        if (player.activeGroups.ContainsKey(color) && player.activeGroups[color] != null)
+        {
+            PatternData existingData = variant.GetPattern(player.activeGroups[color].targetSize);
+            if (existingData != null) pVariant = existingData.ToDTO();
+        }
+
+        PatternData newPatternData = variant.GetPattern(number);
+        MyGame.Core.PatternDefDTO pNew = newPatternData != null ? newPatternData.ToDTO() : null;
+
+        // 3. Ejecutamos el validador estricto de alto rendimiento
+        return MyGame.Core.CoreTopologyCalculator.ValidateSurvival(
+            boardDTO,
+            r,
+            c,
+            (MyGame.Core.DieColor)(int)color,
+            currentGroupId,
+            number,
+            player.ToDTO(),
+            pVariant,
+            pNew
+        );
     }
 }

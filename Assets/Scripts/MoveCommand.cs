@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class MoveCommand : IGridCommand
 {
@@ -7,13 +8,7 @@ public class MoveCommand : IGridCommand
     private int oldR, oldC;
     private int newR, newC;
 
-    private DieColor color;
-    private int groupId;
-    private int dieValue;
-
-    private bool executedSuccessfully = false;
-    private bool patternAwardedByThisMove = false;
-    private int pointsAwarded = 0;
+    private MyGame.Core.MoveExecutionResult executionResult;
 
     public MoveCommand(GameManager gm, int playerIndex, int oldR, int oldC, int newR, int newC)
     {
@@ -27,70 +22,100 @@ public class MoveCommand : IGridCommand
 
     public void Execute()
     {
-        PlayerData p = gm.players[playerIndex];
-        GridManager.DieData[,] logic = gm.gridManager.allBoardsLogic[playerIndex];
+        // 1. Extracción de dependencias locales para el DTO
+        VariantData variant = gm.currentSession != null ? gm.currentSession.selectedVariant : gm.currentVariant;
+        var playerDTO = gm.ServerState.PlayerProfiles[playerIndex];
 
+        int targetSize = 0;
+        var logic = gm.gridManager.allBoardsLogic[playerIndex];
+        if (logic[oldR, oldC] != null && playerDTO.ActiveGroups.ContainsKey((MyGame.Core.DieColor)logic[oldR, oldC].color))
+        {
+            targetSize = playerDTO.ActiveGroups[(MyGame.Core.DieColor)logic[oldR, oldC].color].TargetSize;
+        }
+
+        PatternData pattern = variant.GetPattern(targetSize);
+        MyGame.Core.PatternDefDTO patternDTO = pattern != null ? pattern.ToDTO() : null;
+
+        // 2. EJECUCIÓN AUTORITATIVA (El Servidor aprueba y muta los DTOs)
+        executionResult = MyGame.Core.CoreMoveProcessor.ProcessMove(
+            gm.ServerState, playerIndex, oldC, oldR, newC, newR, patternDTO
+        );
+
+        if (!executionResult.IsValid)
+        {
+            Debug.LogError("[Seguridad] Ejecución de movimiento interceptada y rechazada por Capa 0.");
+            return;
+        }
+
+        // 3. SINCRONIZACIÓN ESCLAVA DE LA CAPA VISUAL
         GridManager.DieData dieToMove = logic[oldR, oldC];
         if (dieToMove == null) return;
 
-        color = dieToMove.color;
-        groupId = dieToMove.groupId;
-        dieValue = dieToMove.value;
+        DieColor color = dieToMove.color;
+        int groupId = dieToMove.groupId;
+        int dieValue = dieToMove.value;
+        PlayerData p = gm.players[playerIndex];
 
-        // 1. Ejecución Física
         gm.gridManager.RemoveDie(playerIndex, oldR, oldC);
         gm.gridManager.CommitDieToLogic(playerIndex, newR, newC, color, groupId, dieValue);
 
-        // 2. ACTUALIZACIÓN DE MEMORIA (Alineado con PlacementOrchestrator: R, C)
         if (p.activeGroups.TryGetValue(color, out GroupData group) && group != null)
         {
-            group.occupiedCells.Remove(new Vector2Int(oldR, oldC));
-            group.occupiedCells.Add(new Vector2Int(newR, newC));
-
-            // 3. EVALUACIÓN DE PATRÓN Y ECONOMÍA
-            if (group.occupiedCells.Count == group.targetSize)
-            {
-                VariantData variant = gm.currentSession != null ? gm.currentSession.selectedVariant : gm.currentVariant;
-                PatternData pattern = variant.GetPattern(group.targetSize);
-
-                if (PatternValidator.CheckPattern(group.occupiedCells, pattern))
-                {
-                    patternAwardedByThisMove = true;
-                    pointsAwarded = ScoreManager.Instance.GetPatternBonus(group.targetSize);
-
-                    p.score += pointsAwarded;
-                    p.patternCounts[group.targetSize]++;
-
-                    Vector3 posMundo = gm.gridManager.GetWorldPosition(playerIndex, newR, newC);
-                    PopUpManager.Instance.ShowPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{pointsAwarded}", Color.cyan);
-
-                    gm.gridManager.MarkGroupAsCompleted(playerIndex, group.occupiedCells);
-                    UIManager.Instance.UpdateScore(p.score);
-                }
-            }
+            group.occupiedCells.Remove(new Vector2Int(oldC, oldR));
+            group.occupiedCells.Add(new Vector2Int(newC, newR));
         }
 
-        executedSuccessfully = true;
+        // 4. ANIMACIONES Y UI BASADAS EN EL VEREDICTO DEL SERVIDOR
+        if (executionResult.PatternCompleted)
+        {
+            p.score = gm.ServerState.PlayerProfiles[playerIndex].Score; // Sincronización dictaminada por servidor
+            p.patternCounts[group.targetSize]++;
+
+            Vector3 posMundo = gm.gridManager.GetWorldPosition(playerIndex, newR, newC);
+            PopUpManager.Instance.ShowPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{executionResult.PointsAwarded}", Color.cyan);
+
+            List<Vector2Int> visualCells = new List<Vector2Int>();
+            foreach (var cell in executionResult.CompletedCells)
+                visualCells.Add(new Vector2Int(cell.X, cell.Y));
+
+            gm.gridManager.MarkGroupAsCompleted(playerIndex, visualCells);
+            UIManager.Instance.UpdateScore(p.score);
+        }
     }
 
     public void Undo()
     {
-        if (!executedSuccessfully) return;
+        // Si el movimiento original nunca fue válido, no hay nada que revertir
+        if (!executionResult.IsValid) return;
 
+        GridManager.DieData logicDie = gm.gridManager.allBoardsLogic[playerIndex][newR, newC];
+        if (logicDie == null) return;
+
+        DieColor color = logicDie.color;
+        int groupId = logicDie.groupId;
+        int dieValue = logicDie.value;
         PlayerData p = gm.players[playerIndex];
 
+        // 1. EL SERVIDOR RESTAURA LA VERDAD ABSOLUTA PRIMERO
+        MyGame.Core.CoreMoveProcessor.UndoMove(
+            gm.ServerState, playerIndex, oldC, oldR, newC, newR, executionResult
+        );
+
+        // 2. EL CLIENTE OBEDECE Y REVIERTE LA MEMORIA VISUAL
         gm.gridManager.RemoveDie(playerIndex, newR, newC);
         gm.gridManager.CommitDieToLogic(playerIndex, oldR, oldC, color, groupId, dieValue);
 
         if (p.activeGroups.TryGetValue(color, out GroupData group) && group != null)
         {
-            group.occupiedCells.Remove(new Vector2Int(newR, newC));
-            group.occupiedCells.Add(new Vector2Int(oldR, oldC));
+            group.occupiedCells.Remove(new Vector2Int(newC, newR));
+            group.occupiedCells.Add(new Vector2Int(oldC, oldR));
 
-            if (patternAwardedByThisMove)
+            if (executionResult.PatternCompleted)
             {
-                p.score -= pointsAwarded;
+                // Copiamos el puntaje exacto calculado por la Capa 0
+                p.score = gm.ServerState.PlayerProfiles[playerIndex].Score;
                 p.patternCounts[group.targetSize]--;
+
                 UIManager.Instance.UpdateScore(p.score);
             }
         }

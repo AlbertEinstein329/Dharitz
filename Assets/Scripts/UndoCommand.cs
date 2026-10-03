@@ -1,83 +1,95 @@
 using UnityEngine;
+using MyGame.Core;
 
 public class UndoCommand : IGridCommand
 {
+    private UndoDieCommand dtoCommand;
     private GameManager gm;
-    private int playerIndex;
-    private int r, c;
-    private DieColor color;
-    private int groupId;
-    private int targetSize;
-
-    // Previous State Mementos
-    private int prevScore;
-    private int prevPlacedDice;
-    private int prevAccumulatedStructurePoints;
-    private int[] prevPatternCounts;
 
     public UndoCommand(GameManager gm, int playerIndex, int r, int c, DieColor color, int groupId, int targetSize)
     {
         this.gm = gm;
-        this.playerIndex = playerIndex;
-        this.r = r;
-        this.c = c;
-        this.color = color;
-        this.groupId = groupId;
-        this.targetSize = targetSize;
-
-        PlayerData p = gm.players[playerIndex];
-        this.prevScore = p.score;
-        this.prevPlacedDice = p.placedDice;
-        this.prevAccumulatedStructurePoints = p.accumulatedStructurePoints;
-        this.prevPatternCounts = (int[])p.patternCounts.Clone();
+        
+        // El comando ahora es un simple transporte de la intención, sin clonar arrays nativos
+        this.dtoCommand = new UndoDieCommand
+        {
+            PlayerId = playerIndex,
+            TargetCell = new GridPos(c, r), // Manteniendo tu mapeo visual X=c, Y=r
+            Color = (MyGame.Core.DieColor)(int)color,
+            GroupId = groupId,
+            Number = targetSize
+        };
     }
 
     public void Execute()
     {
-        // Execute here does the actual placement if we were to replay it,
-        // but since this command is created *after* the placement is confirmed by PlacementOrchestrator,
-        // we leave this empty. The CommandManager will just push it to the stack.
+        // El orquestador ya aplicó la jugada visualmente. El comando solo se encola.
     }
 
-public void Undo()
+    public void Undo()
     {
-        PlayerData p = gm.players[playerIndex];
-        
-        if (!p.activeGroups.ContainsKey(color)) return;
-        GroupData group = p.activeGroups[color];
+        // 1. ENVIAR INTENCIÓN A LA AUTORIDAD (Usando el estado real del servidor persistente)
+        float[] rowMults = { 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 4.0f };
+        float[] colMults = { 1.0f, 2.0f, 3.0f, 3.5f, 5.0f, 6.0f };
 
-        // 1. Restore Player primitives
-        p.score = prevScore;
-        p.placedDice = prevPlacedDice;
-        p.accumulatedStructurePoints = prevAccumulatedStructurePoints;
-        p.patternCounts = prevPatternCounts;
+        // FIREWALL: El cliente no crea estados, usa la verdad absoluta (gm.ServerState)
+        bool isLegalUndo = CoreUndoProcessor.ProcessUndoIntent(
+            gm.ServerState,
+            dtoCommand,
+            ScoreManager.ROW_COMPLETE_BONUS,
+            ScoreManager.COL_COMPLETE_BONUS,
+            ScoreManager.INTERSECTION_BONUS,
+            rowMults,
+            colMults
+        );
 
-        // 2. Remove from group's occupied cells
-        group.occupiedCells.Remove(new Vector2Int(r, c));
+        // Si el servidor lo rechaza, el cliente aborta toda ejecución visual
+        if (!isLegalUndo)
+        {
+            Debug.LogError("[Security] CoreUndoProcessor rechazó la reversión. Desincronización detectada.");
+            return;
+        }
 
-        // 3. Remove from logic and visual grid
-        gm.gridManager.RemoveDie(playerIndex, r, c);
+        // 2. SINCRONIZACIÓN VISUAL ESTRICTA (El servidor aceptó y ya mutó el gm.ServerState)
+        PlayerData p = gm.players[dtoCommand.PlayerId];
+        PlayerDataDTO updatedProfile = gm.ServerState.PlayerProfiles[dtoCommand.PlayerId];
 
-        // 4. Update UI
+        p.score = updatedProfile.Score;
+        p.placedDice = updatedProfile.PlacedDice;
+        p.accumulatedStructurePoints = updatedProfile.AccumulatedStructurePoints;
+        p.currentUndoUses = updatedProfile.CurrentUndoUses;
+
+        DieColor visualColor = (DieColor)(int)dtoCommand.Color;
+
+        // Verificamos nulos explícitamente para evitar tu NullReferenceException
+        if (p.activeGroups.ContainsKey(visualColor) && p.activeGroups[visualColor] != null)
+        {
+            p.activeGroups[visualColor].occupiedCells.Remove(new Vector2Int(dtoCommand.TargetCell.X, dtoCommand.TargetCell.Y));
+        }
+
+        // Mapeo inverso a la matriz visual (Y = row, X = col)
+        gm.gridManager.RemoveDie(dtoCommand.PlayerId, dtoCommand.TargetCell.Y, dtoCommand.TargetCell.X);
+
+        // 3. RESTAURACIÓN DE LA INTERFAZ
         UIManager.Instance.UpdateScore(p.score);
-        UIManager.Instance.UpdateProgressText(color, targetSize, group.occupiedCells.Count, targetSize);
-        
-        UIManager.Instance.RestoreDieToHand(color, targetSize);
+
+        if (p.activeGroups.ContainsKey(visualColor) && p.activeGroups[visualColor] != null)
+        {
+            UIManager.Instance.UpdateProgressText(visualColor, dtoCommand.Number, p.activeGroups[visualColor].occupiedCells.Count, dtoCommand.Number);
+        }
+
+        UIManager.Instance.RestoreDieToHand(visualColor, dtoCommand.Number);
+        gm.turnManager.CurrentDrawnColor = visualColor;
         gm.turnManager.HasDrawn = true;
 
-        // ========================================================
-        // LA LLAVE DE SINCRONIZACIÓN: Actualizamos el cerebro del juego
-        // ========================================================
-        gm.turnManager.CurrentDrawnColor = color;
-        gm.turnManager.HasDrawn = true;
-
-        UIManager.Instance.SetDrawInputLock(false);
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.SetDrawInputLock(false);
+        }
 
         if (AudioManager.Instance != null)
         {
             AudioManager.Instance.PlaySFX("Undo");
         }
-
-        Debug.Log("Undo executed: Reverted last placement.");
     }
 }

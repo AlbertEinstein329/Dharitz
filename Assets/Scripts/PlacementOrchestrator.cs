@@ -18,121 +18,135 @@ public class PlacementOrchestrator
         UIManager.Instance.ClearDieUI();
     }
 
-
-
     public void ConfirmAndProcessScore(int r, int c)
     {
         UIManager.Instance.SetDrawInputLock(true);
 
-        // ==========================================
-        // ESCUDO ANTI-EXPLOIT: Bloqueo de Transición Inmediato
-        // ==========================================
         if (CommandManager.Instance != null) CommandManager.Instance.isTransitioning = true;
         if (GridInteractionManager.Instance != null) GridInteractionManager.Instance.LockUIForTransition();
-
         if (gm.reDrawButton != null) gm.reDrawButton.interactable = false;
 
         PlayerData p = gm.turnManager.GetCurrentPlayer();
-        GroupData group = p.activeGroups[gm.turnManager.CurrentDrawnColor];
+        DieColor color = gm.turnManager.CurrentDrawnColor;
+        GroupData group = p.activeGroups[color];
+        int number = group.targetSize;
 
-        // Creamos el UndoCommand con el estado actual ANTES de alterar las lógicas y puntajes
-        UndoCommand undoCmd = new UndoCommand(gm, gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id, group.targetSize);
+        // 1. ENSAMBLAJE DEL COMANDO (Dumb Terminal)
+        var command = new MyGame.Core.PlaceDieCommand
+        {
+            PlayerId = gm.turnManager.CurrentPlayerIndex,
+            TargetCell = new MyGame.Core.GridPos(r, c),
+            Color = (MyGame.Core.DieColor)(int)color,
+            GroupId = group.id,
+            Number = number
+        };
+
+        // =============================================================
+        // F1.3: Usamos GameManager.Instance.ServerState directamente.
+        // Ya NO creamos un MatchStateDTO efímero local.
+        // =============================================================
+
+        // Sincronizamos el estado del tablero y el perfil del jugador actual
+        gm.ServerState.CurrentPhase = MyGame.Core.MatchPhase.PlayerTurn;
+        gm.ServerState.CurrentPlayerIndex = gm.turnManager.CurrentPlayerIndex;
+        gm.ServerState.PlayerBoards[gm.turnManager.CurrentPlayerIndex] = gm.gridManager.GetBoardStateDTO(gm.turnManager.CurrentPlayerIndex);
+        gm.ServerState.PlayerProfiles[gm.turnManager.CurrentPlayerIndex] = p.ToDTO();
+
+        // F1.7: Extraemos el patrón de variantConfig del ServerState (o del ScriptableObject como fallback)
+        MyGame.Core.PatternDefDTO variantPattern = null;
+        if (gm.ServerState.VariantConfig != null)
+        {
+            variantPattern = gm.ServerState.VariantConfig.GetPattern(number);
+        }
+        else if (gm.currentSession != null && gm.currentSession.selectedVariant != null)
+        {
+            PatternData pData = gm.currentSession.selectedVariant.GetPattern(number);
+            if (pData != null) variantPattern = pData.ToDTO();
+        }
+
+        // F1.7: Constantes de scoring desde ScoringConfig (fuente de verdad única)
+        MyGame.Core.ScoringConfigDTO sc = gm.ServerState.ScoringConfig;
+
+        // 3. ENVIAR INTENCIÓN A LA CAPA 0 (LA AUTORIDAD)
+        bool isLegalMove = MyGame.Core.CoreMatchProcessor.ProcessPlacementIntent(
+            gm.ServerState, command, variantPattern, variantPattern,
+            sc.RowCompleteBonus, sc.ColCompleteBonus, sc.IntersectionBonus,
+            sc.RowMultipliers, sc.ColMultipliers
+        );
+
+        if (!isLegalMove)
+        {
+            Debug.LogWarning("[Security] CoreMatchProcessor rechazó la jugada.");
+            UIManager.Instance.SetDrawInputLock(false);
+            if (CommandManager.Instance != null) CommandManager.Instance.isTransitioning = false;
+            return;
+        }
+
+        // 4. SINCRONIZACIÓN VISUAL (Capa 0 -> Capa 1)
+        MyGame.Core.PlayerDataDTO updatedProfile = gm.ServerState.PlayerProfiles[gm.turnManager.CurrentPlayerIndex];
+
+        int puntosGanados = updatedProfile.Score - p.score;
+        p.score = updatedProfile.Score;
+        p.placedDice = updatedProfile.PlacedDice;
+
+        group.occupiedCells.Add(new UnityEngine.Vector2Int(r, c));
+
+        UndoCommand undoCmd = new UndoCommand(gm, gm.turnManager.CurrentPlayerIndex, r, c, color, group.id, number);
         if (CommandManager.Instance != null) CommandManager.Instance.RegisterCommand(undoCmd);
 
-        gm.gridManager.CommitDieToLogic(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id, group.targetSize);
-
-        group.occupiedCells.Add(new Vector2Int(r, c));
-        p.placedDice++;
-        
+        gm.gridManager.CommitDieToLogic(gm.turnManager.CurrentPlayerIndex, r, c, color, group.id, number);
         gm.gridManager.ClearHighlights(gm.turnManager.CurrentPlayerIndex);
 
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlaySFX("Placed");
-        }
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Placed");
 
-        Vector3 posMundo = gm.gridManager.GetWorldPosition(gm.turnManager.CurrentPlayerIndex, r, c);
-
-        PatternData currentPattern = gm.currentSession.selectedVariant.GetPattern(group.targetSize);
-
-        int orthContacts = gm.gridManager.GetOrthogonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id);
-        int diagContacts = gm.gridManager.GetDiagonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id);
-
-        SpecialRule reglaActiva = (SpecialRule)(int)currentPattern.specialRule;
-
-        bool isFirstDie = (p.placedDice == 1);
-
-        RuleEvaluationResult result = SpecialRuleEvaluator.EvaluatePlacement(reglaActiva, orthContacts, diagContacts, isFirstDie);
-
-        if (result.ScoreDelta < 0)
-        {
-            p.score += result.ScoreDelta;
-            PopUpManager.Instance.ShowPopUp(posMundo, $"{result.ScoreDelta}", Color.red);
-        }
-        else
-        {
-            int puntosGanados = 50 + result.ScoreDelta;
-            p.score += puntosGanados;
-            PopUpManager.Instance.ShowPopUp(posMundo, $"+{puntosGanados}", Color.white);
-        }
-
-        if (currentPattern != null && reglaActiva == SpecialRule.ExtraDiagonalContact)
-        {
-            // EL ÚNICO CAMBIO: Usamos el nuevo puente GetDiagonalConnections
-            int conexionesNuevas = gm.gridManager.GetDiagonalConnections(gm.turnManager.CurrentPlayerIndex, r, c, gm.turnManager.CurrentDrawnColor, group.id);
-
-            if (conexionesNuevas > 0)
-            {
-                int bono = conexionesNuevas * 200;
-                p.score += bono;
-                // Esto asume que tienes posMundo definido antes en tu código
-                PopUpManager.Instance.ShowPopUp(posMundo + Vector3.up * 0.5f, $"+{bono}", Color.magenta);
-            }
-        }
-
-        int puntosCombo = gm.gridManager.EvaluateAndApplyCombos(gm.turnManager.CurrentPlayerIndex);
-        if (puntosCombo > 0)
-        {
-            p.score += puntosCombo;
-            if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Nice");
-            PopUpManager.Instance.ShowPopUp(posMundo + Vector3.up * 1f, $"COMBO! +{puntosCombo}", Color.yellow);
-        }
+        UnityEngine.Vector3 posMundo = gm.gridManager.GetWorldPosition(gm.turnManager.CurrentPlayerIndex, r, c);
+        PopUpManager.Instance.ShowPopUp(posMundo, $"+{puntosGanados}", UnityEngine.Color.white);
 
         if (group.isClosed)
         {
-            if (result.IsPatternValid && PatternValidator.CheckPattern(group.occupiedCells, currentPattern))
-            {
-                p.patternCounts[group.targetSize]++;
-                int bonoPatron = ScoreManager.Instance.GetPatternBonus(group.targetSize);
-                p.score += bonoPatron;
-                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Nice");
-                PopUpManager.Instance.ShowPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{bonoPatron}", Color.cyan);
-                
-                gm.gridManager.MarkGroupAsCompleted(gm.turnManager.CurrentPlayerIndex, group.occupiedCells);
-            }
+            if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Nice");
+            gm.gridManager.MarkGroupAsCompleted(gm.turnManager.CurrentPlayerIndex, group.occupiedCells);
         }
 
         UIManager.Instance.UpdateProgressText(group.color, group.targetSize, group.occupiedCells.Count, group.targetSize);
 
-        if (gm.AreAllPlayersFinished())
+        // ==========================================
+        // EVALUACIÓN DE SESIÓN EN LA CAPA 0
+        // ==========================================
+        MyGame.Core.CoreSessionProcessor.EvaluateSessionState(gm.ServerState, gm.maxDicePerPlayer);
+
+        if (gm.ServerState.CurrentPhase == MyGame.Core.MatchPhase.GameOver)
         {
+            // EL SERVIDOR DICTAMINÓ EL FIN DE LA PARTIDA
+            // Sincronizamos las multas finales calculadas en Capa 0 al cliente visual
+            for (int i = 0; i < gm.players.Count; i++)
+            {
+                if (gm.ServerState.PlayerProfiles.ContainsKey(i))
+                {
+                    gm.players[i].score = gm.ServerState.PlayerProfiles[i].Score;
+                }
+            }
             gm.StartCoroutine(gm.EndGameSequence());
         }
         else
         {
+            // LA PARTIDA CONTINÚA
             UIManager.Instance.UpdateScore(p.score);
-        }
 
-        gm.turnManager.HasDrawn = false;
+            // F1.5: HasDrawn se gestiona a través de ServerState
+            gm.ServerState.HasDrawn = false;
+            gm.turnManager.HasDrawn = false;
 
-        if (gm.diceManager.GetTotalDiceLeft() == 0 && !gm.turnManager.HasDrawn)
-        {
-            gm.EndMatch();
-            return;
-        }
-        else
-        {
-            gm.StartCoroutine(gm.turnManager.TurnTransitionPause());
+            if (gm.diceManager.GetTotalDiceLeft() == 0 && !gm.turnManager.HasDrawn)
+            {
+                // Failsafe local
+                gm.EndMatch();
+            }
+            else
+            {
+                // Avance de turno visual
+                gm.StartCoroutine(gm.turnManager.TurnTransitionPause());
+            }
         }
     }
 
@@ -161,7 +175,7 @@ public class PlacementOrchestrator
         if (!p.activeGroups.ContainsKey(drawnColor)) return;
 
         GroupData group = p.activeGroups[drawnColor];
-        VariantData variant = gm.currentSession.selectedVariant;
+        VariantData variant = gm.currentSession != null ? gm.currentSession.selectedVariant : null;
 
         // Obtenemos la matriz lógica actual
         var logic = gm.gridManager.GetBoardLogic(pIndex);
@@ -173,7 +187,6 @@ public class PlacementOrchestrator
         {
             for (int c = 0; c < 8; c++)
             {
-                // Inyectamos la información al Validador
                 bool isValid = PlacementValidator.IsValidPlacement(
                     logic,
                     10, 8,
@@ -187,7 +200,6 @@ public class PlacementOrchestrator
 
                 if (isValid)
                 {
-                    
                     CellComponent cell = gm.gridManager.allCellsVisual[pIndex][r, c];
                     if (cell != null)
                     {
@@ -205,7 +217,7 @@ public class PlacementOrchestrator
             UIManager.Instance.ClearDieUI();
             UIManager.Instance.SetDrawInputLock(false);
             gm.turnManager.HasDrawn = false;
-
+            gm.ServerState.HasDrawn = false;
 
             if (p.reDraws > 0)
             {
@@ -213,7 +225,7 @@ public class PlacementOrchestrator
                 if (gm.reDrawButton != null) gm.reDrawButton.interactable = true;
                 if (PopUpManager.Instance != null)
                 {
-                    PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "DADO INJUGABLE\n¡Usa un Re-Draw!", Color.yellow);
+                    PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, "DADO INJUGABLE\n¡Usa un Re-Draw!", UnityEngine.Color.yellow);
                 }
             }
             else
@@ -221,45 +233,36 @@ public class PlacementOrchestrator
                 // MUERTE SÚBITA (0 REDRAWS)
                 p.isEliminated = true;
 
-                // Calculamos cuántas rondas le quedaban (Ej: 52 dados máximos por tablero)
                 int maxDadosPorJugador = 52;
                 int rondasFaltantes = maxDadosPorJugador - p.placedDice;
 
-                // Contamos cuántos jugadores NO están eliminados
                 int jugadoresVivos = 0;
-                // NOTA: Ajusta esto a cómo se llame tu lista de jugadores en GameManager o TurnManager
-                // Asumo que tienes algo como gm.turnManager.GetAllPlayers() o puedes consultarlo
-                foreach (var player in gm.players) // Reemplaza 'playerList' por tu lista real
+                foreach (var player in gm.players)
                 {
                     if (!player.isEliminated) jugadoresVivos++;
                 }
 
                 if (jugadoresVivos == 0)
                 {
-                    // SINGLE PLAYER O ÚLTIMO JUGADOR VIVO: Se acaba la partida de inmediato
                     if (PopUpManager.Instance != null)
-                        PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "TABLERO MUERTO", Color.red);
+                        PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, "TABLERO MUERTO", UnityEngine.Color.red);
 
                     gm.EndMatch();
                 }
                 else
                 {
-                    // MULTIJUGADOR: Quedan otros. Quemamos sus dados y pasamos turno
                     if (rondasFaltantes > 0)
                     {
                         gm.diceManager.BurnRandomDice(rondasFaltantes);
                     }
 
                     if (PopUpManager.Instance != null)
-                        PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "¡JUGADOR ELIMINADO!", Color.red);
+                        PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, "¡JUGADOR ELIMINADO!", UnityEngine.Color.red);
 
-                    // Pasamos turno forzosamente
                     gm.turnManager.EndTurn();
                 }
             }
             return;
         }
-
     }
-
 }
