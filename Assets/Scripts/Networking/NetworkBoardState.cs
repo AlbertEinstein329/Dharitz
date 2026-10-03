@@ -77,7 +77,7 @@ namespace MyGame.Networking
                         dto.Cells[index] = new CellStateDTO
                         {
                             IsOccupied = true,
-                            Color = (DieColor)colorVal,
+                            Color = (MyGame.Core.DieColor)colorVal,
                             Value = number
                         };
                     }
