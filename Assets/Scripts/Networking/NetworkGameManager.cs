@@ -31,6 +31,15 @@ namespace MyGame.Networking
 
         public event Action<NetworkMatchSnapshot> OnSnapshotApplied;
 
+        // Ultimo estado aplicado en esta maquina (para que la UI sepa si hay que confirmar, deshacer, etc.)
+        public NetworkMatchSnapshot LastSnapshot { get; private set; }
+        public bool HasSnapshot { get; private set; }
+
+        // Fase de confirmar (solo servidor): tras colocar, el turno sigue abierto hasta confirmar o agotar el tiempo.
+        // La pila permite reversar acciones del turno (Undo) y se vacia al robar o cambiar de turno.
+        private readonly List<TurnCheckpoint> turnHistory = new List<TurnCheckpoint>();
+        private bool turnPlaced;
+
         private bool matchStarted;
         private NetworkMatchSnapshot pendingSnapshot;
         private bool hasPendingSnapshot;
@@ -232,12 +241,20 @@ namespace MyGame.Networking
         {
             if (!TryGetActingPlayer(rpcParams, "DrawDie", out int playerIndex, out MatchStateDTO serverState)) return;
 
+            if (turnPlaced)
+            {
+                Debug.LogWarning("[NetworkGameManager] DrawDie rechazado: ya colocaste este turno. Confirma el turno.");
+                return;
+            }
+
             var drawCommand = new DrawDieCommand { PlayerId = playerIndex };
             if (!CoreDrawProcessor.ProcessDrawIntent(serverState, drawCommand, serverState.ServerRNG))
             {
                 Debug.LogWarning("[NetworkGameManager] DrawDie rechazado por reglas autoritativas.");
                 return;
             }
+
+            turnHistory.Clear(); // robar confirma lo hecho antes, igual que en local
 
             BroadcastSnapshot(new NetworkActionSnapshot { Type = NetworkActionType.Drew, PlayerIndex = playerIndex });
         }
@@ -247,11 +264,19 @@ namespace MyGame.Networking
         {
             if (!TryGetActingPlayer(rpcParams, "ReDraw", out int playerIndex, out MatchStateDTO serverState)) return;
 
+            if (turnPlaced)
+            {
+                Debug.LogWarning("[NetworkGameManager] ReDraw rechazado: ya colocaste este turno.");
+                return;
+            }
+
             if (!CoreDrawProcessor.ProcessReDrawIntent(serverState, new ReDrawCommand { PlayerId = playerIndex }, serverState.ServerRNG))
             {
                 Debug.LogWarning("[NetworkGameManager] ReDraw rechazado por reglas autoritativas.");
                 return;
             }
+
+            turnHistory.Clear();
 
             // Igual que DiceManager.UseReDraw en local: devolver el dado implica robar otro al instante
             CoreDrawProcessor.ProcessDrawIntent(serverState, new DrawDieCommand { PlayerId = playerIndex }, serverState.ServerRNG);
@@ -285,6 +310,9 @@ namespace MyGame.Networking
             ScoringConfigDTO sc = serverState.ScoringConfig;
             int scoreBefore = profile.Score;
 
+            // Punto de restauracion previo a colocar: permite deshacer mientras el turno siga abierto
+            TurnCheckpoint checkpoint = CoreTurnActions.Capture(serverState, playerIndex, true);
+
             // Convención del juego local: X = fila, Y = columna (ver GridManager.GetBoardStateDTO)
             var placeCommand = new PlaceDieCommand
             {
@@ -317,8 +345,86 @@ namespace MyGame.Networking
                 ClosedGroup = profile.ActiveGroups[color].IsClosed
             };
 
-            FinishTurn(serverState);
+            // El dado queda colocado pero el turno sigue abierto: Undo / Move / Confirmar
+            turnHistory.Add(checkpoint);
+            CoreTurnActions.ConsumeHand(serverState);
+            turnPlaced = true;
+
             BroadcastSnapshot(action);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestConfirmTurnServerRpc(ServerRpcParams rpcParams = default)
+        {
+            if (!TryGetActingPlayer(rpcParams, "ConfirmTurn", out int playerIndex, out MatchStateDTO serverState)) return;
+
+            if (!turnPlaced)
+            {
+                Debug.LogWarning("[NetworkGameManager] ConfirmTurn rechazado: aun no has colocado un dado.");
+                return;
+            }
+
+            FinishTurn(serverState);
+            BroadcastSnapshot(new NetworkActionSnapshot { Type = NetworkActionType.TurnConfirmed, PlayerIndex = playerIndex });
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestUndoServerRpc(ServerRpcParams rpcParams = default)
+        {
+            ulong senderId = rpcParams.Receive.SenderClientId;
+            if (!TryGetActingPlayer(rpcParams, "Undo", out int playerIndex, out MatchStateDTO serverState)) return;
+
+            bool undoingPlacement = turnHistory.Count > 0 && turnHistory[turnHistory.Count - 1].IsPlacement;
+
+            if (!CoreTurnActions.TryUndo(serverState, playerIndex, turnHistory))
+            {
+                Debug.LogWarning("[NetworkGameManager] Undo rechazado (sin usos o sin acciones que deshacer).");
+                NotifyPlacementFailedClientRpc(senderId, "No se puede deshacer.");
+                return;
+            }
+
+            if (undoingPlacement) turnPlaced = false;
+
+            BroadcastSnapshot(new NetworkActionSnapshot { Type = NetworkActionType.Undone, PlayerIndex = playerIndex });
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestMoveServerRpc(int fromRow, int fromCol, int toRow, int toCol, ServerRpcParams rpcParams = default)
+        {
+            ulong senderId = rpcParams.Receive.SenderClientId;
+            if (!TryGetActingPlayer(rpcParams, "Move", out int playerIndex, out MatchStateDTO serverState)) return;
+
+            // El patron sale del grupo del dado que se mueve, nunca del cliente
+            PatternDefDTO pattern = null;
+            BoardStateDTO board = serverState.PlayerBoards[playerIndex];
+            if (fromRow >= 0 && fromRow < board.Rows && fromCol >= 0 && fromCol < board.Cols)
+            {
+                CellStateDTO cell = board.Cells[board.GetIndex(fromRow, fromCol)];
+                if (cell.IsOccupied && serverState.PlayerProfiles[playerIndex].ActiveGroups.TryGetValue(cell.Color, out GroupDataDTO movedGroup))
+                {
+                    pattern = serverState.VariantConfig?.GetPattern(movedGroup.TargetSize);
+                }
+            }
+
+            int scoreBefore = serverState.PlayerProfiles[playerIndex].Score;
+            MoveExecutionResult result = CoreTurnActions.TryMove(serverState, playerIndex, fromRow, fromCol, toRow, toCol, pattern, turnHistory);
+
+            if (!result.IsValid)
+            {
+                Debug.LogWarning($"[NetworkGameManager] Move ({fromRow},{fromCol})->({toRow},{toCol}) rechazado por reglas autoritativas.");
+                NotifyPlacementFailedClientRpc(senderId, "Movimiento no válido según las reglas.");
+                return;
+            }
+
+            BroadcastSnapshot(new NetworkActionSnapshot
+            {
+                Type = NetworkActionType.Moved,
+                PlayerIndex = playerIndex,
+                Row = toRow,
+                Col = toCol,
+                ScoreDelta = serverState.PlayerProfiles[playerIndex].Score - scoreBefore,
+                ClosedGroup = result.PatternCompleted
+            });
         }
 
         private bool TryGetActingPlayer(ServerRpcParams rpcParams, string actionName, out int playerIndex, out MatchStateDTO serverState)
@@ -377,6 +483,9 @@ namespace MyGame.Networking
 
         private void FinishTurn(MatchStateDTO state)
         {
+            turnHistory.Clear();
+            turnPlaced = false;
+
             CoreSessionProcessor.EvaluateSessionState(state, GameManager.Instance.maxDicePerPlayer);
 
             if (state.CurrentPhase != MatchPhase.GameOver)
@@ -420,7 +529,7 @@ namespace MyGame.Networking
                 slots[i] = playerIndexToClientId.TryGetValue(i, out ulong id) ? id : ulong.MaxValue;
             }
 
-            NetworkMatchSnapshot snapshot = NetworkMatchSnapshot.FromState(GameManager.Instance.ServerState, slots, action);
+            NetworkMatchSnapshot snapshot = NetworkMatchSnapshot.FromState(GameManager.Instance.ServerState, slots, action, turnPlaced, turnHistory.Count);
             ReceiveSnapshotClientRpc(snapshot);
         }
 
@@ -442,6 +551,9 @@ namespace MyGame.Networking
 
         private void ApplySnapshot(NetworkMatchSnapshot snapshot)
         {
+            LastSnapshot = snapshot;
+            HasSnapshot = true;
+
             OnlineMatchPresenter.Apply(snapshot, LocalPlayerIndex, IsServer);
             OnSnapshotApplied?.Invoke(snapshot);
         }

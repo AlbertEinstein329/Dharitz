@@ -126,8 +126,26 @@ namespace MyGame.Networking
         private static void PlayActionFeedback(GameManager gm, NetworkMatchSnapshot snap)
         {
             NetworkActionSnapshot action = snap.LastAction;
-            if (action.Type != NetworkActionType.Placed) return;
             if (action.PlayerIndex < 0 || action.PlayerIndex >= gm.players.Count) return;
+
+            if (action.Type == NetworkActionType.Undone)
+            {
+                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Undo");
+                return;
+            }
+
+            if (action.Type == NetworkActionType.Moved)
+            {
+                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(action.ClosedGroup ? "Nice" : "Placed");
+                if (action.ClosedGroup && PopUpManager.Instance != null)
+                {
+                    Vector3 movePos = gm.gridManager.GetWorldPosition(action.PlayerIndex, action.Row, action.Col);
+                    PopUpManager.Instance.ShowPopUp(movePos, $"PERFECT! +{action.ScoreDelta}", Color.cyan);
+                }
+                return;
+            }
+
+            if (action.Type != NetworkActionType.Placed) return;
 
             if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Placed");
 
@@ -176,17 +194,20 @@ namespace MyGame.Networking
             UIManager.Instance.UpdateDiceCounters(bag[0], bag[1], bag[2], bag[3]);
             if (me != null) UIManager.Instance.UpdateScore(me.score);
 
-            // Solo se puede tocar la bolsa en el turno propio y con la mano vacía
-            UIManager.Instance.SetDrawInputLock(!(isMyTurn && !snap.HasDrawn));
-            if (gm.drawButton != null) gm.drawButton.interactable = isMyTurn && !snap.HasDrawn && snap.BagTotal > 0;
-            if (gm.reDrawButton != null) gm.reDrawButton.interactable = hasHandNow && me != null && me.reDraws > 0;
+            // Solo se puede robar en el turno propio, con la mano vacía y sin haber colocado ya (hay que confirmar)
+            bool canDraw = isMyTurn && !snap.HasDrawn && !snap.TurnPlaced;
+            UIManager.Instance.SetDrawInputLock(!canDraw);
+            if (gm.drawButton != null) gm.drawButton.interactable = canDraw && snap.BagTotal > 0;
+            if (gm.reDrawButton != null) gm.reDrawButton.interactable = hasHandNow && !snap.TurnPlaced && me != null && me.reDraws > 0;
             if (gm.reDrawText != null && me != null) gm.reDrawText.text = $"{me.reDraws}";
 
-            // Undo y Move todavía mutan estado local: deshabilitados online hasta pasar por el servidor
-            if (UIManager.Instance.undoButton != null) UIManager.Instance.undoButton.interactable = false;
+            // Undo y Move pasan por el servidor y solo valen mientras el turno propio siga abierto
+            UIManager.Instance.UpdateUndoUI(me != null ? me.currentUndoUses : 0, isMyTurn && snap.CheckpointCount > 0);
+            if (GridInteractionManager.Instance != null)
+                GridInteractionManager.Instance.SetOnlineMoveAvailable(isMyTurn && me != null && me.currentMoveUses > 0);
 
-            // Un Re-Draw mantiene la mano llena pero cambia el dado: el servidor lo marca como Drew
-            bool handReplaced = snap.LastAction.Type == NetworkActionType.Drew;
+            // Un Re-Draw mantiene la mano llena pero cambia el dado, y un Undo de colocación la devuelve: se repinta la mano
+            bool handReplaced = snap.LastAction.Type == NetworkActionType.Drew || snap.LastAction.Type == NetworkActionType.Undone;
             if (hasHandNow && (!hadHandInMyTurn || handReplaced))
             {
                 gm.gridManager.ClearHighlights(localPlayerIndex);
@@ -199,6 +220,13 @@ namespace MyGame.Networking
                         gm.gridManager.ShowValidMoves(pIndex, color, group.id, group.targetSize);
                     });
                 }
+            }
+            else if (hasHandNow && snap.LastAction.Type == NetworkActionType.Moved
+                && me != null && me.activeGroups.TryGetValue(gm.turnManager.CurrentDrawnColor, out GroupData handGroup))
+            {
+                // El tablero cambió con un Move: se recalculan las casillas válidas del dado en mano
+                gm.gridManager.ClearHighlights(localPlayerIndex);
+                gm.gridManager.ShowValidMoves(localPlayerIndex, gm.turnManager.CurrentDrawnColor, handGroup.id, handGroup.targetSize);
             }
             else if (hadHandInMyTurn && !hasHandNow)
             {

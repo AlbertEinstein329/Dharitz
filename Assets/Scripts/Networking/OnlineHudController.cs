@@ -24,6 +24,7 @@ namespace MyGame.Networking
         private TextMeshProUGUI timerLabel;
         private TextMeshProUGUI bannerLabel;
         private GameObject reconnectButton;
+        private GameObject confirmButton;
         private float bannerHideTime;
 
         private bool subscribed;
@@ -89,6 +90,12 @@ namespace MyGame.Networking
                     timerLabel.text = string.Empty;
                 }
             }
+
+            // Fase de confirmar: el dado ya esta colocado y el turno sigue abierto hasta pulsar CONFIRMAR
+            bool showConfirm = inPlay && game.HasSnapshot && game.LastSnapshot.TurnPlaced
+                && game.LastSnapshot.CurrentPlayerIndex == game.LocalPlayerIndex
+                && game.LastSnapshot.Phase == (byte)Core.MatchPhase.PlayerTurn;
+            confirmButton.SetActive(showConfirm);
 
             // Caida de conexion en mitad de la partida: se ofrece volver a la sesion
             MultiplayerMatchmaker matchmaker = MultiplayerMatchmaker.Instance;
@@ -161,6 +168,11 @@ namespace MyGame.Networking
             SceneManager.LoadScene(menuSceneIndex);
         }
 
+        private void ConfirmTurn()
+        {
+            if (NetworkGameManager.Instance != null) NetworkGameManager.Instance.RequestConfirmTurnServerRpc();
+        }
+
         private async void Reconnect()
         {
             if (MultiplayerMatchmaker.Instance == null) return;
@@ -198,6 +210,9 @@ namespace MyGame.Networking
             bannerLabel = CreateLabel("Banner", new Vector2(0.5f, 0.9f), new Vector2(980, 90), 36, TextAlignmentOptions.Center);
             bannerLabel.color = new Color(1f, 0.8f, 0.2f);
             bannerLabel.gameObject.SetActive(false);
+
+            confirmButton = CreateButton("Confirm", "CONFIRMAR TURNO", new Vector2(0.5f, 0.13f), new Vector2(560, 110), ConfirmTurn);
+            confirmButton.SetActive(false);
 
             reconnectButton = CreateButton("Reconnect", "RECONECTAR", new Vector2(0.5f, 0.55f), new Vector2(520, 110), Reconnect);
             reconnectButton.SetActive(false);

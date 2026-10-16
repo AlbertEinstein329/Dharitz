@@ -11,7 +11,10 @@ namespace MyGame.Networking
         MatchStarted,
         Drew,
         Placed,
-        TurnForced
+        TurnForced,
+        Moved,
+        Undone,
+        TurnConfirmed
     }
 
     /// <summary>
@@ -104,6 +107,10 @@ namespace MyGame.Networking
         public NetworkPlayerSnapshot[] Players;
         public NetworkActionSnapshot LastAction;
 
+        // Fase de confirmar: el dado ya se coloco pero el turno sigue abierto (Undo/Move/Confirmar)
+        public bool TurnPlaced;
+        public byte CheckpointCount; // acciones reversibles del turno actual
+
         public int BagTotal
         {
             get
@@ -114,7 +121,7 @@ namespace MyGame.Networking
             }
         }
 
-        public static NetworkMatchSnapshot FromState(MatchStateDTO state, ulong[] slotClientIds, NetworkActionSnapshot lastAction)
+        public static NetworkMatchSnapshot FromState(MatchStateDTO state, ulong[] slotClientIds, NetworkActionSnapshot lastAction, bool turnPlaced = false, int checkpointCount = 0)
         {
             var snap = new NetworkMatchSnapshot
             {
@@ -127,7 +134,9 @@ namespace MyGame.Networking
                 BagCountsByColor = new int[4],
                 SlotClientIds = slotClientIds,
                 Players = new NetworkPlayerSnapshot[state.PlayerProfiles.Count],
-                LastAction = lastAction
+                LastAction = lastAction,
+                TurnPlaced = turnPlaced,
+                CheckpointCount = (byte)checkpointCount
             };
 
             if (state.DiceBag != null)
@@ -246,6 +255,8 @@ namespace MyGame.Networking
             for (int i = 0; i < playerCount; i++) Players[i].NetworkSerialize(serializer);
 
             LastAction.NetworkSerialize(serializer);
+            serializer.SerializeValue(ref TurnPlaced);
+            serializer.SerializeValue(ref CheckpointCount);
         }
 
         // Arrays con prefijo de longitud; un array nulo viaja como vacío

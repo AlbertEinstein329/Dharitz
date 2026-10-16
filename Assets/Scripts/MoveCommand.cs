@@ -61,8 +61,8 @@ public class MoveCommand : IGridCommand
 
         if (p.activeGroups.TryGetValue(color, out GroupData group) && group != null)
         {
-            group.occupiedCells.Remove(new Vector2Int(oldC, oldR));
-            group.occupiedCells.Add(new Vector2Int(newC, newR));
+            group.occupiedCells.Remove(new Vector2Int(oldR, oldC));
+            group.occupiedCells.Add(new Vector2Int(newR, newC));
         }
 
         // 4. ANIMACIONES Y UI BASADAS EN EL VEREDICTO DEL SERVIDOR
@@ -107,8 +107,8 @@ public class MoveCommand : IGridCommand
 
         if (p.activeGroups.TryGetValue(color, out GroupData group) && group != null)
         {
-            group.occupiedCells.Remove(new Vector2Int(newC, newR));
-            group.occupiedCells.Add(new Vector2Int(oldC, oldR));
+            group.occupiedCells.Remove(new Vector2Int(newR, newC));
+            group.occupiedCells.Add(new Vector2Int(oldR, oldC));
 
             if (executionResult.PatternCompleted)
             {

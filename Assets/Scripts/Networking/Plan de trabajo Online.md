@@ -193,3 +193,15 @@ Total aproximado: 9-11 días de trabajo.
 - **Verificado:** regresión de 1 jugador (Host, robar y colocar replicados) tras el cambio. **Sin verificar:** reconexión real con dos instancias (cerrar el cliente de Multiplayer Play Mode y pulsar RECONECTAR).
 - **Decisión pendiente (Undo/Move online):** el turno online termina al colocar (no hay pausa de transición), así que el Undo "del último dado" local no tiene hueco. Hace falta decidir una regla: (a) fase de confirmar turno, (b) Undo solo del propio turno antes de confirmar, o (c) dejarlo desactivado online. Move depende de lo mismo.
 - **Pendiente:** fase 4 (servidor dedicado Linux + Multiplay) y antitrampas básicas (límite de RPCs).
+
+### Fase de confirmar turno online (16-10-2026, parte 4)
+
+Decidido: tras colocar, el turno **no** termina. El servidor deja el turno abierto hasta que el jugador pulsa CONFIRMAR TURNO o se agota el temporizador.
+
+- `Core/CoreTurnActions` (lógica pura): puntos de restauración (copia profunda de perfil + tablero) en una pila LIFO por turno. `TryUndo` revierte la última acción (colocar devuelve el dado a la mano; mover devuelve el uso de Move) y gasta un Undo; `TryMove` mueve un dado propio con las reglas de `CoreMoveProcessor`.
+- `NetworkGameManager`: nuevos RPC `RequestConfirmTurnServerRpc`, `RequestUndoServerRpc` y `RequestMoveServerRpc`. Colocar ya no avanza el turno; robar/re-robar se rechazan mientras haya un dado colocado sin confirmar; robar limpia la pila (igual que en local). El temporizador cierra el turno con la colocación hecha.
+- Snapshot: `TurnPlaced` y `CheckpointCount`; acciones `Moved`, `Undone`, `TurnConfirmed`. La UI online (Undo, Move, robar, CONFIRMAR) se habilita a partir de ellos.
+- Cliente: botón CONFIRMAR TURNO en el HUD; el botón Undo y el toggle Move de la escena ahora envían RPC al servidor.
+- Corregido de paso un bug de coordenadas: `CoreMoveProcessor.ProcessMove/UndoMove` guardaban `OccupiedCells` como (columna, fila) mientras la colocación los guarda como (fila, columna); `MoveCommand` (local) hacía lo mismo con `Vector2Int`. Ahora ambos usan (fila, columna).
+- **Verificado** (Host de 1 jugador): colocar deja el turno abierto con CONFIRMAR visible y robar bloqueado; Undo devuelve el dado, puntaje y casilla y gasta 1 uso; Confirmar pasa el turno; Move replica al cliente y gasta el uso, y su Undo lo devuelve; el 2º Undo se rechaza al agotar los usos; el temporizador cierra un turno ya colocado. **Sin verificar:** el flujo con dos jugadores reales, y el toggle Move con clics reales (se probó por RPC).
+- Conocido: `ProcessMove` otorga +100 cada vez que un grupo completo se mueve (limitado por los usos de Move).
