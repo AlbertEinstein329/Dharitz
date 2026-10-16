@@ -59,7 +59,9 @@ namespace MyGame.Networking
             waitingLabel.gameObject.SetActive(!matchEverStarted);
             if (!matchEverStarted)
             {
-                if (!connected) waitingLabel.text = "Sin conexion.\nInicia Host / Client desde el panel de pruebas.";
+                MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
+                if (!connected && mm != null && !string.IsNullOrEmpty(mm.LastStatus)) waitingLabel.text = mm.LastStatus;
+                else if (!connected) waitingLabel.text = "Sin conexion.\nInicia Host / Client desde el panel de pruebas.";
                 else if (net.IsServer) waitingLabel.text = $"Esperando jugadores ({net.ConnectedClientsIds.Count}/{GameManager.Instance.numPlayers})...";
                 else waitingLabel.text = "Conectado. Esperando al inicio de la partida...";
             }
@@ -144,6 +146,8 @@ namespace MyGame.Networking
 
         private void LeaveMatch()
         {
+            if (MultiplayerMatchmaker.Instance != null) _ = MultiplayerMatchmaker.Instance.LeaveSessionAsync();
+
             if (NetworkBootstrap.Instance != null) NetworkBootstrap.Instance.Disconnect();
             else if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) NetworkManager.Singleton.Shutdown();
 

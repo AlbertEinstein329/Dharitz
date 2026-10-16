@@ -41,6 +41,15 @@ namespace MyGame.Networking
             SceneManager.LoadScene(boardSceneIndex);
         }
 
+        private void QuickMatch(MatchMode mode)
+        {
+            if (!Configure((int)mode)) return;
+
+            OnlineLaunchRequest.SetQuickMatch(mode);
+            statusLabel.text = $"Buscando partida de {(int)mode} jugadores...";
+            SceneManager.LoadScene(boardSceneIndex);
+        }
+
         private void JoinRoom()
         {
             // El numero de jugadores lo decide el host; el cliente solo necesita saber que es una partida online
@@ -106,14 +115,17 @@ namespace MyGame.Networking
             panel.GetComponent<Image>().color = new Color(0.06f, 0.06f, 0.1f, 0.96f);
 
             MakeLabel(panel.transform, "Title", "JUGAR ONLINE", new Vector2(0.5f, 0.92f), new Vector2(800, 90), 56);
-            MakeButton(panel.transform, "Create2", "CREAR SALA 2 JUGADORES", new Vector2(0.5f, 0.78f), new Vector2(760, 110), () => CreateRoom(2));
-            MakeButton(panel.transform, "Create4", "CREAR SALA 4 JUGADORES", new Vector2(0.5f, 0.64f), new Vector2(760, 110), () => CreateRoom(4));
+            MakeButton(panel.transform, "Quick2", "PARTIDA RAPIDA 2 JUGADORES", new Vector2(0.5f, 0.82f), new Vector2(760, 100), () => QuickMatch(MatchMode.TwoPlayers));
+            MakeButton(panel.transform, "Quick4", "PARTIDA RAPIDA 4 JUGADORES", new Vector2(0.5f, 0.70f), new Vector2(760, 100), () => QuickMatch(MatchMode.FourPlayers));
 
-            MakeLabel(panel.transform, "IpLabel", "IP del anfitrion:", new Vector2(0.5f, 0.5f), new Vector2(760, 60), 36);
-            ipField = MakeInput(panel.transform, "IpField", "127.0.0.1", new Vector2(0.5f, 0.42f), new Vector2(760, 90));
-            MakeButton(panel.transform, "Join", "UNIRSE", new Vector2(0.5f, 0.3f), new Vector2(760, 110), JoinRoom);
+            MakeLabel(panel.transform, "LanLabel", "Red local (sin matchmaking)", new Vector2(0.5f, 0.59f), new Vector2(760, 50), 30);
+            MakeButton(panel.transform, "Create2", "CREAR SALA 2J", new Vector2(0.27f, 0.51f), new Vector2(370, 90), () => CreateRoom(2));
+            MakeButton(panel.transform, "Create4", "CREAR SALA 4J", new Vector2(0.73f, 0.51f), new Vector2(370, 90), () => CreateRoom(4));
 
-            statusLabel = MakeLabel(panel.transform, "Status", "Para jugar entre dos equipos: uno crea la sala y el otro se une con su IP.", new Vector2(0.5f, 0.15f), new Vector2(800, 150), 30);
+            ipField = MakeInput(panel.transform, "IpField", "127.0.0.1", new Vector2(0.37f, 0.39f), new Vector2(480, 90));
+            MakeButton(panel.transform, "Join", "UNIRSE POR IP", new Vector2(0.79f, 0.39f), new Vector2(240, 90), JoinRoom);
+
+            statusLabel = MakeLabel(panel.transform, "Status", "Partida rapida: te une a una sala libre o crea una nueva y espera rivales.", new Vector2(0.5f, 0.2f), new Vector2(800, 150), 30);
             MakeButton(panel.transform, "Close", "VOLVER", new Vector2(0.5f, 0.05f), new Vector2(400, 90), () => panel.SetActive(false));
 
             panel.SetActive(false);

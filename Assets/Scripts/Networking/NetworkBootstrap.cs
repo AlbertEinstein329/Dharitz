@@ -45,7 +45,20 @@ namespace MyGame.Networking
 #endif
         }
 
-        public async Task InitializeServicesAsync()
+        private Task initTask;
+
+        /// <summary>
+        /// Idempotente y seguro ante llamadas simultaneas (Start y el matchmaker pueden coincidir):
+        /// todas esperan la misma inicializacion en curso.
+        /// </summary>
+        public Task InitializeServicesAsync()
+        {
+            if (IsServicesInitialized) return Task.CompletedTask;
+            if (initTask == null) initTask = InitializeCoreAsync();
+            return initTask;
+        }
+
+        private async Task InitializeCoreAsync()
         {
             if (IsServicesInitialized) return;
 
@@ -71,6 +84,7 @@ namespace MyGame.Networking
             catch (Exception ex)
             {
                 Debug.LogError($"[NetworkBootstrap] Error al inicializar UGS: {ex.Message}");
+                initTask = null; // permite reintentar
                 OnAuthenticationFailed?.Invoke(ex.Message);
             }
         }

@@ -177,3 +177,11 @@ Total aproximado: 9-11 días de trabajo.
 - Slots por `PlayerId` de UGS para reconexión real (hoy un cliente que cae pierde su sitio) y reenvío de snapshot al reconectar.
 - Fase 4 (servidor dedicado Multiplay/Linux) y Fase 5 (Undo/Move online, resultados y Cloud Save, antitrampas).
 - Nota de Editor: si el puerto 7777 queda ocupado tras parar Play con la red activa, reinicia Unity (el socket queda colgado). Apaga la red antes de parar Play.
+
+### Matchmaking por cola (16-10-2026, parte 2)
+
+- Instalado `com.unity.services.multiplayer` 2.4.1. `MultiplayerMatchmaker` ya no es un mock: usa `MatchmakeSessionAsync` (quick join + Relay). Filtra por una propiedad indexada `dharitzMode` (2p/4p), porque `MaxPlayers` no es filtrable. Si no hay sala libre, crea una y espera.
+- Menú: «Partida rápida 2/4 jugadores» → carga `Tablero` → `OnlineAutoConnect` lanza la búsqueda → el SDK arranca Host/Client sobre el `NetworkManager` de la escena.
+- Verificado contra Unity Services: login anónimo, Lobby (sesión creada) y Relay (join code) responden bien.
+- **Bloqueo abierto:** al arrancar el Host por Relay (DTLS) el Editor lanza `Burst failed to compile the function pointer SendCallback` (UnityTLS). Con UDP directo (salas por IP) el Host sí arranca. Probar: *Jobs ▸ Burst ▸ Enable Compilation* desactivado en el Editor, o una build Windows/Android. Sin este paso no se ha podido ver una partida rápida completa.
+- Pendiente: slots por `PlayerId` de UGS para reconexión, y fases 4-5.

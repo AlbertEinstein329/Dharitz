@@ -8,7 +8,8 @@ namespace MyGame.Networking
     {
         None,
         Host,
-        Client
+        Client,
+        QuickMatch
     }
 
     /// <summary>
@@ -20,12 +21,19 @@ namespace MyGame.Networking
         public static OnlineRole Role { get; private set; } = OnlineRole.None;
         public static string Ip { get; private set; } = "127.0.0.1";
         public static ushort Port { get; private set; } = 7777;
+        public static MatchMode Mode { get; private set; } = MatchMode.TwoPlayers;
 
         public static void Set(OnlineRole role, string ip, ushort port)
         {
             Role = role;
             Ip = string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip.Trim();
             Port = port == 0 ? (ushort)7777 : port;
+        }
+
+        public static void SetQuickMatch(MatchMode mode)
+        {
+            Role = OnlineRole.QuickMatch;
+            Mode = mode;
         }
 
         public static void Clear() => Role = OnlineRole.None;
@@ -45,6 +53,7 @@ namespace MyGame.Networking
             yield return null;
 
             OnlineRole role = OnlineLaunchRequest.Role;
+            MatchMode mode = OnlineLaunchRequest.Mode;
             string ip = OnlineLaunchRequest.Ip;
             ushort port = OnlineLaunchRequest.Port;
             OnlineLaunchRequest.Clear();
@@ -57,6 +66,19 @@ namespace MyGame.Networking
             }
 
             if (net.IsListening) yield break;
+
+            // Busqueda rapida: el SDK de Multiplayer Services crea o une la sesion y arranca Host/Client por Relay
+            if (role == OnlineRole.QuickMatch)
+            {
+                if (MultiplayerMatchmaker.Instance == null)
+                {
+                    Debug.LogError("[OnlineAutoConnect] Falta MultiplayerMatchmaker en la escena.");
+                    yield break;
+                }
+
+                _ = MultiplayerMatchmaker.Instance.StartMatchmakingAsync(mode);
+                yield break;
+            }
 
             NetworkBootstrap bootstrap = NetworkBootstrap.Instance;
             if (bootstrap == null)
