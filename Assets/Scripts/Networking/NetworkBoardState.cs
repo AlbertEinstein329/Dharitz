@@ -7,7 +7,8 @@ namespace MyGame.Networking
 {
     /// <summary>
     /// Estructura de red optimizada para sincronizar el estado del tablero (8x10).
-    /// Serializa los 80 casilleros en una ráfaga comprimida de bytes (80 bytes max).
+    /// Serializa los 80 casilleros en una ráfaga comprimida de bytes (80 bytes max),
+    /// más el GroupId de cada casilla ocupada (necesario para validar adyacencia en el cliente).
     /// </summary>
     public struct NetworkBoardState : INetworkSerializable
     {
@@ -15,6 +16,7 @@ namespace MyGame.Networking
         public byte Rows;
         public byte Cols;
         public byte[] CompressedCells; // Cada celda = (colorId << 4) | (numero & 0x0F)
+        public int[] GroupIds;         // Paralelo a CompressedCells; 0 en casillas vacías
 
         public NetworkBoardState(int playerIndex, BoardStateDTO dto)
         {
@@ -22,6 +24,7 @@ namespace MyGame.Networking
             Rows = (byte)dto.Rows;
             Cols = (byte)dto.Cols;
             CompressedCells = new byte[Rows * Cols];
+            GroupIds = new int[Rows * Cols];
 
             for (int r = 0; r < Rows; r++)
             {
@@ -34,6 +37,7 @@ namespace MyGame.Networking
                         byte colorVal = (byte)cell.Color;
                         byte numberVal = (byte)cell.Value;
                         CompressedCells[index] = (byte)(((colorVal + 1) << 4) | (numberVal & 0x0F));
+                        GroupIds[index] = cell.GroupId;
                     }
                     else
                     {
@@ -53,11 +57,18 @@ namespace MyGame.Networking
             {
                 int count = Rows * Cols;
                 CompressedCells = new byte[count];
+                GroupIds = new int[count];
             }
 
             for (int i = 0; i < CompressedCells.Length; i++)
             {
                 serializer.SerializeValue(ref CompressedCells[i]);
+            }
+
+            // Solo viajan los GroupId de las casillas ocupadas
+            for (int i = 0; i < CompressedCells.Length; i++)
+            {
+                if (CompressedCells[i] != 0) serializer.SerializeValue(ref GroupIds[i]);
             }
         }
 
@@ -78,6 +89,7 @@ namespace MyGame.Networking
                         {
                             IsOccupied = true,
                             Color = (MyGame.Core.DieColor)colorVal,
+                            GroupId = GroupIds[index],
                             Value = number
                         };
                     }

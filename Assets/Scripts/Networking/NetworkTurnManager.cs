@@ -42,10 +42,8 @@ namespace MyGame.Networking
                 OnTimerTick?.Invoke(newVal);
             };
 
-            if (IsServer)
-            {
-                StartTurnTimer();
-            }
+            // El temporizador arranca cuando NetworkGameManager inicia la partida (AdvanceTurn),
+            // no al spawnear: antes de que estén todos los jugadores no hay turno que agotar.
         }
 
         private void Update()
@@ -76,14 +74,18 @@ namespace MyGame.Networking
             int activePlayer = NetworkPlayerTurn.Value;
             Debug.LogWarning($"[NetworkTurnManager] Tiempo agotado para Jugador {activePlayer}. Forzando fin de turno.");
 
-            // Si el jugador no colocó dado, el servidor ejecuta la penalización/quemado
-            if (GameManager.Instance != null && GameManager.Instance.turnManager != null)
+            // El dado en mano vuelve a la bolsa y el turno avanza en la Capa 0.
+            // NetworkGameManager reinicia el temporizador a través de AdvanceTurn.
+            if (NetworkGameManager.Instance != null)
             {
-                GameManager.Instance.turnManager.EndTurn();
-                NetworkPlayerTurn.Value = GameManager.Instance.ServerState.CurrentPlayerIndex;
+                NetworkGameManager.Instance.ServerForceEndTurn();
             }
+        }
 
-            StartTurnTimer();
+        public void StopTurnTimer()
+        {
+            if (!IsServer) return;
+            isTimerRunning = false;
         }
 
         public void AdvanceTurn(int nextPlayerIndex)

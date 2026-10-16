@@ -41,6 +41,9 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     // ==========================================
     public MatchStateDTO ServerState { get; private set; }
 
+    // En partida online el servidor (NetworkGameManager) es la autoridad y esta escena solo pinta snapshots
+    public bool IsOnlineMatch => currentSession != null && currentSession.isOnlineMatch;
+
     // --- ITurnProvider Implementation ---
     public int CurrentPlayerIndex => turnManager != null ? turnManager.CurrentPlayerIndex : 0;
     public bool HasDrawn => turnManager != null ? turnManager.HasDrawn : false;
@@ -82,9 +85,14 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
                 ServerState.VariantConfig = currentVariant.ToDTO();
 
             players = new List<PlayerData>();
-            for (int i = 0; i < currentSession.players.Count; i++)
+
+            // Online: un hueco por jugador esperado; nombres y estado reales llegan en el primer snapshot
+            int playerSlots = IsOnlineMatch ? numPlayers : currentSession.players.Count;
+            for (int i = 0; i < playerSlots; i++)
             {
-                PlayerSetup setup = currentSession.players[i];
+                PlayerSetup setup = IsOnlineMatch
+                    ? new PlayerSetup { playerName = $"Jugador {i + 1}" }
+                    : currentSession.players[i];
                 PlayerData newPlayer = new PlayerData(i, setup.playerName, setup.isBot, setup.botDifficulty);
 
                 
@@ -103,8 +111,21 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
     void Start()
     {
-        UnityEngine.Time.timeScale = 1f;
-        SyncServerStateFromPlayers();
+        if (IsOnlineMatch)
+        {
+            // No se reparte nada en local: se espera al snapshot inicial del servidor.
+            // Bolsa vacía (no nula) para que contadores y DiceManager.diceBag no fallen antes del primer snapshot.
+            ServerState.DiceBag = new List<MyGame.Core.DieColor>();
+            UIManager.Instance.SetDrawInputLock(true);
+            if (drawButton != null) drawButton.interactable = false;
+            if (reDrawButton != null) reDrawButton.interactable = false;
+            Debug.Log($"[GameManager] Partida online: esperando a {numPlayers} jugadores...");
+            return;
+        }
+
+        // 2. ARRANQUE LÓGICO (Fase de resolución cruzada)
+        ServerState.CurrentPhase = MyGame.Core.MatchPhase.PlayerTurn;
+        ServerState.HasDrawn = false;
         diceManager.InitializeBag();
         turnManager.StartTurn();
     }
@@ -148,17 +169,34 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         }
     }
 
+    // Reemplaza el estado por el autoritativo (servidor) o por el espejo recibido (cliente)
+    public void AdoptServerState(MatchStateDTO state)
+    {
+        ServerState = state;
+    }
 
-    // --- Facade Methods to handle UI Button Clicks ---
     public void DrawDie()
     {
-        // 1. Execute the logical draw
+        if (IsOnlineMatch)
+        {
+            if (MyGame.Networking.NetworkGameManager.Instance != null)
+                MyGame.Networking.NetworkGameManager.Instance.RequestDrawDieServerRpc();
+            return;
+        }
+
         diceManager.DrawDie();
 
     }
 
     public void UseReDraw()
     {
+        if (IsOnlineMatch)
+        {
+            if (MyGame.Networking.NetworkGameManager.Instance != null)
+                MyGame.Networking.NetworkGameManager.Instance.RequestReDrawServerRpc();
+            return;
+        }
+
         diceManager.UseReDraw();
 
     }
@@ -171,6 +209,15 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     // --- IPlacementExecutor Implementation ---
     public void BeginPlacement(int row, int col)
     {
+        // Online, la jugada ya pasó la validación visual del cliente; el servidor decide y responde con un snapshot
+        if (IsOnlineMatch)
+        {
+            var network = MyGame.Networking.NetworkGameManager.Instance;
+            if (network != null && network.LocalPlayerIndex == turnManager.CurrentPlayerIndex)
+                network.RequestPlaceDieServerRpc(row, col);
+            return;
+        }
+
         placementOrchestrator.BeginPlacement(row, col);
     }
 

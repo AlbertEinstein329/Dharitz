@@ -44,6 +44,9 @@ public class CommandManager : MonoBehaviour
 
     public void UndoLastCommand()
     {
+        // Online, el historial vive solo en local y desincronizaría al servidor
+        if (GameManager.Instance != null && GameManager.Instance.IsOnlineMatch) return;
+
         // ESCUDO ANTI-EXPLOIT: Bloqueado durante la transición
         if (isTransitioning)
         {
