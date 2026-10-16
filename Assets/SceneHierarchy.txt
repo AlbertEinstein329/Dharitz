@@ -1,0 +1,408 @@
+Objeto: Main Camera | Posición: (0.00, 0.00, -10.00)
+  - Componente: Transform
+  - Componente: Camera
+  - Componente: AudioListener
+  - Componente: UniversalAdditionalCameraData
+  - Componente: Physics2DRaycaster
+Objeto: Global Light 2D | Posición: (0.00, 0.00, 0.00)
+  - Componente: Transform
+  - Componente: Light2D
+Objeto: AudioManager | Posición: (-4.98, 1.25, 2.01)
+  - Componente: Transform
+  - Componente: AudioManager
+  Objeto: Music_Source | Posición: (-4.98, 1.25, 2.01)
+    - Componente: Transform
+    - Componente: AudioSource
+  Objeto: SFX_Source | Posición: (-4.98, 1.25, 2.01)
+    - Componente: Transform
+    - Componente: AudioSource
+Objeto: GameManager | Posición: (0.00, 0.00, 0.00)
+  - Componente: Transform
+  - Componente: GameManager
+  - Componente: BoardLogic
+  - Componente: GridInteractionManager
+  - Componente: MLAgentsMetricsController
+Objeto: GridManager | Posición: (0.00, 0.00, 0.00)
+  - Componente: Transform
+  - Componente: GridManager
+  Objeto: Canvas | Posición: (0.00, 0.00, 90.00)
+    - Componente: RectTransform
+    - Componente: Canvas
+    - Componente: CanvasScaler
+    - Componente: GraphicRaycaster
+    Objeto: RawImage | Posición: (0.00, 0.00, 90.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: RawImage
+      - Componente: VideoPlayer
+Objeto: Canvas | Posición: (720.00, 1280.00, 0.00)
+  - Componente: RectTransform
+  - Componente: Canvas
+  - Componente: CanvasScaler
+  - Componente: GraphicRaycaster
+  Objeto: Panel | Posición: (720.00, 2493.33, 0.00)
+    - Componente: RectTransform
+    - Componente: CanvasRenderer
+    - Componente: Image
+  Objeto: ScoreHud | Posición: (720.00, 2360.00, 0.00)
+    - Componente: RectTransform
+    - Componente: CanvasRenderer
+    - Componente: Image
+    Objeto: PlayerPoints | Posición: (720.00, 2366.53, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: TextMeshProUGUI
+  Objeto: DiceExtraction | Posición: (1108.00, 213.33, 0.00)
+    - Componente: RectTransform
+    - Componente: CanvasRenderer
+    - Componente: Image
+    Objeto: ImagenDadoActual | Posición: (1108.00, 213.33, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: UIDieInteractor
+      - Componente: CanvasGroup
+    Objeto: Re-Draw | Posición: (776.00, 426.67, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: Button
+      Objeto: Text (TMP) | Posición: (823.91, 359.08, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: TextMeshProUGUI
+    Objeto: Undo | Posición: (776.00, 133.33, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: Button
+      Objeto: Text (TMP) | Posición: (823.91, 65.75, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: TextMeshProUGUI
+    Objeto: Move | Posición: (776.00, 133.33, 0.00)
+      - Componente: RectTransform
+      - Componente: Toggle
+      - Componente: MoveActionButton
+      Objeto: Background | Posición: (776.00, 133.33, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: Image
+        Objeto: Checkmark | Posición: (776.00, 133.33, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+  Objeto: Panel_GamelayHUD | Posición: (720.00, 1933.33, 0.00)
+    - Componente: RectTransform
+    - Componente: BoardPlayerDisplay
+    Objeto: TextoProgreso | Posición: (720.00, 1693.33, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: TextMeshProUGUI
+    Objeto: ActiveBoard_Indicator | Posición: (1082.32, 2070.66, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: HorizontalLayoutGroup
+      Objeto: PlayerAvatar | Posición: (857.96, 2070.66, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: Image
+      Objeto: PlayerName | Posición: (1244.63, 2070.66, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: TextMeshProUGUI
+    Objeto: Image | Posición: (362.32, 2000.00, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: HorizontalLayoutGroup
+      Objeto: Column1 | Posición: (293.34, 2013.33, 0.00)
+        - Componente: RectTransform
+        - Componente: VerticalLayoutGroup
+        Objeto: RedCounter | Posición: (293.34, 2080.00, 0.00)
+          - Componente: RectTransform
+          - Componente: HorizontalLayoutGroup
+          Objeto: Icon | Posición: (160.01, 2080.00, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: Image
+          Objeto: Text | Posición: (300.01, 2080.00, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: BlueCounter | Posición: (293.34, 1920.00, 0.00)
+          - Componente: RectTransform
+          - Componente: HorizontalLayoutGroup
+          Objeto: Icon | Posición: (160.01, 1920.00, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: Image
+          Objeto: Text | Posición: (300.01, 1920.00, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+      Objeto: Column2 | Posición: (586.67, 2013.33, 0.00)
+        - Componente: RectTransform
+        - Componente: VerticalLayoutGroup
+        Objeto: WhiteCounter | Posición: (586.67, 2080.00, 0.00)
+          - Componente: RectTransform
+          - Componente: HorizontalLayoutGroup
+          Objeto: Icon | Posición: (453.34, 2080.00, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: Image
+          Objeto: Text | Posición: (593.34, 2080.00, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: BlackCounter | Posición: (586.67, 1920.00, 0.00)
+          - Componente: RectTransform
+          - Componente: HorizontalLayoutGroup
+          Objeto: Icon | Posición: (453.34, 1920.00, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: Image
+          Objeto: Text | Posición: (593.34, 1920.00, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+    Objeto: PreviusBoard | Posición: (1373.33, 1706.67, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: Button
+    Objeto: NextBoard | Posición: (66.67, 1706.67, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: Button
+  Objeto: PauseMenu | Posición: (720.00, 1280.00, 0.00)
+    - Componente: RectTransform
+    Objeto: Pausa | Posición: (26.67, 2453.33, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: Button
+    Objeto: MenuPanel | Posición: (720.00, 1280.00, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      Objeto: Menu | Posición: (720.00, 1280.00, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: Image
+        Objeto: Resume | Posición: (1224.77, 1784.77, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+          - Componente: Button
+        Objeto: LeftHandeToggle | Posición: (630.38, 1146.67, 0.00)
+          - Componente: RectTransform
+          - Componente: Toggle
+          Objeto: Background | Posición: (266.02, 1146.67, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: Image
+            Objeto: Checkmark | Posición: (382.69, 1146.67, 0.00)
+              - Componente: RectTransform
+              - Componente: CanvasRenderer
+              - Componente: Image
+          Objeto: Label | Posición: (738.35, 1146.67, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: VibrationToggle | Posición: (599.35, 1273.87, 0.00)
+          - Componente: RectTransform
+          - Componente: Toggle
+          Objeto: Background | Posición: (266.02, 1273.87, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: Image
+            Objeto: Checkmark | Posición: (382.69, 1273.87, 0.00)
+              - Componente: RectTransform
+              - Componente: CanvasRenderer
+              - Componente: Image
+          Objeto: Label | Posición: (707.32, 1273.87, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: Restart | Posición: (478.66, 832.55, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+          - Componente: Button
+          Objeto: Text (TMP) | Posición: (478.66, 832.55, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: MainMenu | Posición: (961.34, 832.55, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+          - Componente: Button
+          Objeto: Text (TMP) | Posición: (961.34, 832.55, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: Image | Posición: (720.00, 1867.31, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+          Objeto: Options | Posición: (720.00, 1867.31, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: MusicToggle | Posición: (478.66, 1625.98, 0.00)
+          - Componente: RectTransform
+          - Componente: Toggle
+          Objeto: Background | Posición: (398.66, 1625.98, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: Image
+            Objeto: Checkmark | Posición: (398.66, 1625.98, 0.00)
+              - Componente: RectTransform
+              - Componente: CanvasRenderer
+              - Componente: Image
+          Objeto: Label | Posición: (478.66, 1625.98, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: SfxToggle | Posición: (961.34, 1625.98, 0.00)
+          - Componente: RectTransform
+          - Componente: Toggle
+          Objeto: Background | Posición: (881.34, 1625.98, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: Image
+            Objeto: Checkmark | Posición: (881.34, 1625.98, 0.00)
+              - Componente: RectTransform
+              - Componente: CanvasRenderer
+              - Componente: Image
+          Objeto: Label | Posición: (961.34, 1625.98, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+  Objeto: Panel_Retractil | Posición: (720.00, 3093.33, 0.00)
+    - Componente: RectTransform
+    - Componente: CanvasRenderer
+    - Componente: Image
+    Objeto: Btn_TogglePatrones | Posición: (1313.33, 2368.00, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      - Componente: Button
+      Objeto: Text (TMP) | Posición: (1313.33, 2368.00, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: TextMeshProUGUI
+    Objeto: Contenedor_Vertical | Posición: (720.00, 3093.33, 0.00)
+      - Componente: RectTransform
+      - Componente: VerticalLayoutGroup
+      - Componente: CanvasRenderer
+      - Componente: Image
+      Objeto: Fila_1 | Posición: (613.33, 3300.00, 0.00)
+        - Componente: RectTransform
+        - Componente: HorizontalLayoutGroup
+      Objeto: Fila_2 | Posición: (613.33, 2820.00, 0.00)
+        - Componente: RectTransform
+        - Componente: HorizontalLayoutGroup
+  Objeto: PanelGameOver | Posición: (720.00, 1280.00, 0.00)
+    - Componente: RectTransform
+    - Componente: CanvasRenderer
+    - Componente: Image
+    Objeto: ResultsBoard | Posición: (724.65, 1444.88, 0.00)
+      - Componente: RectTransform
+      - Componente: CanvasRenderer
+      - Componente: Image
+      Objeto: GameEnded | Posición: (724.65, 2158.93, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: Image
+        Objeto: PartTerminada | Posición: (724.65, 2217.60, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: TextMeshProUGUI
+        Objeto: Win_Front | Posición: (724.65, 2413.60, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+        Objeto: Win_back | Posición: (724.65, 2413.60, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+      Objeto: PointsSummaryText | Posición: (724.65, 1579.95, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: TextMeshProUGUI
+      Objeto: Buttons | Posición: (728.61, 805.01, 0.00)
+        - Componente: RectTransform
+        Objeto: PlayAgain | Posición: (964.26, 818.34, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+          - Componente: Button
+          Objeto: Text (TMP) | Posición: (964.26, 818.34, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+        Objeto: MainMenu | Posición: (492.96, 818.34, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: Image
+          - Componente: Button
+          Objeto: Text (TMP) | Posición: (492.96, 818.34, 0.00)
+            - Componente: RectTransform
+            - Componente: CanvasRenderer
+            - Componente: TextMeshProUGUI
+      Objeto: PreviusBoard | Posición: (1263.82, 1397.49, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: Image
+        - Componente: Button
+      Objeto: NextBoard | Posición: (185.48, 1397.49, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: Image
+        - Componente: Button
+      Objeto: HideButton | Posición: (1263.82, 2052.27, 0.00)
+        - Componente: RectTransform
+        - Componente: CanvasRenderer
+        - Componente: Image
+        - Componente: Button
+        Objeto: Text (TMP) | Posición: (1263.82, 2052.27, 0.00)
+          - Componente: RectTransform
+          - Componente: CanvasRenderer
+          - Componente: TextMeshProUGUI
+Objeto: EventSystem | Posición: (0.00, 0.00, 0.00)
+  - Componente: Transform
+  - Componente: EventSystem
+  - Componente: InputSystemUIInputModule
+Objeto: UiManager | Posición: (0.00, 0.00, -1.00)
+  - Componente: Transform
+  - Componente: UIManager
+Objeto: ScoreManager | Posición: (1.87, 5.89, 0.01)
+  - Componente: Transform
+  - Componente: ScoreManager
+Objeto: PopUpManager | Posición: (0.00, 0.00, 0.00)
+  - Componente: Transform
+  - Componente: PopUpManager
+Objeto: Canvas_PopUps Flotantes | Posición: (0.00, 0.00, 0.00)
+  - Componente: RectTransform
+  - Componente: Canvas
+  - Componente: CanvasScaler
+  - Componente: GraphicRaycaster
+Objeto: PatternUIManager | Posición: (-3.03, 0.71, -0.05)
+  - Componente: Transform
+  - Componente: PatternUIManager
+Objeto: ComandManager | Posición: (518.09, 1075.41, 0.00)
+  - Componente: Transform
+  - Componente: CommandManager
+Objeto: PauseController | Posición: (518.09, 1075.41, 0.00)
+  - Componente: Transform
+  - Componente: PanelPauseController
+Objeto: Darithz_ML_Agent | Posición: (0.00, 0.00, 0.00)
+  - Componente: Transform
+  - Componente: BehaviorParameters
+  - Componente: DarithzAgent
+  - Componente: GridSensorComponent

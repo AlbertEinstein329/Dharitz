@@ -24,6 +24,11 @@ public class PopUpManager : MonoBehaviour
 
     public void ShowPopUp(Vector3 worldPosition, string mensaje, Color colorTexto)
     {
+        // ==========================================
+        // BYPASS VISUAL: Evita el colapso de DOTween
+        // ==========================================
+        if (GameManager.Instance != null && GameManager.Instance.isTrainingMode) return;
+
         if (popUpPrefab == null || canvasParaPopUps == null) return;
         if (mainCam == null) mainCam = Camera.main;
 

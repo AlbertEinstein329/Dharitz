@@ -105,6 +105,20 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     private void CalculateDynamicGridSize()
     {
+        // =========================================================
+        // 🛡️ ESCUDO ML-AGENTS: Tablero Estático y Centrado
+        // =========================================================
+        if (GameManager.Instance != null && GameManager.Instance.isTrainingMode)
+        {
+            cellSize = 1.1f; // Forzamos el valor exacto del Grid Sensor
+
+            // Centramos el tablero matemáticamente en el origen (0,0)
+            // Esto garantiza que encaje pixel por pixel con el Grid Sensor.
+            startX = -((cols - 1) * cellSize) / 2f;
+            startY = -((rows - 1) * cellSize) / 2f;
+            return;
+        }
+
         Camera mainCamera = Camera.main;
         if (mainCamera == null)
         {
@@ -112,20 +126,16 @@ public class GridManager : MonoBehaviour, IGridValidator
             return;
         }
 
-        // 1. Get screen dimensions in world units based on orthographic size
         float screenHeight = mainCamera.orthographicSize * 2f;
         float screenWidth = screenHeight * mainCamera.aspect;
 
-        // 2. Calculate cell size based on screen width and padding
         float availableWidth = screenWidth - (screenPadding * 2f);
         cellSize = availableWidth / cols;
 
-        // 3. Align horizontally (Centered with left/right padding)
         startX = (-screenWidth / 2f) + screenPadding + (cellSize / 2f);
-
-        // 4. Align vertically (Anchored strictly to the bottom edge of the camera view)
         startY = -mainCamera.orthographicSize + bottomVerticalOffset + (cellSize / 2f);
     }
+
     void GenerateGridForPlayer(int playerIndex)
     {
         for (int r = 0; r < rows; r++)
@@ -257,6 +267,19 @@ public void NextBoard()
 
     public bool IsValidPlacement(int pIndex, int r, int c, DieColor color, int currentGroupId, int number)
     {
+        // ==========================================================
+        // NUEVO ESCUDO DE SEGURIDAD (Evita el IndexOutOfRangeException)
+        // ==========================================================
+        if (r < 0 || r >= rows || c < 0 || c >= cols)
+        {
+            return false;
+        }
+
+        // 1. Verificación rápida: Si la celda ya tiene un dado, rechazar inmediatamente
+        if (allBoardsLogic[pIndex][r, c] != null)
+            return false;
+
+        // 2. Delegación al validador de reglas complejas
         return PlacementValidator.IsValidPlacement(allBoardsLogic[pIndex], rows, cols, r, c, color, currentGroupId, number, GameManager.Instance.players[pIndex], GameManager.Instance.currentVariant);
     }
 
@@ -448,13 +471,30 @@ public void NextBoard()
         SpriteRenderer renderer = NewDice.GetComponent<SpriteRenderer>();
         if (renderer != null) renderer.sprite = UIManager.Instance.GetSprite(color, number);
 
-        // (Si el dado usa otro script, cambia "CellComponent" por el nombre de tu script).
         CellComponent dieScript = NewDice.GetComponent<CellComponent>();
         if (dieScript != null)
         {
             dieScript.gridCoordinate = new Vector2Int(c, r);
-
             dieScript.Setup(r, c, pIndex, this, GameManager.Instance, GameManager.Instance);
+        }
+
+        // =========================================================
+        // INYECCIÓN ML-AGENTS: ASIGNACIÓN DE TAGS DINÁMICOS
+        // =========================================================
+        MLAgentsColliderEnforcer enforcer = NewDice.GetComponentInChildren<MLAgentsColliderEnforcer>();
+
+        if (enforcer != null)
+        {
+            // Código limpio: El enforcer hace todo el trabajo usando el Color y el Número
+            enforcer.InjectSensorData(color, number);
+        }
+        else
+        {
+            // Plan de Respaldo de Seguridad: Por si el prefab pierde su objeto hijo
+            string exactTag = $"Die{color}{number}";
+            NewDice.tag = exactTag;
+            NewDice.layer = LayerMask.NameToLayer("MLGrid"); // Asegúrate de que sea el mismo nombre que usas (MLGrid o MLAgents)
+            Debug.LogWarning($"[Arquitectura] El prefab del color {color} no tiene el objeto hijo 'ML_SensorTarget'. Tag asignado al padre.");
         }
     }
 
@@ -706,4 +746,75 @@ public void NextBoard()
         return boardDTO;
     }
 
+
+    public void ResetGrid()
+    {
+        // 1. Limpiar el historial lógico global para evitar "fantasmas"
+        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        if (boardLogic != null)
+        {
+            boardLogic.occupiedCells.Clear();
+        }
+
+        for (int p = 0; p < allBoardsLogic.Count; p++)
+        {
+            List<Transform> childrenToDestroy = new List<Transform>();
+
+            // 2. IDENTIFICACIÓN CORRECTA DE DADOS
+            foreach (Transform child in boardRoots[p].transform)
+            {
+                // Como tanto las celdas como los dados tienen CellComponent,
+                // usamos la posición Z para identificarlos. Los dados se instancian en Z = -2.
+                if (child.position.z < -1f)
+                {
+                    childrenToDestroy.Add(child);
+                }
+            }
+
+            foreach (Transform dieTransform in childrenToDestroy)
+            {
+                // 3. Apagar instantáneamente el objeto para cegar al ML-Agent
+                dieTransform.gameObject.SetActive(false);
+                Destroy(dieTransform.gameObject);
+            }
+
+            for (int r = 0; r < rows; r++)
+            {
+                for (int c = 0; c < cols; c++)
+                {
+                    allBoardsLogic[p][r, c] = null;
+
+                    if (!GameManager.Instance.isTrainingMode && allCellsVisual != null && allCellsVisual[p][r, c] != null)
+                    {
+                        allCellsVisual[p][r, c].ClearHighlight();
+                        allCellsVisual[p][r, c].ToggleCompletionSprite(false);
+                    }
+                }
+            }
+        }
+    }
+    public float[] GetBoardStateAsFloats(int playerIndex)
+    {
+        float[] state = new float[rows * cols];
+        int index = 0;
+        var board = allBoardsLogic[playerIndex];
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                if (board[r, c] == null)
+                {
+                    state[index] = 0f; // Vacío
+                }
+                else
+                {
+                    // Mapeo entero normalizado: Red=1, Blue=2, White=3, Black=4
+                    state[index] = (float)((int)board[r, c].color + 1);
+                }
+                index++;
+            }
+        }
+        return state;
+    }
 }

@@ -251,6 +251,11 @@ public class UIManager : MonoBehaviour
 
     public void UpdateScore(int targetScore)
     {
+        // ==========================================
+        // BYPASS VISUAL: Evita el colapso de DOTween
+        // ==========================================
+        if (GameManager.Instance != null && GameManager.Instance.isTrainingMode) return;
+
         if (scoreHUDText == null) return;
 
         // 1. Kill any currently running score animation so they don't fight each other

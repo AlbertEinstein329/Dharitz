@@ -42,6 +42,7 @@ public class PlayerData
 
     public bool isBot = false;
     public int botDifficulty = 0;
+    public DarithzAgent agentComponent;
 
     public const int DEFAULT_REDRAWS = 3;
     public int reDraws = DEFAULT_REDRAWS;
