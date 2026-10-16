@@ -19,6 +19,10 @@ namespace MyGame.Core
             BoardStateDTO board = state.PlayerBoards[command.PlayerId];
             PlayerDataDTO player = state.PlayerProfiles[command.PlayerId];
 
+            // Limites por fila y columna: sin esto una columna fuera de rango (o negativa) cae en otra fila del array 1D
+            if (command.TargetCell.X < 0 || command.TargetCell.X >= board.Rows ||
+                command.TargetCell.Y < 0 || command.TargetCell.Y >= board.Cols) return false;
+
             int targetIndex = board.GetIndex(command.TargetCell.X, command.TargetCell.Y);
             if (targetIndex < 0 || targetIndex >= board.Cells.Length) return false; // Fuera de límites
             if (board.Cells[targetIndex].IsOccupied) return false; // Celda ocupada

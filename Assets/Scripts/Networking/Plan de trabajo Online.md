@@ -205,3 +205,13 @@ Decidido: tras colocar, el turno **no** termina. El servidor deja el turno abier
 - Corregido de paso un bug de coordenadas: `CoreMoveProcessor.ProcessMove/UndoMove` guardaban `OccupiedCells` como (columna, fila) mientras la colocación los guarda como (fila, columna); `MoveCommand` (local) hacía lo mismo con `Vector2Int`. Ahora ambos usan (fila, columna).
 - **Verificado** (Host de 1 jugador): colocar deja el turno abierto con CONFIRMAR visible y robar bloqueado; Undo devuelve el dado, puntaje y casilla y gasta 1 uso; Confirmar pasa el turno; Move replica al cliente y gasta el uso, y su Undo lo devuelve; el 2º Undo se rechaza al agotar los usos; el temporizador cierra un turno ya colocado. **Sin verificar:** el flujo con dos jugadores reales, y el toggle Move con clics reales (se probó por RPC).
 - Conocido: `ProcessMove` otorga +100 cada vez que un grupo completo se mueve (limitado por los usos de Move).
+
+### Antitrampas básicas (16-10-2026, parte 5)
+
+- `Core/CoreRateLimiter` (lógica pura, reloj inyectable): cubo de fichas por ClientId con expulsión por reincidencia.
+  - Acciones de juego y emojis: ráfaga de 8, relleno de 4/s; 20 infracciones en 10 s expulsan al cliente.
+  - Registro (`RegisterPlayerServerRpc`): ráfaga de 3, 0,2/s; 5 infracciones en 30 s expulsan.
+  - Un solo punto de entrada: `TryGetActingPlayer` (Draw, ReDraw, Place, Confirm, Undo, Move), `RegisterPlayer` y `NetworkGameManager.AllowRpc` (lo usa `EmojiChatManager`). El log de descartes se limita a 1 por segundo y cliente.
+- Validación de límites: colocar y mover comprueban fila/columna contra el tablero real del jugador. En Core, `CoreMatchProcessor` también rechaza filas/columnas fuera de rango (antes, una columna ≥ Cols «daba la vuelta» a otra fila del array 1D). `PlayerId` de más de 64 caracteres expulsa; el id de emoji debe estar en 0..7 y solo habla un jugador registrado.
+- **Verificado:** 6 pruebas de lógica pura (uso normal 4/s sin descartes, ráfaga, expulsión en la petición #28, aislamiento por cliente, recuperación, límites del tablero incl. control válido) y en Play con Host: 15 peticiones de robar seguidas → solo 1 robo válido (bolsa 52→51), exceso descartado con log `[AntiCheat]`; colocar/mover fuera del tablero (columna 13, fila -3, fila 10, 99,99) rechazados sin tocar el estado. **Sin verificar:** la expulsión real de un cliente remoto (en el host propio Netcode no permite desconectarse).
+- Pendiente: antitrampas más finos (p. ej. detectar patrones de automatización por temporización) y servidor dedicado (fase 4).

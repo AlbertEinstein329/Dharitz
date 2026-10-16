@@ -35,6 +35,13 @@ namespace MyGame.Networking
         public NetworkMatchSnapshot LastSnapshot { get; private set; }
         public bool HasSnapshot { get; private set; }
 
+        // Antitrampas (solo servidor): ritmo maximo de peticiones por cliente y expulsion por reincidencia.
+        // Una partida normal genera pocas acciones por segundo; esto solo corta spam, automatizacion o clientes modificados.
+        private const int MaxPlayerIdLength = 64;
+        private readonly CoreRateLimiter actionLimiter = new CoreRateLimiter(capacity: 8, refillPerSecond: 4, maxStrikes: 20, strikeWindowSeconds: 10);
+        private readonly CoreRateLimiter registerLimiter = new CoreRateLimiter(capacity: 3, refillPerSecond: 0.2, maxStrikes: 5, strikeWindowSeconds: 30);
+        private readonly Dictionary<ulong, double> lastRateLogTime = new Dictionary<ulong, double>();
+
         // Fase de confirmar (solo servidor): tras colocar, el turno sigue abierto hasta confirmar o agotar el tiempo.
         // La pila permite reversar acciones del turno (Undo) y se vacia al robar o cambiar de turno.
         private readonly List<TurnCheckpoint> turnHistory = new List<TurnCheckpoint>();
@@ -113,6 +120,15 @@ namespace MyGame.Networking
         private void RegisterPlayerServerRpc(string playerId, ServerRpcParams rpcParams = default)
         {
             ulong clientId = rpcParams.Receive.SenderClientId;
+            if (!PassesLimiter(registerLimiter, clientId, "RegisterPlayer")) return;
+
+            if (playerId != null && playerId.Length > MaxPlayerIdLength)
+            {
+                Debug.LogWarning($"[NetworkGameManager] PlayerId de {playerId.Length} caracteres rechazado. Expulsando ClientId {clientId}.");
+                NetworkManager.Singleton.DisconnectClient(clientId, "PlayerId invalido");
+                return;
+            }
+
             if (string.IsNullOrEmpty(playerId)) playerId = "client-" + clientId;
 
             // Mismo jugador que vuelve (o sigue conectado con otro ClientId): recupera su slot
@@ -176,6 +192,10 @@ namespace MyGame.Networking
 
         private void HandleClientDisconnected(ulong clientId)
         {
+            actionLimiter.Forget(clientId);
+            registerLimiter.Forget(clientId);
+            lastRateLogTime.Remove(clientId);
+
             if (!clientIdToPlayerIndex.TryGetValue(clientId, out int slot)) return;
 
             Debug.LogWarning($"[NetworkGameManager] Cliente desconectado. ClientId: {clientId} (Slot: {slot})");
@@ -295,6 +315,15 @@ namespace MyGame.Networking
                 return;
             }
 
+            // Las coordenadas llegan del cliente: se validan contra el tablero real antes de tocar nada
+            BoardStateDTO placeBoard = serverState.PlayerBoards[playerIndex];
+            if (!IsInsideBoard(placeBoard, row, col))
+            {
+                Debug.LogWarning($"[NetworkGameManager] Placement fuera de tablero ({row},{col}) rechazado.");
+                NotifyPlacementFailedClientRpc(senderId, "Casilla fuera del tablero.");
+                return;
+            }
+
             CoreDieColor color = serverState.CurrentDrawnColor.Value;
             int value = serverState.CurrentDrawnValue.Value;
             PlayerDataDTO profile = serverState.PlayerProfiles[playerIndex];
@@ -397,7 +426,13 @@ namespace MyGame.Networking
             // El patron sale del grupo del dado que se mueve, nunca del cliente
             PatternDefDTO pattern = null;
             BoardStateDTO board = serverState.PlayerBoards[playerIndex];
-            if (fromRow >= 0 && fromRow < board.Rows && fromCol >= 0 && fromCol < board.Cols)
+            if (!IsInsideBoard(board, fromRow, fromCol) || !IsInsideBoard(board, toRow, toCol))
+            {
+                Debug.LogWarning($"[NetworkGameManager] Move fuera de tablero ({fromRow},{fromCol})->({toRow},{toCol}) rechazado.");
+                NotifyPlacementFailedClientRpc(senderId, "Casilla fuera del tablero.");
+                return;
+            }
+
             {
                 CellStateDTO cell = board.Cells[board.GetIndex(fromRow, fromCol)];
                 if (cell.IsOccupied && serverState.PlayerProfiles[playerIndex].ActiveGroups.TryGetValue(cell.Color, out GroupDataDTO movedGroup))
@@ -427,11 +462,50 @@ namespace MyGame.Networking
             });
         }
 
+        private static bool IsInsideBoard(BoardStateDTO board, int row, int col)
+        {
+            return board != null && row >= 0 && row < board.Rows && col >= 0 && col < board.Cols;
+        }
+
+        /// <summary>
+        /// Puerta de entrada de cualquier RPC de cliente: descarta el exceso de peticiones y expulsa a quien insiste.
+        /// Tambien la usan otros sistemas de red (p. ej. los emojis).
+        /// </summary>
+        public bool AllowRpc(ulong clientId, string actionName) => PassesLimiter(actionLimiter, clientId, actionName);
+
+        private bool PassesLimiter(CoreRateLimiter limiter, ulong clientId, string actionName)
+        {
+            double now = Time.realtimeSinceStartupAsDouble;
+
+            switch (limiter.Check(clientId, now))
+            {
+                case RateLimitResult.Allowed:
+                    return true;
+
+                case RateLimitResult.Kick:
+                    Debug.LogWarning($"[AntiCheat] ClientId {clientId} supera el ritmo permitido de forma reiterada ({actionName}). Expulsando.");
+                    limiter.Forget(clientId);
+                    if (NetworkManager.Singleton != null) NetworkManager.Singleton.DisconnectClient(clientId, "Demasiadas peticiones");
+                    return false;
+
+                default:
+                    // Un log por segundo y cliente como maximo: el propio spam no debe inundar la consola del servidor
+                    if (!lastRateLogTime.TryGetValue(clientId, out double last) || now - last >= 1.0)
+                    {
+                        lastRateLogTime[clientId] = now;
+                        Debug.LogWarning($"[AntiCheat] ClientId {clientId}: {actionName} descartado por exceso de ritmo.");
+                    }
+                    return false;
+            }
+        }
+
         private bool TryGetActingPlayer(ServerRpcParams rpcParams, string actionName, out int playerIndex, out MatchStateDTO serverState)
         {
             ulong senderId = rpcParams.Receive.SenderClientId;
             playerIndex = GetPlayerIndex(senderId);
             serverState = GameManager.Instance != null ? GameManager.Instance.ServerState : null;
+
+            if (!PassesLimiter(actionLimiter, senderId, actionName)) return false;
 
             if (!matchStarted || serverState == null || serverState.CurrentPhase != MatchPhase.PlayerTurn)
             {
