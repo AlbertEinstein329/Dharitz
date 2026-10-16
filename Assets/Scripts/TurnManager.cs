@@ -21,6 +21,10 @@ public class TurnManager
         set
         {
             hasDrawn = value;
+            // F1.5: Sincronizar con el estado maestro
+            if (gm.ServerState != null)
+                gm.ServerState.HasDrawn = value;
+
             if (hasDrawn && CommandManager.Instance != null)
             {
                 CommandManager.Instance.ClearHistory(CurrentPlayerIndex);
@@ -86,7 +90,7 @@ public class TurnManager
         // =========================================================
 
         // BLINDAJE VISUAL: Si la bolsa se vació 
-        if (gm.diceManager.diceBag.Count == 0 && !HasDrawn)
+        if (gm.diceManager.GetTotalDiceLeft() == 0 && !HasDrawn)
         {
             if (gm.drawButton != null)
             {
@@ -127,6 +131,10 @@ public class TurnManager
         {
             // Avanzamos al siguiente jugador
             CurrentPlayerIndex = (CurrentPlayerIndex + 1) % gm.numPlayers;
+
+            // F1.6: Sincronizar con el estado maestro
+            if (gm.ServerState != null)
+                gm.ServerState.CurrentPlayerIndex = CurrentPlayerIndex;
 
             // Si dimos toda la vuelta y llegamos al mismo jugador, y también está muerto:
             // Significa que ya no queda NADIE vivo en la partida.

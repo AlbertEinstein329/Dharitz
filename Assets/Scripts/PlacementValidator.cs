@@ -84,6 +84,35 @@ public static class PlacementValidator
         if (hasDiceInGroup && !touchesOwnGroup) return false; 
         if (!touchesAnyDie) return false;
 
-        return TopologyCalculator.ValidateSurvival(logic, rows, cols, r, c, color, currentGroupId, number, player, variant);
+        // 1. Traducimos la matriz visual 2D a un BoardStateDTO 1D para la Capa 0
+        MyGame.Core.BoardStateDTO boardDTO = new MyGame.Core.BoardStateDTO(rows, cols);
+        for (int row = 0; row < rows; row++)
+        {
+            for (int col = 0; col < cols; col++)
+            {
+                if (logic[row, col] == null) continue;
+                boardDTO.Cells[boardDTO.GetIndex(row, col)] = new MyGame.Core.CellStateDTO
+                {
+                    IsOccupied = true,
+                    Color = (MyGame.Core.DieColor)(int)logic[row, col].color,
+                    GroupId = logic[row, col].groupId,
+                    Value = logic[row, col].value
+                };
+            }
+        }
+
+        // 2. Patrones de la variante: el del grupo en curso y el del numero nuevo
+        MyGame.Core.PatternDefDTO pVariant = null;
+        if (groupData != null)
+        {
+            PatternData existingData = variant.GetPattern(groupData.targetSize);
+            if (existingData != null) pVariant = existingData.ToDTO();
+        }
+        MyGame.Core.PatternDefDTO pNew = currentPattern != null ? currentPattern.ToDTO() : null;
+
+        // 3. Validador de supervivencia autoritativo (Capa 0)
+        return MyGame.Core.CoreTopologyCalculator.ValidateSurvival(
+            boardDTO, r, c, (MyGame.Core.DieColor)(int)color, currentGroupId, number,
+            player.ToDTO(), pVariant, pNew);
     }
 }

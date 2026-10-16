@@ -1,11 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using MyGame.Core;
 
 public class DiceManager
 {
     private GameManager gm;
-    public List<DieColor> diceBag = new List<DieColor>();
+
+    // La bolsa vive en gm.ServerState.DiceBag (fuente de verdad única).
+    // En modo online el servidor es la autoridad; en local (hotseat / ML) lo es el GameManager.
 
     public DiceManager(GameManager gm)
     {
@@ -14,15 +17,17 @@ public class DiceManager
 
     public void InitializeBag()
     {
-        diceBag.Clear();
         int dicePerColor = 13 * gm.numPlayers;
+
+        // F1.1: Inicializamos directamente en ServerState.DiceBag
+        gm.ServerState.DiceBag = new List<MyGame.Core.DieColor>();
 
         for (int i = 0; i < dicePerColor; i++)
         {
-            diceBag.Add(DieColor.Red);
-            diceBag.Add(DieColor.Blue);
-            diceBag.Add(DieColor.White);
-            diceBag.Add(DieColor.Black);
+            gm.ServerState.DiceBag.Add(MyGame.Core.DieColor.Red);
+            gm.ServerState.DiceBag.Add(MyGame.Core.DieColor.Blue);
+            gm.ServerState.DiceBag.Add(MyGame.Core.DieColor.White);
+            gm.ServerState.DiceBag.Add(MyGame.Core.DieColor.Black);
         }
 
         ShuffleBag();
@@ -30,7 +35,7 @@ public class DiceManager
         // Bloqueo estricto
         if (!gm.isTrainingMode)
         {
-            Debug.Log($"Bolsa creada con {diceBag.Count} dados para {gm.numPlayers} players.");
+            Debug.Log($"Bolsa creada con {gm.ServerState.DiceBag.Count} dados para {gm.numPlayers} players.");
         }
 
         UpdateDiceCountersUI();
@@ -38,12 +43,15 @@ public class DiceManager
 
     private void ShuffleBag()
     {
-        for (int i = 0; i < diceBag.Count; i++)
+        // F1.4: Fisher-Yates con el RNG autoritativo del ServerState
+        System.Random rng = gm.ServerState.ServerRNG;
+        var bag = gm.ServerState.DiceBag;
+        for (int i = bag.Count - 1; i > 0; i--)
         {
-            DieColor temp = diceBag[i];
-            int randomIndex = Random.Range(i, diceBag.Count);
-            diceBag[i] = diceBag[randomIndex];
-            diceBag[randomIndex] = temp;
+            int j = rng.Next(0, i + 1);
+            MyGame.Core.DieColor temp = bag[i];
+            bag[i] = bag[j];
+            bag[j] = temp;
         }
     }
 
@@ -51,17 +59,18 @@ public class DiceManager
     {
         if (gm.isTrainingMode) return; // BYPASS: No actualiza elementos UI de Canvas en modo IA
 
-        int redLeft = diceBag.Count(d => d == DieColor.Red);
-        int blueLeft = diceBag.Count(d => d == DieColor.Blue);
-        int whiteLeft = diceBag.Count(d => d == DieColor.White);
-        int blackLeft = diceBag.Count(d => d == DieColor.Black);
+        var bag = gm.ServerState.DiceBag;
+        int redLeft   = bag.Count(d => d == MyGame.Core.DieColor.Red);
+        int blueLeft  = bag.Count(d => d == MyGame.Core.DieColor.Blue);
+        int whiteLeft = bag.Count(d => d == MyGame.Core.DieColor.White);
+        int blackLeft = bag.Count(d => d == MyGame.Core.DieColor.Black);
 
         UIManager.Instance.UpdateDiceCounters(redLeft, blueLeft, whiteLeft, blackLeft);
     }
 
     public void DrawDie()
     {
-        if (diceBag == null || diceBag.Count == 0)
+        if (GetTotalDiceLeft() == 0)
         {
             if (!gm.isTrainingMode) Debug.Log("Bolsa vacía. ¡Es tu último movimiento!");
             if (gm.drawButton != null) gm.drawButton.interactable = false;
@@ -71,41 +80,41 @@ public class DiceManager
         if (gm.turnManager.HasDrawn) return;
         if (gm.players == null || gm.players.Count == 0) return;
 
-        gm.turnManager.CurrentDrawnColor = diceBag[0];
-        diceBag.RemoveAt(0);
-        gm.turnManager.HasDrawn = true;
-
-        if (gm.drawButton != null) gm.drawButton.interactable = false;
-
+        // F1.1: La intención se procesa en la Capa 0 sobre el ServerState
+        var command = new DrawDieCommand { PlayerId = gm.turnManager.CurrentPlayerIndex };
         PlayerData currentPlayer = gm.turnManager.GetCurrentPlayer();
 
-        if (!currentPlayer.activeGroups.ContainsKey(gm.turnManager.CurrentDrawnColor))
+        // Sincronizamos el perfil del jugador actual antes del procesado
+        gm.ServerState.CurrentPlayerIndex = command.PlayerId;
+        gm.ServerState.PlayerProfiles[command.PlayerId] = currentPlayer.ToDTO();
+
+        bool isLegalDraw = CoreDrawProcessor.ProcessDrawIntent(gm.ServerState, command, gm.ServerState.ServerRNG);
+        if (!isLegalDraw)
         {
-            currentPlayer.activeGroups[gm.turnManager.CurrentDrawnColor] = null;
+            Debug.LogError("[Security] CoreDrawProcessor rechazó el robo.");
+            return;
         }
 
-        GroupData group = currentPlayer.activeGroups[gm.turnManager.CurrentDrawnColor];
+        // SINCRONIZACIÓN VISUAL (Capa 0 -> Capa 1)
+        if (gm.drawButton != null) gm.drawButton.interactable = false;
 
+        gm.turnManager.CurrentDrawnColor = (DieColor)(int)gm.ServerState.CurrentDrawnColor.Value;
+        gm.turnManager.CurrentDrawnValue = gm.ServerState.CurrentDrawnValue.Value;
+        gm.turnManager.HasDrawn = true;
+
+        DieColor drawnColor = gm.turnManager.CurrentDrawnColor;
+        GroupDataDTO serverGroup = gm.ServerState.PlayerProfiles[command.PlayerId].ActiveGroups[(MyGame.Core.DieColor)(int)drawnColor];
+
+        currentPlayer.activeGroups.TryGetValue(drawnColor, out GroupData group);
         if (group == null || group.isClosed)
         {
-
-
-            // Roll the number and save it globally in the TurnManager
-            gm.turnManager.CurrentDrawnValue = Random.Range(1, 7);
-
             group = new GroupData
             {
-                id = Random.Range(10000, 99999),
-                color = gm.turnManager.CurrentDrawnColor,
-                // Use the global value here
-                targetSize = gm.turnManager.CurrentDrawnValue
+                id = serverGroup.Id,
+                color = drawnColor,
+                targetSize = serverGroup.TargetSize
             };
-            currentPlayer.activeGroups[gm.turnManager.CurrentDrawnColor] = group;
-        }
-        else
-        {
-            // The drawn value must reflect the target size of the ongoing group!
-            gm.turnManager.CurrentDrawnValue = group.targetSize;
+            currentPlayer.activeGroups[drawnColor] = group;
         }
 
         if (gm.isTrainingMode)
@@ -132,10 +141,6 @@ public class DiceManager
                     gm.reDrawText.text = $"{currentPlayer.reDraws}";
                 }
             }
-            else
-            {
-                // Bot ML agents logic goes here
-            }
         });
     }
 
@@ -145,21 +150,31 @@ public class DiceManager
 
         if (!gm.turnManager.HasDrawn || p.reDraws <= 0 || p.isBot) return;
 
-        if (p.activeGroups.ContainsKey(gm.turnManager.CurrentDrawnColor))
+        // F1.2: Sincronizamos el estado actual y procesamos en la Capa 0
+        var command = new ReDrawCommand { PlayerId = gm.turnManager.CurrentPlayerIndex };
+        gm.ServerState.HasDrawn = true;
+        gm.ServerState.CurrentDrawnColor = (MyGame.Core.DieColor)(int)gm.turnManager.CurrentDrawnColor;
+        gm.ServerState.PlayerProfiles[command.PlayerId] = p.ToDTO();
+
+        bool isLegalReDraw = CoreDrawProcessor.ProcessReDrawIntent(gm.ServerState, command, gm.ServerState.ServerRNG);
+        if (!isLegalReDraw)
         {
-            GroupData group = p.activeGroups[gm.turnManager.CurrentDrawnColor];
-            if (group != null && group.occupiedCells.Count == 0)
-            {
-                p.activeGroups[gm.turnManager.CurrentDrawnColor] = null; 
-            }
+            Debug.LogError("[Security] CoreDrawProcessor rechazó el ReDraw.");
+            return;
         }
 
-        int randomIndex = Random.Range(0, diceBag.Count + 1);
-        diceBag.Insert(randomIndex, gm.turnManager.CurrentDrawnColor);
+        // SINCRONIZACIÓN VISUAL (Capa 0 -> Capa 1)
+        PlayerDataDTO pDto = gm.ServerState.PlayerProfiles[command.PlayerId];
+        p.reDraws = pDto.ReDraws;
 
-        p.reDraws--;
+        // Si el servidor eliminó el grupo huérfano, lo limpiamos también en la capa visual
+        DieColor color = gm.turnManager.CurrentDrawnColor;
+        if (!pDto.ActiveGroups.ContainsKey((MyGame.Core.DieColor)(int)color))
+        {
+            p.activeGroups[color] = null;
+        }
+
         gm.turnManager.HasDrawn = false;
-
         gm.gridManager.ClearHighlights(gm.turnManager.CurrentPlayerIndex);
 
         DrawDie();
@@ -167,24 +182,25 @@ public class DiceManager
 
     public int GetTotalDiceLeft()
     {
-        return diceBag != null ? diceBag.Count : 0;
+        return gm.ServerState.DiceBag != null ? gm.ServerState.DiceBag.Count : 0;
     }
 
     public void BurnRandomDice(int count)
     {
+        var bag = gm.ServerState.DiceBag;
+        System.Random rng = gm.ServerState.ServerRNG;
+
         int burnedCount = 0;
         for (int i = 0; i < count; i++)
         {
-            if (diceBag.Count > 0)
+            if (bag.Count > 0)
             {
-                int randomIndex = UnityEngine.Random.Range(0, diceBag.Count);
-                diceBag.RemoveAt(randomIndex);
+                bag.RemoveAt(rng.Next(0, bag.Count));
                 burnedCount++;
             }
         }
         Debug.Log($"[Muerte Súbita] Se han quemado {burnedCount} dados de la bolsa.");
 
-        // (Opcional) Si tienes un método para actualizar la UI del contador global, llámalo aquí
-        // UIManager.Instance.UpdateDiceCounters(); 
+        UpdateDiceCountersUI();
     }
 }

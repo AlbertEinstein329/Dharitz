@@ -10,6 +10,10 @@ public class PatternData : ScriptableObject
     public bool allowRotation;
     public bool allowMirror;
     public bool allowDiagonalReservation;
+
+    // Regla especial de puntaje/contacto (enum global en SpecialRuleEvaluator.cs)
+    public SpecialRule specialRule = SpecialRule.None;
+
     public List<Vector2Int> baseShape = new List<Vector2Int>();
 
     // EL PUENTE: Convierte la data serializada de Unity a Data del Servidor

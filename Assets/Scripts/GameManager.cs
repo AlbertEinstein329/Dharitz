@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using MyGame.Core; // Acceso a la Capa 0
 
 public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 {
@@ -35,6 +36,11 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     public TurnManager turnManager { get; private set; }
     public PlacementOrchestrator placementOrchestrator { get; private set; }
 
+    // ==========================================
+    // ANCLA DE LA CAPA 0 (ESTADO AUTORITATIVO)
+    // ==========================================
+    public MatchStateDTO ServerState { get; private set; }
+
     // --- ITurnProvider Implementation ---
     public int CurrentPlayerIndex => turnManager != null ? turnManager.CurrentPlayerIndex : 0;
     public bool HasDrawn => turnManager != null ? turnManager.HasDrawn : false;
@@ -53,16 +59,27 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             return;
         }
 
-        Random.InitState((int)System.DateTime.Now.Ticks);
+        // Semilla de la partida: en online la proveerá el servidor; en local usamos el reloj.
+        int matchSeed = (int)System.DateTime.Now.Ticks;
+        Random.InitState(matchSeed);
 
         diceManager = new DiceManager(this);
         turnManager = new TurnManager(this);
         placementOrchestrator = new PlacementOrchestrator(this);
 
+        // 1. INICIALIZACIÓN DE LA MÁQUINA DE ESTADOS (Capa 0)
+        ServerState = new MatchStateDTO();
+        ServerState.CurrentPhase = MatchPhase.WaitingForPlayers;
+        ServerState.InitializeRNG(matchSeed); // F0.5: RNG determinista único
+
         if (currentSession != null)
         {
             currentVariant = currentSession.selectedVariant;
             numPlayers = currentSession.playerCount;
+
+            // F0.4: Inyectar configuración de variante en el estado maestro
+            if (currentVariant != null)
+                ServerState.VariantConfig = currentVariant.ToDTO();
 
             players = new List<PlayerData>();
             for (int i = 0; i < currentSession.players.Count; i++)
@@ -87,8 +104,39 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     void Start()
     {
         UnityEngine.Time.timeScale = 1f;
+        SyncServerStateFromPlayers();
         diceManager.InitializeBag();
         turnManager.StartTurn();
+    }
+
+    /// <summary>
+    /// Vuelca perfiles y tableros vacíos de los jugadores al ServerState y abre la fase de turnos.
+    /// Se llama al arrancar y al reiniciar la partida.
+    /// </summary>
+    void SyncServerStateFromPlayers()
+    {
+        ServerState.PlayerProfiles.Clear();
+        ServerState.PlayerBoards.Clear();
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            PlayerDataDTO profileDTO = players[i].ToDTO();
+            if (i == 0 && SaveManager.Instance != null && SaveManager.Instance.CurrentProfile != null)
+            {
+                profileDTO.TotalCoins = SaveManager.Instance.CurrentProfile.totalCoins;
+            }
+            ServerState.PlayerProfiles[i] = profileDTO;
+
+            // F1.6: Tablero vacío del jugador en el estado maestro
+            ServerState.PlayerBoards[i] = new BoardStateDTO(gridManager != null ? gridManager.rows : 8,
+                                                            gridManager != null ? gridManager.cols : 10);
+        }
+
+        ServerState.CurrentPlayerIndex = 0;
+        ServerState.HasDrawn = false;
+        ServerState.CurrentDrawnColor = null;
+        ServerState.CurrentDrawnValue = null;
+        ServerState.CurrentPhase = MatchPhase.PlayerTurn;
     }
 
     void InitializeFallbackPlayers()
@@ -144,7 +192,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         // Inyección nativa hacia TensorBoard
         if (isTrainingMode && metricsController != null)
         {
-            int remainingDices = diceManager.diceBag.Count;
+            int remainingDices = diceManager.GetTotalDiceLeft();
             // Extrae el score del Player 1 (El Agente) de forma autoritaria.
             int finalScore = players.Count > 0 ? players[0].score : 0;
 
@@ -249,7 +297,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             }
         }
 
-        // 3. Reiniciar la bolsa de dados a su estado inicial
+        // 3. Reiniciar el estado maestro y la bolsa de dados
+        SyncServerStateFromPlayers();
         diceManager.InitializeBag();
 
         // 4. Limpiar matrices del tablero
