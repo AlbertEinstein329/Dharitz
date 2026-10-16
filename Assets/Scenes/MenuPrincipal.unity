@@ -1801,6 +1801,52 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &506968318
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 506968320}
+  - component: {fileID: 506968319}
+  m_Layer: 0
+  m_Name: OnlineMenu
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &506968319
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 506968318}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b44cf90e6d3f2ae4586845d2664b7ccf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MyGame.Networking.OnlineMenuController
+  sessionConfig: {fileID: 11400000, guid: d48966ab6afd5aa45ba05cad741d3fe7, type: 2}
+  boardSceneIndex: 2
+--- !u!4 &506968320
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 506968318}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &538877308
 GameObject:
   m_ObjectHideFlags: 0
@@ -3141,9 +3187,9 @@ RectTransform:
   - {fileID: 616703960}
   m_Father: {fileID: 1114925238}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 489.1437, y: -1059.8114}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 535, y: 160}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &839165022
@@ -4453,9 +4499,9 @@ RectTransform:
   - {fileID: 1384299637}
   m_Father: {fileID: 1114925238}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 489.1437, y: -1299.8114}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 535, y: 160}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1164605254
@@ -7245,9 +7291,9 @@ RectTransform:
   - {fileID: 1199639476}
   m_Father: {fileID: 1114925238}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 489.1437, y: -819.8114}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 535, y: 160}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1667516117
@@ -7718,6 +7764,7 @@ MonoBehaviour:
   mainPanel: {fileID: 1408177779}
   freePlayPanel: {fileID: 712418808}
   settingsPanel: {fileID: 1999408894}
+  onlinePanel: {fileID: 0}
   variantDropdown: {fileID: 1864119519}
   rowsContainer: {fileID: 1275209336}
   playerRowPrefab: {fileID: 6415903108690055942, guid: c6a79789aff17d6458522e2bcb27d75d, type: 3}
@@ -9210,3 +9257,4 @@ SceneRoots:
   - {fileID: 1852167511}
   - {fileID: 1251881956}
   - {fileID: 1039738343}
+  - {fileID: 506968320}

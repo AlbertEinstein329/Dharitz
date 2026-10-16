@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using Unity.Services.Core;
-using Unity.Services.Authentication;
+using Unity.Services.Multiplayer;
 
 namespace MyGame.Networking
 {
@@ -13,17 +13,30 @@ namespace MyGame.Networking
         FourPlayers = 4
     }
 
+    /// <summary>
+    /// Busqueda rapida de partida con Unity Multiplayer Services (Sessions + Relay).
+    /// Une al jugador a una sesion publica con el mismo numero de plazas o, si no hay ninguna, crea una y espera.
+    /// El SDK arranca solo el Host/Client de Netcode sobre NetworkManager.Singleton (por eso se usa en la escena Tablero)
+    /// y gestiona el transporte por Relay: no hace falta abrir puertos ni conocer la IP del rival.
+    /// </summary>
     public class MultiplayerMatchmaker : MonoBehaviour
     {
         public static MultiplayerMatchmaker Instance { get; private set; }
 
+        private const int QuickJoinTimeoutSeconds = 8;
+        private const string ModePropertyKey = "dharitzMode";
+
+        private static string ModeProperty(int players) => $"{players}p";
+
         public event Action<string> OnStatusUpdated;
-        public event Action<string, ushort> OnMatchFound;
+        public event Action<ISession> OnMatchFound;
         public event Action<string> OnMatchFailed;
 
         public bool IsSearching { get; private set; }
-        private MatchMode currentMode = MatchMode.TwoPlayers;
-        private string activeTicketId;
+        public string LastStatus { get; private set; } = string.Empty;
+        public ISession ActiveSession { get; private set; }
+
+        private CancellationTokenSource searchCts;
 
         private void Awake()
         {
@@ -39,83 +52,111 @@ namespace MyGame.Networking
         }
 
         /// <summary>
-        /// Inicia la búsqueda de partida usando Unity Multiplayer SDK.
-        /// Soporta colas 2P y 4P.
+        /// Busca una sesion de <paramref name="mode"/> jugadores y la une; si no existe, la crea como anfitrion.
         /// </summary>
         public async Task StartMatchmakingAsync(MatchMode mode)
         {
             if (IsSearching)
             {
-                Debug.LogWarning("[Matchmaker] Búsqueda ya activa.");
+                Debug.LogWarning("[Matchmaker] Busqueda ya activa.");
                 return;
             }
 
-            currentMode = mode;
             IsSearching = true;
-            OnStatusUpdated?.Invoke($"Buscando partida {(int)mode} jugadores...");
+            searchCts = new CancellationTokenSource();
+            int players = (int)mode;
+            SetStatus($"Buscando partida de {players} jugadores...");
 
             try
             {
+                if (NetworkBootstrap.Instance == null)
+                    throw new InvalidOperationException("Falta NetworkBootstrap en la escena.");
+
                 if (!NetworkBootstrap.Instance.IsAuthenticated)
-                {
                     await NetworkBootstrap.Instance.InitializeServicesAsync();
-                }
 
-                string queueName = mode == MatchMode.TwoPlayers ? "2Player" : "4Player";
-                Debug.Log($"[Matchmaker] Solicitando ticket en cola '{queueName}' para PlayerId: {AuthenticationService.Instance.PlayerId}");
+                if (!NetworkBootstrap.Instance.IsAuthenticated)
+                    throw new InvalidOperationException("No se pudo iniciar sesion en Unity Services.");
 
-                // Simulación/Integración de Ticket de Matchmaking UGS Multiplayer SDK
-                // En build con SDK com.unity.services.multiplayer instalado, se usa MultiplayerService.Instance.CreateMatchmakingTicketAsync
-                await PollMatchmakingStatusAsync(queueName);
+                var quickJoin = new QuickJoinOptions
+                {
+                    Timeout = TimeSpan.FromSeconds(QuickJoinTimeoutSeconds),
+                    CreateSession = true
+                };
+                // MaxPlayers no es filtrable en quick join: se indexa el modo como propiedad de la sesion
+                quickJoin.Filters.Add(new FilterOption(FilterField.StringIndex1, ModeProperty(players), FilterOperation.Equal));
+
+                var sessionOptions = new SessionOptions
+                {
+                    MaxPlayers = players,
+                    IsPrivate = false,
+                    SessionProperties = new Dictionary<string, SessionProperty>
+                    {
+                        { ModePropertyKey, new SessionProperty(ModeProperty(players), VisibilityPropertyOptions.Public, PropertyIndex.String1) }
+                    }
+                }.WithRelayNetwork();
+
+                ActiveSession = await MultiplayerService.Instance.MatchmakeSessionAsync(quickJoin, sessionOptions, searchCts.Token);
+
+                IsSearching = false;
+                SetStatus(ActiveSession.IsHost
+                    ? $"Sala creada. Esperando rivales (1/{players})..."
+                    : "Partida encontrada. Conectando...");
+                Debug.Log($"[Matchmaker] Sesion {ActiveSession.Id} (codigo {ActiveSession.Code}) host={ActiveSession.IsHost}");
+                OnMatchFound?.Invoke(ActiveSession);
+            }
+            catch (OperationCanceledException)
+            {
+                IsSearching = false;
+                SetStatus("Busqueda cancelada.");
             }
             catch (Exception ex)
             {
                 IsSearching = false;
                 Debug.LogError($"[Matchmaker] Error en matchmaking: {ex.Message}");
+                SetStatus("No se pudo encontrar partida.");
                 OnMatchFailed?.Invoke(ex.Message);
             }
-        }
-
-        private async Task PollMatchmakingStatusAsync(string queueName)
-        {
-            int attempts = 0;
-            const int maxAttempts = 30; // 30 segundos timeout
-
-            while (IsSearching && attempts < maxAttempts)
+            finally
             {
-                await Task.Delay(1000);
-                attempts++;
-                OnStatusUpdated?.Invoke($"Buscando oponentes ({attempts}s)...");
-
-                // En entorno local o si no se recibe IP de Multiplay en 5s, 
-                // permitir fallback a servidor local para testing fluido
-#if UNITY_EDITOR
-                if (attempts >= 3)
-                {
-                    Debug.Log("[Matchmaker] [Editor Mock] Partida encontrada en localhost:7777");
-                    IsSearching = false;
-                    OnStatusUpdated?.Invoke("¡Partida encontrada!");
-                    OnMatchFound?.Invoke("127.0.0.1", 7777);
-                    return;
-                }
-#endif
-            }
-
-            if (IsSearching)
-            {
-                IsSearching = false;
-                OnMatchFailed?.Invoke("Tiempo de espera agotado. No se encontró partida.");
+                searchCts?.Dispose();
+                searchCts = null;
             }
         }
 
         public void CancelMatchmaking()
         {
             if (!IsSearching) return;
+            searchCts?.Cancel();
+            Debug.Log("[Matchmaker] Busqueda cancelada por el jugador.");
+        }
 
-            IsSearching = false;
-            activeTicketId = null;
-            OnStatusUpdated?.Invoke("Búsqueda cancelada.");
-            Debug.Log("[Matchmaker] Ticket cancelado por el jugador.");
+        /// <summary>
+        /// Sale de la sesion activa: el anfitrion la borra y los demas la abandonan.
+        /// </summary>
+        public async Task LeaveSessionAsync()
+        {
+            CancelMatchmaking();
+
+            ISession session = ActiveSession;
+            ActiveSession = null;
+            if (session == null) return;
+
+            try
+            {
+                if (session.IsHost) await session.AsHost().DeleteAsync();
+                else await session.LeaveAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Matchmaker] No se pudo cerrar la sesion limpiamente: {ex.Message}");
+            }
+        }
+
+        private void SetStatus(string message)
+        {
+            LastStatus = message;
+            OnStatusUpdated?.Invoke(message);
         }
     }
 }

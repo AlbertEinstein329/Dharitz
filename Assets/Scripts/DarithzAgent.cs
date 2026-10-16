@@ -12,6 +12,9 @@ public class DarithzAgent : Agent
     [Header("Agent Settings")]
     [SerializeField] private int targetPlayerIndex = 0;
 
+    // Online, el servidor es la unica autoridad: el agente queda inerte para no mutar el estado compartido del host
+    private bool inertOnline;
+
     // Meta base de esta generación
     private const int MaxTargetDice = 52;
 
@@ -29,6 +32,14 @@ public class DarithzAgent : Agent
             Destroy(gameObject);
             return;
         }
+
+        // Online, el servidor es la unica autoridad: un agente local mutaria el estado compartido del host
+        if (gm.IsOnlineMatch)
+        {
+            inertOnline = true;
+            return;
+        }
+
         gridManager = gm.gridManager;
 
         if (gm.players != null && targetPlayerIndex < gm.players.Count)
@@ -40,11 +51,20 @@ public class DarithzAgent : Agent
 
     public override void OnEpisodeBegin()
     {
+        if (inertOnline) return;
         gm.ResetGame();
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
+        if (inertOnline)
+        {
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
+            return;
+        }
+
         sensor.AddObservation(gm.turnManager.HasDrawn ? (float)((int)gm.turnManager.CurrentDrawnColor + 1) : 0f);
         sensor.AddObservation((float)gm.turnManager.CurrentDrawnValue);
         sensor.AddObservation(gm.turnManager.HasDrawn ? 1f : 0f);
@@ -52,6 +72,8 @@ public class DarithzAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
+        if (inertOnline) return;
+
         if (gm.isGameOver || gm.players[targetPlayerIndex].isEliminated)
         {
             EndEpisode();
@@ -180,6 +202,12 @@ public class DarithzAgent : Agent
     // =========================================================
     public override void WriteDiscreteActionMask(IDiscreteActionMask actionMask)
     {
+        if (inertOnline)
+        {
+            actionMask.SetActionEnabled(0, PassTurnAction, true);
+            return;
+        }
+
         if (gm.turnManager.CurrentPlayerIndex != targetPlayerIndex || !gm.turnManager.HasDrawn)
         {
             for (int i = 0; i < TotalCells; i++) actionMask.SetActionEnabled(0, i, false);

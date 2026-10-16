@@ -85,7 +85,6 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
                 ServerState.VariantConfig = currentVariant.ToDTO();
 
             players = new List<PlayerData>();
-
             // Online: un hueco por jugador esperado; nombres y estado reales llegan en el primer snapshot
             int playerSlots = IsOnlineMatch ? numPlayers : currentSession.players.Count;
             for (int i = 0; i < playerSlots; i++)
@@ -111,10 +110,11 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
     void Start()
     {
+        UnityEngine.Time.timeScale = 1f;
+
         if (IsOnlineMatch)
         {
             // No se reparte nada en local: se espera al snapshot inicial del servidor.
-            // Bolsa vacía (no nula) para que contadores y DiceManager.diceBag no fallen antes del primer snapshot.
             ServerState.DiceBag = new List<MyGame.Core.DieColor>();
             UIManager.Instance.SetDrawInputLock(true);
             if (drawButton != null) drawButton.interactable = false;
@@ -123,9 +123,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             return;
         }
 
-        // 2. ARRANQUE LÓGICO (Fase de resolución cruzada)
-        ServerState.CurrentPhase = MyGame.Core.MatchPhase.PlayerTurn;
-        ServerState.HasDrawn = false;
+        SyncServerStateFromPlayers();
         diceManager.InitializeBag();
         turnManager.StartTurn();
     }
@@ -169,6 +167,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         }
     }
 
+
+    // --- Facade Methods to handle UI Button Clicks ---
     // Reemplaza el estado por el autoritativo (servidor) o por el espejo recibido (cliente)
     public void AdoptServerState(MatchStateDTO state)
     {
@@ -184,6 +184,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             return;
         }
 
+        // 1. Execute the logical draw
         diceManager.DrawDie();
 
     }
@@ -209,7 +210,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     // --- IPlacementExecutor Implementation ---
     public void BeginPlacement(int row, int col)
     {
-        // Online, la jugada ya pasó la validación visual del cliente; el servidor decide y responde con un snapshot
+        // Online, la jugada ya paso la validacion visual del cliente; el servidor decide y responde con un snapshot
         if (IsOnlineMatch)
         {
             var network = MyGame.Networking.NetworkGameManager.Instance;

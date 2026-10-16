@@ -58,7 +58,7 @@ public class GridInteractionManager : MonoBehaviour
 
     public void ToggleMoveMode(bool isActive)
     {
-        // Online, Move todavía no pasa por el servidor: se deshabilita para no desincronizar
+        // Online, Move todavia no pasa por el servidor: se deshabilita para no desincronizar
         if (isActive && GameManager.Instance != null && GameManager.Instance.IsOnlineMatch) return;
 
         if (isActive)

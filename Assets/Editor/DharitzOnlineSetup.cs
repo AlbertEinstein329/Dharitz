@@ -40,14 +40,49 @@ public static class DharitzOnlineSetup
         GetOrAdd<NetworkObject>(gameGo);
         GetOrAdd<NetworkGameManager>(gameGo);
         GetOrAdd<NetworkTurnManager>(gameGo);
+        GetOrAdd<EmojiChatManager>(gameGo);
         GetOrAdd<NetworkDebugLauncher>(gameGo);
         EditorUtility.SetDirty(gameGo);
+
+        // 3. Servicios de red (UGS + reconexion) y HUD online (se construye solo por codigo)
+        GameObject servicesGo = FindOrCreate("NetworkServices");
+        GetOrAdd<NetworkBootstrap>(servicesGo);
+        GetOrAdd<ReconnectionManager>(servicesGo);
+        GetOrAdd<MultiplayerMatchmaker>(servicesGo);
+        EditorUtility.SetDirty(servicesGo);
+
+        GameObject hudGo = FindOrCreate("OnlineHud");
+        GetOrAdd<OnlineHudController>(hudGo);
+        GetOrAdd<OnlineAutoConnect>(hudGo);
+        EditorUtility.SetDirty(hudGo);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
 
         Selection.activeGameObject = gameGo;
-        Debug.Log("[DharitzOnlineSetup] Tablero listo: NetworkManager (UTP 127.0.0.1:7777) y NetworkGame (NetworkObject + NetworkGameManager + NetworkTurnManager + NetworkDebugLauncher). Escena guardada.");
+        Debug.Log("[DharitzOnlineSetup] Tablero listo: NetworkManager (UTP 127.0.0.1:7777), NetworkGame, NetworkServices y OnlineHud. Escena guardada.");
+    }
+
+    [MenuItem("Tools/Dharitz/Online/1b. Montar panel online en MenuPrincipal")]
+    public static void SetupMenuScene()
+    {
+        const string menuScenePath = "Assets/Scenes/MenuPrincipal.unity";
+        Scene scene = SceneManager.GetActiveScene();
+        if (scene.path != menuScenePath)
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            scene = EditorSceneManager.OpenScene(menuScenePath, OpenSceneMode.Single);
+        }
+
+        GameObject go = FindOrCreate("OnlineMenu");
+        OnlineMenuController controller = GetOrAdd<OnlineMenuController>(go);
+        controller.sessionConfig = AssetDatabase.LoadAssetAtPath<SessionConfig>(SessionAssetPath);
+        controller.boardSceneIndex = 2;
+        EditorUtility.SetDirty(controller);
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log("[DharitzOnlineSetup] MenuPrincipal listo: OnlineMenu (boton ONLINE + panel de salas). Escena guardada.");
     }
 
     [MenuItem("Tools/Dharitz/Online/2. Activar modo prueba online (2 jugadores)")]

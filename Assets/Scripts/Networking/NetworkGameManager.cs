@@ -91,6 +91,9 @@ namespace MyGame.Networking
         {
             if (!IsServer) return;
 
+            // El host (o un cliente rapido) ya pudo registrarse en OnNetworkSpawn
+            if (clientIdToPlayerIndex.ContainsKey(clientId)) return;
+
             if (matchStarted)
             {
                 // TODO(reconexión): los ClientId cambian al reconectar; hace falta identificar al jugador por PlayerId de UGS
