@@ -158,3 +158,22 @@ El menú `DharitzOnlineSetup` (commit `e1d915c7`) crea estos objetos automática
 5. Fase 5: 2 días
 
 Total aproximado: 9-11 días de trabajo.
+
+## 4. Estado de ejecución (16-10-2026)
+
+**Hecho y verificado en Unity (compila sin errores; prueba Host de 1 jugador: robar y colocar pasan por el servidor y el cliente refleja tablero, puntaje y turno):**
+
+- Fase 1: escenas de Photon fuera de *Build Settings*. `NetworkBootstrap` ya no se toca (sigue inicializando UGS).
+- Fase 2 (scripts): `CoreMatchSetup`, `NetworkMatchSnapshot`, `OnlineMatchPresenter`, `NetworkDebugLauncher`, `NetworkGameManager`, `NetworkTurnManager`, `ReconnectionManager` y `NetworkBoardState` portados de la rama online. `GameManager` enruta Draw/ReDraw/Place al servidor cuando `SessionConfig.isOnlineMatch`; Undo/Move quedan desactivados online.
+- Fase 2 (escena `Tablero`): `NetworkManager` + `UnityTransport`, `NetworkGame` (NetworkObject, NetworkGameManager, NetworkTurnManager, EmojiChatManager, NetworkDebugLauncher), `NetworkServices` (NetworkBootstrap, ReconnectionManager) y `OnlineHud` (HUD por código: sala de espera, turno, temporizador, avisos de desconexión, emojis y botón SALIR; más `OnlineAutoConnect`).
+- Fase 3 (menú): `OnlineMenuController` en `MenuPrincipal` (botón ONLINE → crear sala 2/4 jugadores o unirse por IP). Carga `Tablero` y `OnlineAutoConnect` arranca Host/Client. Verificado: crear sala 2J carga `Tablero` online y queda esperando al segundo jugador.
+- Corregido: el host se desconectaba a sí mismo al arrancar, y el `DarithzAgent` de la escena robaba dados en partidas online (ahora queda inerte).
+- Menú de Editor `Tools ▸ Dharitz ▸ Online` (1: montar `Tablero`, 1b: montar `MenuPrincipal`, 2/3: alternar modo prueba).
+
+**Pendiente (necesita más de una máquina/instancia, cuentas o decisiones tuyas):**
+
+- Probar una partida real 2J con dos instancias (Multiplayer Play Mode o una build + el Editor). Hasta ahora solo se probó con 1 jugador.
+- Matchmaking por cola (UGS): instalar `com.unity.services.multiplayer`, crear las colas `2Player`/`4Player` en el Dashboard y sustituir el mock de `MultiplayerMatchmaker`. Hoy el mock solo sirve en el Editor.
+- Slots por `PlayerId` de UGS para reconexión real (hoy un cliente que cae pierde su sitio) y reenvío de snapshot al reconectar.
+- Fase 4 (servidor dedicado Multiplay/Linux) y Fase 5 (Undo/Move online, resultados y Cloud Save, antitrampas).
+- Nota de Editor: si el puerto 7777 queda ocupado tras parar Play con la red activa, reinicia Unity (el socket queda colgado). Apaga la red antes de parar Play.
