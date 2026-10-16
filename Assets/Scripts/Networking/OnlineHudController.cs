@@ -23,6 +23,7 @@ namespace MyGame.Networking
         private TextMeshProUGUI turnLabel;
         private TextMeshProUGUI timerLabel;
         private TextMeshProUGUI bannerLabel;
+        private GameObject reconnectButton;
         private float bannerHideTime;
 
         private bool subscribed;
@@ -89,6 +90,12 @@ namespace MyGame.Networking
                 }
             }
 
+            // Caida de conexion en mitad de la partida: se ofrece volver a la sesion
+            MultiplayerMatchmaker matchmaker = MultiplayerMatchmaker.Instance;
+            bool canReconnect = matchEverStarted && !connected && matchmaker != null
+                && !string.IsNullOrEmpty(matchmaker.LastSessionId) && !matchmaker.IsSearching;
+            reconnectButton.SetActive(canReconnect);
+
             if (bannerLabel.gameObject.activeSelf && Time.time > bannerHideTime)
                 bannerLabel.gameObject.SetActive(false);
         }
@@ -154,6 +161,14 @@ namespace MyGame.Networking
             SceneManager.LoadScene(menuSceneIndex);
         }
 
+        private async void Reconnect()
+        {
+            if (MultiplayerMatchmaker.Instance == null) return;
+
+            bool ok = await MultiplayerMatchmaker.Instance.ReconnectAsync();
+            if (!ok) ShowBanner("No se pudo reconectar. Puedes salir al menu.", 4f);
+        }
+
         private void SendEmoji(int id)
         {
             if (EmojiChatManager.Instance != null) EmojiChatManager.Instance.SendEmoji(id);
@@ -184,6 +199,9 @@ namespace MyGame.Networking
             bannerLabel.color = new Color(1f, 0.8f, 0.2f);
             bannerLabel.gameObject.SetActive(false);
 
+            reconnectButton = CreateButton("Reconnect", "RECONECTAR", new Vector2(0.5f, 0.55f), new Vector2(520, 110), Reconnect);
+            reconnectButton.SetActive(false);
+
             CreateButton("Leave", "SALIR", new Vector2(0.1f, 0.965f), new Vector2(180, 70), LeaveMatch);
 
             for (int i = 0; i < EmojiLabels.Length; i++)
@@ -210,7 +228,7 @@ namespace MyGame.Networking
             return text;
         }
 
-        private void CreateButton(string name, string label, Vector2 anchor, Vector2 size, UnityEngine.Events.UnityAction onClick)
+        private GameObject CreateButton(string name, string label, Vector2 anchor, Vector2 size, UnityEngine.Events.UnityAction onClick)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             go.transform.SetParent(root.transform, false);
@@ -225,6 +243,7 @@ namespace MyGame.Networking
             var text = CreateLabel(name + "Label", new Vector2(0.5f, 0.5f), size, 34, TextAlignmentOptions.Center);
             text.transform.SetParent(go.transform, false);
             text.text = label;
+            return go;
         }
     }
 }

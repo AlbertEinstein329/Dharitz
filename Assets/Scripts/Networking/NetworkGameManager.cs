@@ -19,6 +19,9 @@ namespace MyGame.Networking
         private readonly Dictionary<ulong, int> clientIdToPlayerIndex = new Dictionary<ulong, int>();
         private readonly Dictionary<int, ulong> playerIndexToClientId = new Dictionary<int, ulong>();
 
+        // Identidad estable del jugador (PlayerId de UGS): sobrevive a los cambios de ClientId al reconectar
+        private readonly Dictionary<string, int> playerIdToSlot = new Dictionary<string, int>();
+
         public NetworkVariable<int> NetworkCurrentPlayerIndex = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         public NetworkVariable<int> NetworkMatchPhase = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -50,15 +53,14 @@ namespace MyGame.Networking
         {
             if (IsServer)
             {
-                NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
                 NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+            }
 
-                // El host (o clientes muy rápidos) pueden haberse conectado antes de que este objeto spawneara
-                foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
-                {
-                    RegisterClient(clientId);
-                }
-                TryStartMatch();
+            // Cada maquina (host incluido) se identifica ante el servidor con su PlayerId de UGS.
+            // El slot se asigna al registrarse, no al conectar, para poder reconocer a quien vuelve.
+            if (IsClient)
+            {
+                RegisterPlayerServerRpc(GetLocalPlayerId());
             }
 
             OnlineMatchPresenter.ResetPresentation();
@@ -68,7 +70,6 @@ namespace MyGame.Networking
         {
             if (IsServer && NetworkManager.Singleton != null)
             {
-                NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
                 NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
             }
         }
@@ -84,33 +85,42 @@ namespace MyGame.Networking
         }
 
         // =========================================================
-        // CONEXIONES Y ARRANQUE (solo servidor)
+        // CONEXIONES, REGISTRO Y ARRANQUE (solo servidor)
         // =========================================================
 
-        private void HandleClientConnected(ulong clientId)
+        private static string GetLocalPlayerId()
         {
-            if (!IsServer) return;
+            try
+            {
+                var auth = Unity.Services.Authentication.AuthenticationService.Instance;
+                if (auth != null && auth.IsSignedIn) return auth.PlayerId;
+            }
+            catch (Exception) { /* servicios no inicializados: se usa un id efimero */ }
 
-            // El host (o un cliente rapido) ya pudo registrarse en OnNetworkSpawn
-            if (clientIdToPlayerIndex.ContainsKey(clientId)) return;
+            return "local-" + NetworkManager.Singleton.LocalClientId;
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        private void RegisterPlayerServerRpc(string playerId, ServerRpcParams rpcParams = default)
+        {
+            ulong clientId = rpcParams.Receive.SenderClientId;
+            if (string.IsNullOrEmpty(playerId)) playerId = "client-" + clientId;
+
+            // Mismo jugador que vuelve (o sigue conectado con otro ClientId): recupera su slot
+            if (playerIdToSlot.TryGetValue(playerId, out int knownSlot))
+            {
+                RebindPlayer(playerId, knownSlot, clientId);
+                return;
+            }
 
             if (matchStarted)
             {
-                // TODO(reconexión): los ClientId cambian al reconectar; hace falta identificar al jugador por PlayerId de UGS
-                Debug.LogWarning($"[NetworkGameManager] ClientId {clientId} intentó unirse con la partida ya iniciada. Desconectando.");
+                Debug.LogWarning($"[NetworkGameManager] {playerId} intento unirse con la partida ya iniciada. Desconectando.");
                 NetworkManager.Singleton.DisconnectClient(clientId);
                 return;
             }
 
-            RegisterClient(clientId);
-            TryStartMatch();
-        }
-
-        private void RegisterClient(ulong clientId)
-        {
-            if (clientIdToPlayerIndex.ContainsKey(clientId)) return;
-
-            if (clientIdToPlayerIndex.Count >= ExpectedPlayers)
+            if (playerIdToSlot.Count >= ExpectedPlayers)
             {
                 Debug.LogWarning($"[NetworkGameManager] Sala llena ({ExpectedPlayers}). Rechazando ClientId {clientId}.");
                 NetworkManager.Singleton.DisconnectClient(clientId);
@@ -118,37 +128,72 @@ namespace MyGame.Networking
             }
 
             int slot = 0;
-            while (playerIndexToClientId.ContainsKey(slot)) slot++;
+            while (playerIndexToClientId.ContainsKey(slot) || playerIdToSlot.ContainsValue(slot)) slot++;
 
+            playerIdToSlot[playerId] = slot;
             clientIdToPlayerIndex[clientId] = slot;
             playerIndexToClientId[slot] = clientId;
-            Debug.Log($"[NetworkGameManager] Cliente conectado. ClientId: {clientId} -> Slot de Jugador: {slot} ({clientIdToPlayerIndex.Count}/{ExpectedPlayers})");
+            Debug.Log($"[NetworkGameManager] Jugador registrado. ClientId {clientId} -> Slot {slot} ({playerIdToSlot.Count}/{ExpectedPlayers})");
+
+            TryStartMatch();
+        }
+
+        private void RebindPlayer(string playerId, int slot, ulong newClientId)
+        {
+            if (matchStarted && GameManager.Instance.ServerState.PlayerProfiles.TryGetValue(slot, out PlayerDataDTO profile) && profile.IsEliminated)
+            {
+                Debug.LogWarning($"[NetworkGameManager] {playerId} (slot {slot}) estaba eliminado por abandono. No puede volver.");
+                NetworkManager.Singleton.DisconnectClient(newClientId);
+                return;
+            }
+
+            // Libera el ClientId anterior de este slot (si la caida aun no se habia detectado)
+            if (playerIndexToClientId.TryGetValue(slot, out ulong oldClientId) && oldClientId != newClientId)
+            {
+                clientIdToPlayerIndex.Remove(oldClientId);
+            }
+
+            clientIdToPlayerIndex[newClientId] = slot;
+            playerIndexToClientId[slot] = newClientId;
+            Debug.Log($"[NetworkGameManager] Jugador {playerId} reconectado. Slot {slot} -> ClientId {newClientId}");
+
+            if (!matchStarted) return;
+
+            if (ReconnectionManager.Instance != null) ReconnectionManager.Instance.HandlePlayerReconnect(slot);
+
+            // Snapshot completo para que el cliente que vuelve recupere tablero, mano y turno
+            BroadcastSnapshot(default);
         }
 
         private void HandleClientDisconnected(ulong clientId)
         {
-            if (clientIdToPlayerIndex.TryGetValue(clientId, out int slot))
+            if (!clientIdToPlayerIndex.TryGetValue(clientId, out int slot)) return;
+
+            Debug.LogWarning($"[NetworkGameManager] Cliente desconectado. ClientId: {clientId} (Slot: {slot})");
+            clientIdToPlayerIndex.Remove(clientId);
+
+            // Solo se libera el slot si ese ClientId seguia siendo el vigente (no un reemplazo ya registrado)
+            if (playerIndexToClientId.TryGetValue(slot, out ulong current) && current != clientId) return;
+            playerIndexToClientId.Remove(slot);
+
+            if (!matchStarted)
             {
-                Debug.LogWarning($"[NetworkGameManager] Cliente desconectado. ClientId: {clientId} (Slot: {slot})");
+                // En la sala de espera el hueco se libera para otro jugador
+                string key = null;
+                foreach (var kvp in playerIdToSlot) if (kvp.Value == slot) { key = kvp.Key; break; }
+                if (key != null) playerIdToSlot.Remove(key);
+                return;
+            }
 
-                if (!matchStarted)
-                {
-                    // En la sala de espera el hueco se libera para otro jugador
-                    clientIdToPlayerIndex.Remove(clientId);
-                    playerIndexToClientId.Remove(slot);
-                    return;
-                }
-
-                if (ReconnectionManager.Instance != null)
-                {
-                    ReconnectionManager.Instance.HandlePlayerDisconnect(slot);
-                }
+            if (ReconnectionManager.Instance != null)
+            {
+                ReconnectionManager.Instance.HandlePlayerDisconnect(slot);
             }
         }
 
         private void TryStartMatch()
         {
-            if (matchStarted || clientIdToPlayerIndex.Count < ExpectedPlayers) return;
+            if (matchStarted || playerIdToSlot.Count < ExpectedPlayers) return;
 
             GameManager gm = GameManager.Instance;
             if (gm == null || gm.gridManager == null)

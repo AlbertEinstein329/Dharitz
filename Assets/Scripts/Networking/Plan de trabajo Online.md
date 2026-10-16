@@ -185,3 +185,11 @@ Total aproximado: 9-11 días de trabajo.
 - Verificado contra Unity Services: login anónimo, Lobby (sesión creada) y Relay (join code) responden bien.
 - **Bloqueo abierto:** al arrancar el Host por Relay (DTLS) el Editor lanza `Burst failed to compile the function pointer SendCallback` (UnityTLS). Con UDP directo (salas por IP) el Host sí arranca. Probar: *Jobs ▸ Burst ▸ Enable Compilation* desactivado en el Editor, o una build Windows/Android. Sin este paso no se ha podido ver una partida rápida completa.
 - Pendiente: slots por `PlayerId` de UGS para reconexión, y fases 4-5.
+
+### Fase 5 (parcial, 16-10-2026, parte 3)
+
+- **Reconexión por PlayerId:** `NetworkGameManager` ya no asigna el slot al conectar. Cada máquina (host incluido) llama a `RegisterPlayerServerRpc(PlayerId de UGS)`. Si el id ya tenía slot, se le devuelve (también si el ClientId cambió) y se envía un snapshot completo; si estaba eliminado por abandono, se rechaza. `MultiplayerMatchmaker.ReconnectAsync()` vuelve a la sesión y el HUD muestra un botón RECONECTAR cuando hay caída a mitad de partida.
+- **Fin de partida online:** cada cliente suma sus monedas y guarda en Cloud Save (`OnlineMatchPresenter.RewardLocalPlayer`).
+- **Verificado:** regresión de 1 jugador (Host, robar y colocar replicados) tras el cambio. **Sin verificar:** reconexión real con dos instancias (cerrar el cliente de Multiplayer Play Mode y pulsar RECONECTAR).
+- **Decisión pendiente (Undo/Move online):** el turno online termina al colocar (no hay pausa de transición), así que el Undo "del último dado" local no tiene hueco. Hace falta decidir una regla: (a) fase de confirmar turno, (b) Undo solo del propio turno antes de confirmar, o (c) dejarlo desactivado online. Move depende de lo mismo.
+- **Pendiente:** fase 4 (servidor dedicado Linux + Multiplay) y antitrampas básicas (límite de RPCs).

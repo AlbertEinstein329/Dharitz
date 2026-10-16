@@ -153,6 +153,18 @@ namespace MyGame.Networking
             }
         }
 
+        // Cada cliente guarda su propio progreso: el servidor dedicado no tiene perfil ni Cloud Save
+        private static void RewardLocalPlayer(PlayerData me)
+        {
+            if (me == null) return;
+
+            int coins = Mathf.Max(0, me.score / 10);
+            if (SaveManager.Instance != null) SaveManager.Instance.AddCoins(coins);
+            if (CloudSaveManager.Instance != null) _ = CloudSaveManager.Instance.SaveMetaProgress();
+
+            Debug.Log($"[OnlineMatchPresenter] Partida online terminada. Puntaje {me.score}, +{coins} monedas.");
+        }
+
         private static void ApplyHud(GameManager gm, NetworkMatchSnapshot snap, int localPlayerIndex, bool hadHandInMyTurn)
         {
             bool isGameOver = snap.Phase == (byte)MatchPhase.GameOver;
@@ -200,6 +212,7 @@ namespace MyGame.Networking
                 if (gm.drawButton != null) gm.drawButton.interactable = false;
                 if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Victory");
                 UIManager.Instance.ShowFinalResults(Mathf.Max(0, localPlayerIndex));
+                RewardLocalPlayer(me);
             }
         }
     }
