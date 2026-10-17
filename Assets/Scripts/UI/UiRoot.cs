@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -161,5 +162,12 @@ public static class MobileDisplay
         Screen.autorotateToLandscapeRight = true;
         Screen.autorotateToPortraitUpsideDown = false;
         Screen.orientation = ScreenOrientation.AutoRotation;
+
+        // Sin vSync de calidad (en movil manda el frame pacing de Android) y con tope de fotogramas para ahorrar bateria
+        QualitySettings.vSyncCount = 0;
+        SceneManager.sceneLoaded += (scene, mode) => Application.targetFrameRate = scene.buildIndex == BoardSceneIndex ? 60 : 30;
+        Application.targetFrameRate = 30;
     }
+
+    private const int BoardSceneIndex = 2;
 }
