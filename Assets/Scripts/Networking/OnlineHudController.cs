@@ -200,17 +200,15 @@ namespace MyGame.Networking
 
         private void BuildUi()
         {
-            root = new GameObject("OnlineHudCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            root.transform.SetParent(transform, false);
-
-            var canvas = root.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 50;
-
-            var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
+            // El HUD online cuelga del canvas unico del tablero, por debajo de pausa y fin de partida
+            Transform parent = UiRoot.GetScreensParent("OnlineHudCanvas");
+            root = new GameObject("OnlineHud", typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            var rootRect = (RectTransform)root.transform;
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = rootRect.offsetMax = Vector2.zero;
+            PlaceBelowModals(rootRect);
 
             waitingLabel = CreateLabel("Waiting", new Vector2(0.5f, 0.55f), new Vector2(900, 200), 48, TextAlignmentOptions.Center);
             turnLabel = CreateLabel("Turn", new Vector2(0.5f, 0.965f), new Vector2(700, 70), 44, TextAlignmentOptions.Center);
@@ -236,6 +234,28 @@ namespace MyGame.Networking
                 int id = i;
                 CreateButton(OnlineUiKit.ButtonStyle.Neutral, "Emoji" + i, EmojiLabels[i], new Vector2(0.075f + i * 0.125f, 0.035f), new Vector2(125, 90), () => SendEmoji(id));
             }
+        }
+
+        // Pausa y fin de partida deben quedar por encima del HUD online (orden de hermanos = orden de dibujo)
+        private static void PlaceBelowModals(RectTransform hud)
+        {
+            Transform canvasRoot = hud.parent;
+            int index = hud.GetSiblingIndex();
+
+            // El panel de pausa es un hijo directo del canvas llamado PauseMenu (PanelPauseController vive en otro objeto)
+            Transform pauseMenu = canvasRoot.Find("PauseMenu");
+            if (pauseMenu != null) index = Mathf.Min(index, pauseMenu.GetSiblingIndex());
+
+            UIManager ui = FindFirstObjectByType<UIManager>();
+            if (ui != null && ui.panelGameOver != null) index = Mathf.Min(index, ChildIndexUnder(canvasRoot, ui.panelGameOver.transform));
+
+            hud.SetSiblingIndex(index);
+        }
+
+        private static int ChildIndexUnder(Transform canvasRoot, Transform descendant)
+        {
+            while (descendant != null && descendant.parent != canvasRoot) descendant = descendant.parent;
+            return descendant != null ? descendant.GetSiblingIndex() : int.MaxValue;
         }
 
         private TextMeshProUGUI CreateLabel(string name, Vector2 anchor, Vector2 size, float fontSize, TextAlignmentOptions alignment)
