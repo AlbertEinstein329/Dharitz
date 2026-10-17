@@ -1,148 +1,200 @@
-using UnityEngine;
-using Unity.Services.Core;
-using Unity.Services.Authentication;
+using System;
 using System.Threading.Tasks;
+using Unity.Services.Authentication;
+using Unity.Services.Core;
+using UnityEngine;
 #if UNITY_ANDROID
 using GooglePlayGames;
 using GooglePlayGames.BasicApi;
 #endif
-using UnityEngine.SceneManagement;
 
+/// <summary>
+/// Sesion del jugador con Unity Gaming Services. Ya no decide por si sola a donde ir: la pantalla de Login
+/// (<see cref="LoginController"/>) llama a <see cref="SignInAsGuestAsync"/> o <see cref="SignInWithGooglePlayAsync"/> y
+/// carga el menu cuando termina. Persiste entre escenas.
+/// </summary>
 public class AuthManager : MonoBehaviour
 {
     public static AuthManager Instance { get; private set; }
 
-    public event System.Action OnAuthenticationComplete;
+    /// <summary>Resultado de un intento de inicio de sesion.</summary>
+    public enum AuthResult { Success, NoConnection, Failed, Cancelled, NotSupported }
+
+    public event Action OnAuthenticationComplete;
+
+    /// <summary>El jugador eligio jugar sin conexion: el menu desactiva lo online.</summary>
+    public static bool OfflineMode { get; private set; }
+
+    private Task initTask;
+    private bool eventsHooked;
+
+    public bool IsSignedIn => UnityServices.State == ServicesInitializationState.Initialized && AuthenticationService.Instance.IsSignedIn;
+    public string PlayerId => IsSignedIn ? AuthenticationService.Instance.PlayerId : string.Empty;
+
+    /// <summary>Hay una sesion guardada de una visita anterior (se puede entrar sin que el jugador pulse nada).</summary>
+    public bool HasCachedSession => UnityServices.State == ServicesInitializationState.Initialized && AuthenticationService.Instance.SessionTokenExists;
 
     private void Awake()
     {
-        // Configuramos el Singleton para que este objeto no se destruya al cambiar de escena
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
+            return;
         }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
     }
 
-    async void Start()
+    // ------------------------------------------------------------------ Inicializacion
+
+    /// <summary>Inicializa Unity Services (idempotente). Devuelve false si no hay conexion o falla.</summary>
+    public async Task<bool> InitializeAsync()
     {
         // Un servidor dedicado no es un jugador: no inicia sesion ni descarga progreso de Cloud Save
-        if (MyGame.Networking.DedicatedServerLauncher.IsDedicatedServer) return;
+        if (MyGame.Networking.DedicatedServerLauncher.IsDedicatedServer) return false;
+        if (Application.internetReachability == NetworkReachability.NotReachable) return false;
 
-        // Al arrancar el juego, intentamos iniciar sesión automáticamente
-        await InitializeAndSignInAsync();
-    }
-
-    private async Task InitializeAndSignInAsync()
-    {
+        initTask ??= InitializeCoreAsync();
         try
         {
-            // 1. Inicializa el ecosistema de Unity Services (Obligatorio antes de hacer cualquier otra cosa)
-            await UnityServices.InitializeAsync();
-            Debug.Log("Unity Services inicializados correctamente.");
-
-            // 2. Nos suscribimos a los eventos para saber si funcionó
-            SetupEvents();
-
-            // 3. Si ya tiene sesión iniciada, no hacemos nada. Si no, lo logueamos como invitado.
-            if (!AuthenticationService.Instance.IsSignedIn)
-            {
-                Debug.Log("Intentando iniciar sesión como invitado...");
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
-            }
+            await initTask;
+            return UnityServices.State == ServicesInitializationState.Initialized;
         }
-        catch (AuthenticationException ex)
+        catch (Exception ex)
         {
-            // Atrapamos errores específicos de autenticación (ej: cuenta baneada)
-            Debug.LogError($"Error de Autenticación: {ex.Message}");
+            Debug.LogWarning($"[Auth] No se pudo inicializar Unity Services: {ex.Message}");
+            initTask = null; // permite reintentar
+            return false;
+        }
+    }
+
+    private async Task InitializeCoreAsync()
+    {
+        await UnityServices.InitializeAsync();
+        if (eventsHooked) return;
+        eventsHooked = true;
+
+        AuthenticationService.Instance.SignedIn += () => Debug.Log($"[Auth] Sesion iniciada. ID: {AuthenticationService.Instance.PlayerId}");
+        AuthenticationService.Instance.SignInFailed += err => Debug.LogWarning($"[Auth] Fallo al iniciar sesion: {err.Message}");
+        AuthenticationService.Instance.SignedOut += () => Debug.Log("[Auth] Sesion cerrada.");
+    }
+
+    // ------------------------------------------------------------------ Inicio de sesion
+
+    public async Task<AuthResult> SignInAsGuestAsync()
+    {
+        OfflineMode = false;
+        if (!await InitializeAsync()) return Application.internetReachability == NetworkReachability.NotReachable ? AuthResult.NoConnection : AuthResult.Failed;
+
+        try
+        {
+            // Con sesion en cache reutiliza al mismo jugador anonimo
+            if (!AuthenticationService.Instance.IsSignedIn) await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            await FinishSignInAsync();
+            return AuthResult.Success;
         }
         catch (RequestFailedException ex)
         {
-            // Atrapamos errores de red (ej: sin conexión a internet)
-            Debug.LogError($"Error de Red/Servidor: {ex.Message}");
+            Debug.LogWarning($"[Auth] Invitado: {ex.Message}");
+            return ex.ErrorCode == CommonErrorCodes.TransportError || ex.ErrorCode == CommonErrorCodes.Timeout ? AuthResult.NoConnection : AuthResult.Failed;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[Auth] Invitado: {ex.Message}");
+            return AuthResult.Failed;
         }
     }
 
-    private void SetupEvents()
-    {
-        // Usamos 'async' para poder esperar a que descarguen los datos antes de cambiar de escena
-        AuthenticationService.Instance.SignedIn += async () => {
-            Debug.Log($"¡Sesión iniciada con éxito! ID: {AuthenticationService.Instance.PlayerId}");
-
-            if (CloudSaveManager.Instance != null)
-            {
-                // Esperamos a que termine de descargar las monedas y nivel
-                // La forma correcta con el nuevo nombre
-                await CloudSaveManager.Instance.LoadMetaProgress();
-            }
-
-            OnAuthenticationComplete?.Invoke();
-
-            // NUEVO: Cambiamos a la escena del menú principal.
-            // Asegúrate de escribir el nombre de tu escena EXACTAMENTE igual (respetando mayúsculas)
-            SceneManager.LoadScene(1);
-        };
-
-        AuthenticationService.Instance.SignInFailed += (err) => {
-            Debug.LogError($"Fallo al iniciar sesión: {err}");
-            // Aquí en el futuro podrías mostrar un PopUp que diga "Revisa tu conexión a internet"
-        };
-
-        AuthenticationService.Instance.SignedOut += () => {
-            Debug.Log("Sesión cerrada.");
-        };
-    }
-
-    /// <summary>
-    /// Inicia la conexión con la app de Google Play Games del teléfono.
-    /// </summary>
-    public void VincularCuentaGooglePlay()
+    /// <summary>Entra con Google Play Games (solo Android). Si hay un invitado, vincula; si la cuenta ya existe, entra con ella.</summary>
+    public async Task<AuthResult> SignInWithGooglePlayAsync()
     {
 #if UNITY_ANDROID
-        Debug.Log("Iniciando Google Play Games...");
+        OfflineMode = false;
+        if (!await InitializeAsync()) return Application.internetReachability == NetworkReachability.NotReachable ? AuthResult.NoConnection : AuthResult.Failed;
 
-        // 1. Activamos la plataforma de GPGS
-        PlayGamesPlatform.Activate();
+        string authCode = await RequestGooglePlayAuthCodeAsync();
+        if (string.IsNullOrEmpty(authCode)) return AuthResult.Cancelled;
 
-        // 2. Intentamos autenticar al jugador (saldrá el cartel verde de Play Games por arriba)
-        PlayGamesPlatform.Instance.Authenticate((SignInStatus status) =>
+        try
         {
-            if (status == SignInStatus.Success)
+            if (!AuthenticationService.Instance.IsSignedIn)
             {
-                Debug.Log("Login en Play Games exitoso. Solicitando código de acceso al servidor...");
-
-                // 3. Pedimos el Auth Code. El 'true' significa que forzamos la obtención del código.
-                PlayGamesPlatform.Instance.RequestServerSideAccess(true, async (authCode) =>
-                {
-                    try
-                    {
-                        Debug.Log("Código recibido. Vinculando con Unity Gaming Services...");
-
-                        // OJO: Usamos el método específico para Play Games
-                        await AuthenticationService.Instance.LinkWithGooglePlayGamesAsync(authCode);
-
-                        Debug.Log("¡VINCULACIÓN EXITOSA! Ahora estás usando Google Play Games.");
-                    }
-                    catch (AuthenticationException ex)
-                    {
-                        Debug.LogError($"Error al vincular en UGS: {ex.Message}");
-                    }
-                });
+                await AuthenticationService.Instance.SignInWithGooglePlayGamesAsync(authCode);
             }
             else
             {
-                Debug.LogError($"Fallo al iniciar sesión en Play Games: {status}");
+                try
+                {
+                    await AuthenticationService.Instance.LinkWithGooglePlayGamesAsync(authCode);
+                }
+                catch (AuthenticationException ex) when (ex.ErrorCode == AuthenticationErrorCodes.AccountAlreadyLinked)
+                {
+                    // Esa cuenta de Play Games ya tiene progreso en otro jugador: se entra con ella
+                    AuthenticationService.Instance.SignOut();
+                    await AuthenticationService.Instance.SignInWithGooglePlayGamesAsync(authCode);
+                }
             }
-        });
+
+            await FinishSignInAsync();
+            return AuthResult.Success;
+        }
+        catch (RequestFailedException ex)
+        {
+            Debug.LogWarning($"[Auth] Google Play: {ex.Message}");
+            return ex.ErrorCode == CommonErrorCodes.TransportError || ex.ErrorCode == CommonErrorCodes.Timeout ? AuthResult.NoConnection : AuthResult.Failed;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[Auth] Google Play: {ex.Message}");
+            return AuthResult.Failed;
+        }
 #else
         // Google Play Games solo existe en Android (el SDK no compila en Windows, Linux ni en el servidor dedicado)
-        Debug.LogWarning("Google Play Games solo esta disponible en Android.");
+        await Task.CompletedTask;
+        return AuthResult.NotSupported;
 #endif
     }
 
+#if UNITY_ANDROID
+    private static Task<string> RequestGooglePlayAuthCodeAsync()
+    {
+        var completion = new TaskCompletionSource<string>();
+        PlayGamesPlatform.Activate();
+        PlayGamesPlatform.Instance.Authenticate((SignInStatus status) =>
+        {
+            if (status != SignInStatus.Success)
+            {
+                Debug.LogWarning($"[Auth] Play Games: {status}");
+                completion.TrySetResult(null);
+                return;
+            }
 
+            PlayGamesPlatform.Instance.RequestServerSideAccess(true, code => completion.TrySetResult(code));
+        });
+        return completion.Task;
+    }
+#endif
+
+    /// <summary>Juega sin sesion: solo modos locales.</summary>
+    public void ContinueOffline()
+    {
+        OfflineMode = true;
+    }
+
+    public void SignOut()
+    {
+        if (IsSignedIn) AuthenticationService.Instance.SignOut(true); // true: olvida tambien la sesion en cache
+    }
+
+    // Descarga el progreso de la nube; no bloquea el inicio de sesion si falla
+    private async Task FinishSignInAsync()
+    {
+        if (CloudSaveManager.Instance != null)
+        {
+            try { await CloudSaveManager.Instance.LoadMetaProgress(); }
+            catch (Exception ex) { Debug.LogWarning($"[Auth] No se pudo cargar el progreso: {ex.Message}"); }
+        }
+        OnAuthenticationComplete?.Invoke();
+    }
 }

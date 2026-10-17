@@ -51,6 +51,7 @@ public class MainMenuManager : MonoBehaviour
 
         LoadSettings();
         InitializeDropdownVariants();
+        MakeBackgroundsResponsive();
 
         // Listeners limpios de Ajustes por código
         if (bgmSlider != null) bgmSlider.onValueChanged.AddListener(SetBGMVolume);
@@ -91,6 +92,33 @@ public class MainMenuManager : MonoBehaviour
         settingsPanel.SetActive(true);
         if (onlinePanel != null) onlinePanel.SetActive(false);
         LoadSettings();
+    }
+
+    // Los fondos de los paneles estaban estirados a pantalla completa: se sustituyen por fondos que cubren sin deformarse
+    private void MakeBackgroundsResponsive()
+    {
+        foreach (GameObject panel in new[] { mainPanel, settingsPanel, freePlayPanel })
+        {
+            if (panel == null) continue;
+            Image background = FindFullScreenImage(panel.transform);
+            if (background != null) BackgroundCover.Replace(background);
+        }
+    }
+
+    private static Image FindFullScreenImage(Transform root)
+    {
+        Image own = root.GetComponent<Image>();
+        if (own != null && own.sprite != null) return own;
+
+        foreach (Image image in root.GetComponentsInChildren<Image>(true))
+        {
+            if (image.sprite == null || image.transform == root) continue;
+            var rect = (RectTransform)image.transform;
+            bool fullScreen = rect.anchorMin == Vector2.zero && rect.anchorMax == Vector2.one
+                && rect.offsetMin == Vector2.zero && rect.offsetMax == Vector2.zero;
+            if (fullScreen) return image;
+        }
+        return null;
     }
 
     /// <summary>El panel online lo crea OnlineMenuController por codigo; se registra aqui para que la navegacion lo oculte con el resto.</summary>

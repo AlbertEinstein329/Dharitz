@@ -42,6 +42,12 @@ namespace MyGame.Networking
 
         private void QuickMatch(MatchMode mode)
         {
+            if (AuthManager.OfflineMode)
+            {
+                statusLabel.text = Loc.T("menu_offline_required");
+                return;
+            }
+
             if (!Configure((int)mode)) return;
 
             OnlineLaunchRequest.SetQuickMatch(mode);
@@ -59,29 +65,24 @@ namespace MyGame.Networking
             SceneManager.LoadScene(boardSceneIndex);
         }
 
-        // Copia el fondo del menu principal para que esta pantalla no quede sobre el color de la camara
+        // Fondo del menu principal con su proporcion (cubre la pantalla sin deformarse)
         private static void AddMenuBackground(Transform parent)
         {
             Image source = MainMenuManager.Instance != null && MainMenuManager.Instance.mainPanel != null
                 ? MainMenuManager.Instance.mainPanel.GetComponentInChildren<Image>(true)
                 : null;
 
-            var bg = new GameObject("Background", typeof(RectTransform), typeof(Image));
-            bg.transform.SetParent(parent, false);
-            var rect = (RectTransform)bg.transform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
-
-            var image = bg.GetComponent<Image>();
-            if (source != null)
+            if (source != null && source.sprite != null) BackgroundCover.Create(parent, source.sprite, source.color);
+            else
             {
-                image.sprite = source.sprite;
-                image.type = source.type;
-                image.color = source.color;
-                image.material = source.material;
+                var plain = new GameObject("Background", typeof(RectTransform), typeof(Image));
+                plain.transform.SetParent(parent, false);
+                var rect = (RectTransform)plain.transform;
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = rect.offsetMax = Vector2.zero;
+                plain.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.14f, 1f);
             }
-            else image.color = new Color(0.08f, 0.1f, 0.14f, 1f);
         }
 
         private void Close()
