@@ -32,8 +32,9 @@ namespace MyGame.Core
             int targetIndex = board.GetIndex(targetY, targetX);
 
             var movingDie = board.Cells[originIndex];
-            var originPos = new GridPos(originX, originY);
-            var targetPos = new GridPos(targetX, targetY);
+            // OccupiedCells se guarda como (fila, columna), igual que en CoreMatchProcessor
+            var originPos = new GridPos(originY, originX);
+            var targetPos = new GridPos(targetY, targetX);
 
             // 2. Mutación del Estado Puro (Zero MonoBehaviour Dependency)
             board.Cells[originIndex] = new CellStateDTO { IsOccupied = false };
@@ -81,8 +82,8 @@ namespace MyGame.Core
 
             // El dado actualmente reside en el targetIndex
             var movingDie = board.Cells[targetIndex];
-            var originPos = new GridPos(originX, originY);
-            var targetPos = new GridPos(targetX, targetY);
+            var originPos = new GridPos(originY, originX);
+            var targetPos = new GridPos(targetY, targetX);
 
             // 2. MUTACIÓN INVERSA DEL ESTADO PURO
             board.Cells[originIndex] = movingDie;

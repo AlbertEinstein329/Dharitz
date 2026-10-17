@@ -28,6 +28,9 @@ public class AuthManager : MonoBehaviour
 
     async void Start()
     {
+        // Un servidor dedicado no es un jugador: no inicia sesion ni descarga progreso de Cloud Save
+        if (MyGame.Networking.DedicatedServerLauncher.IsDedicatedServer) return;
+
         // Al arrancar el juego, intentamos iniciar sesión automáticamente
         await InitializeAndSignInAsync();
     }

@@ -39,10 +39,8 @@ namespace MyGame.Networking
         {
             await InitializeServicesAsync();
 
-#if UNITY_SERVER
-            // En build headless de Multiplay (Game Server Hosting), arrancamos servidor autoritativo automáticamente
-            StartDedicatedServer();
-#endif
+            // El servidor dedicado ya no se arranca aqui: lo hace OnlineAutoConnect en la escena Tablero,
+            // despues de que DedicatedServerLauncher configure la partida (un unico camino de arranque).
         }
 
         private Task initTask;
@@ -72,7 +70,8 @@ namespace MyGame.Networking
 #endif
                 await UnityServices.InitializeAsync(options);
 
-                if (!AuthenticationService.Instance.IsSignedIn)
+                // Un servidor dedicado no es un jugador: no necesita (ni debe) iniciar sesion anonima
+                if (!DedicatedServerLauncher.IsDedicatedServer && !AuthenticationService.Instance.IsSignedIn)
                 {
                     await AuthenticationService.Instance.SignInAnonymouslyAsync();
                     Debug.Log($"[NetworkBootstrap] Autenticado en UGS con Player ID: {AuthenticationService.Instance.PlayerId}");

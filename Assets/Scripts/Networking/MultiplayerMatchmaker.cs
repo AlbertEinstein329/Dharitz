@@ -36,6 +36,9 @@ namespace MyGame.Networking
         public string LastStatus { get; private set; } = string.Empty;
         public ISession ActiveSession { get; private set; }
 
+        // Id de la ultima sesion: permite volver a ella tras una caida de conexion
+        public string LastSessionId { get; private set; }
+
         private CancellationTokenSource searchCts;
 
         private void Awake()
@@ -102,6 +105,7 @@ namespace MyGame.Networking
                 SetStatus(ActiveSession.IsHost
                     ? $"Sala creada. Esperando rivales (1/{players})..."
                     : "Partida encontrada. Conectando...");
+                LastSessionId = ActiveSession.Id;
                 Debug.Log($"[Matchmaker] Sesion {ActiveSession.Id} (codigo {ActiveSession.Code}) host={ActiveSession.IsHost}");
                 OnMatchFound?.Invoke(ActiveSession);
             }
@@ -124,6 +128,32 @@ namespace MyGame.Networking
             }
         }
 
+        /// <summary>
+        /// Vuelve a la ultima sesion tras una desconexion. El servidor reconoce al jugador por su PlayerId
+        /// de UGS y le devuelve su slot y un snapshot completo (ver NetworkGameManager.RegisterPlayerServerRpc).
+        /// </summary>
+        public async Task<bool> ReconnectAsync()
+        {
+            if (string.IsNullOrEmpty(LastSessionId) || IsSearching) return false;
+
+            IsSearching = true;
+            SetStatus("Reconectando a la partida...");
+            try
+            {
+                ActiveSession = await MultiplayerService.Instance.ReconnectToSessionAsync(LastSessionId);
+                IsSearching = false;
+                SetStatus("Reconectado.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                IsSearching = false;
+                Debug.LogWarning($"[Matchmaker] No se pudo reconectar: {ex.Message}");
+                SetStatus("No se pudo reconectar a la partida.");
+                return false;
+            }
+        }
+
         public void CancelMatchmaking()
         {
             if (!IsSearching) return;
@@ -140,6 +170,7 @@ namespace MyGame.Networking
 
             ISession session = ActiveSession;
             ActiveSession = null;
+            LastSessionId = null;
             if (session == null) return;
 
             try

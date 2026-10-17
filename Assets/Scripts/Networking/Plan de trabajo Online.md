@@ -185,3 +185,58 @@ Total aproximado: 9-11 días de trabajo.
 - Verificado contra Unity Services: login anónimo, Lobby (sesión creada) y Relay (join code) responden bien.
 - **Bloqueo abierto:** al arrancar el Host por Relay (DTLS) el Editor lanza `Burst failed to compile the function pointer SendCallback` (UnityTLS). Con UDP directo (salas por IP) el Host sí arranca. Probar: *Jobs ▸ Burst ▸ Enable Compilation* desactivado en el Editor, o una build Windows/Android. Sin este paso no se ha podido ver una partida rápida completa.
 - Pendiente: slots por `PlayerId` de UGS para reconexión, y fases 4-5.
+
+### Fase 5 (parcial, 16-10-2026, parte 3)
+
+- **Reconexión por PlayerId:** `NetworkGameManager` ya no asigna el slot al conectar. Cada máquina (host incluido) llama a `RegisterPlayerServerRpc(PlayerId de UGS)`. Si el id ya tenía slot, se le devuelve (también si el ClientId cambió) y se envía un snapshot completo; si estaba eliminado por abandono, se rechaza. `MultiplayerMatchmaker.ReconnectAsync()` vuelve a la sesión y el HUD muestra un botón RECONECTAR cuando hay caída a mitad de partida.
+- **Fin de partida online:** cada cliente suma sus monedas y guarda en Cloud Save (`OnlineMatchPresenter.RewardLocalPlayer`).
+- **Verificado:** regresión de 1 jugador (Host, robar y colocar replicados) tras el cambio. **Sin verificar:** reconexión real con dos instancias (cerrar el cliente de Multiplayer Play Mode y pulsar RECONECTAR).
+- **Decisión pendiente (Undo/Move online):** el turno online termina al colocar (no hay pausa de transición), así que el Undo "del último dado" local no tiene hueco. Hace falta decidir una regla: (a) fase de confirmar turno, (b) Undo solo del propio turno antes de confirmar, o (c) dejarlo desactivado online. Move depende de lo mismo.
+- **Pendiente:** fase 4 (servidor dedicado Linux + Multiplay) y antitrampas básicas (límite de RPCs).
+
+### Fase de confirmar turno online (16-10-2026, parte 4)
+
+Decidido: tras colocar, el turno **no** termina. El servidor deja el turno abierto hasta que el jugador pulsa CONFIRMAR TURNO o se agota el temporizador.
+
+- `Core/CoreTurnActions` (lógica pura): puntos de restauración (copia profunda de perfil + tablero) en una pila LIFO por turno. `TryUndo` revierte la última acción (colocar devuelve el dado a la mano; mover devuelve el uso de Move) y gasta un Undo; `TryMove` mueve un dado propio con las reglas de `CoreMoveProcessor`.
+- `NetworkGameManager`: nuevos RPC `RequestConfirmTurnServerRpc`, `RequestUndoServerRpc` y `RequestMoveServerRpc`. Colocar ya no avanza el turno; robar/re-robar se rechazan mientras haya un dado colocado sin confirmar; robar limpia la pila (igual que en local). El temporizador cierra el turno con la colocación hecha.
+- Snapshot: `TurnPlaced` y `CheckpointCount`; acciones `Moved`, `Undone`, `TurnConfirmed`. La UI online (Undo, Move, robar, CONFIRMAR) se habilita a partir de ellos.
+- Cliente: botón CONFIRMAR TURNO en el HUD; el botón Undo y el toggle Move de la escena ahora envían RPC al servidor.
+- Corregido de paso un bug de coordenadas: `CoreMoveProcessor.ProcessMove/UndoMove` guardaban `OccupiedCells` como (columna, fila) mientras la colocación los guarda como (fila, columna); `MoveCommand` (local) hacía lo mismo con `Vector2Int`. Ahora ambos usan (fila, columna).
+- **Verificado** (Host de 1 jugador): colocar deja el turno abierto con CONFIRMAR visible y robar bloqueado; Undo devuelve el dado, puntaje y casilla y gasta 1 uso; Confirmar pasa el turno; Move replica al cliente y gasta el uso, y su Undo lo devuelve; el 2º Undo se rechaza al agotar los usos; el temporizador cierra un turno ya colocado. **Sin verificar:** el flujo con dos jugadores reales, y el toggle Move con clics reales (se probó por RPC).
+- Conocido: `ProcessMove` otorga +100 cada vez que un grupo completo se mueve (limitado por los usos de Move).
+
+### Antitrampas básicas (16-10-2026, parte 5)
+
+- `Core/CoreRateLimiter` (lógica pura, reloj inyectable): cubo de fichas por ClientId con expulsión por reincidencia.
+  - Acciones de juego y emojis: ráfaga de 8, relleno de 4/s; 20 infracciones en 10 s expulsan al cliente.
+  - Registro (`RegisterPlayerServerRpc`): ráfaga de 3, 0,2/s; 5 infracciones en 30 s expulsan.
+  - Un solo punto de entrada: `TryGetActingPlayer` (Draw, ReDraw, Place, Confirm, Undo, Move), `RegisterPlayer` y `NetworkGameManager.AllowRpc` (lo usa `EmojiChatManager`). El log de descartes se limita a 1 por segundo y cliente.
+- Validación de límites: colocar y mover comprueban fila/columna contra el tablero real del jugador. En Core, `CoreMatchProcessor` también rechaza filas/columnas fuera de rango (antes, una columna ≥ Cols «daba la vuelta» a otra fila del array 1D). `PlayerId` de más de 64 caracteres expulsa; el id de emoji debe estar en 0..7 y solo habla un jugador registrado.
+- **Verificado:** 6 pruebas de lógica pura (uso normal 4/s sin descartes, ráfaga, expulsión en la petición #28, aislamiento por cliente, recuperación, límites del tablero incl. control válido) y en Play con Host: 15 peticiones de robar seguidas → solo 1 robo válido (bolsa 52→51), exceso descartado con log `[AntiCheat]`; colocar/mover fuera del tablero (columna 13, fila -3, fila 10, 99,99) rechazados sin tocar el estado. **Sin verificar:** la expulsión real de un cliente remoto (en el host propio Netcode no permite desconectarse).
+- Pendiente: antitrampas más finos (p. ej. detectar patrones de automatización por temporización) y servidor dedicado (fase 4).
+
+### Fase 4: servidor dedicado (16-10-2026, parte 6)
+
+**Hecho**
+- Paquete `com.unity.services.multiplay` 1.3.1 (Game Server Hosting). Solo existe en Editor y Standalone, no en Android, así que el código que lo usa vive en su propio ensamblado `Dharitz.ServerHosting` (`Scripts/ServerHosting/`, plataformas Editor/Linux/macOS/Windows) y el juego lo llama solo bajo `#if UNITY_EDITOR || UNITY_STANDALONE`.
+- `DedicatedServerLauncher`: si el ejecutable es un build de servidor (`UNITY_SERVER`) o se lanza con `-server`, salta Login y menú, fija 30 fps, configura una partida online en memoria (`-maxPlayers` 2 o 4) y carga `Tablero`. Argumentos: `-port`, `-queryport`, `-maxPlayers`.
+- `OnlineAutoConnect` arranca Netcode con `StartServer` en `0.0.0.0:<puerto>` (rol `DedicatedServer`); `NetworkBootstrap` ya no arranca el servidor por su cuenta (un único camino) ni inicia sesión anónima en el servidor; `AuthManager` tampoco descarga progreso en un servidor.
+- `MultiplayServerManager` (ciclo de vida): se registra en Multiplay (`ReadyServerForPlayersAsync` + responder SQP con jugadores conectados). Sin asignación (pruebas locales) sigue funcionando por IP directa. Se apaga solo tras `postMatchDelay` (20 s) de GameOver, a los `abandonedTimeout` (60 s) si todos se van a media partida, o a los `noPlayersTimeout` (300 s) si nadie llega.
+- Menú `Tools ▸ Dharitz ▸ Server`: *Build Linux Dedicated Server (Multiplay)*, *Build Windows Dedicated Server (pruebas locales)* (ambos piden confirmación porque cambian la plataforma activa desde Android y reimportan) y *Simular servidor dedicado en Play (Editor)* (conmutador). Para CI: `-executeMethod DharitzServerBuild.BuildLinuxServerCli`.
+
+**Verificado (simulación en el Editor, empezando en Login):** carga `Tablero` sola, `NetworkManager` queda como servidor puro (`IsServer` sí, `IsHost` y `IsClient` no), partida online de 2 huecos esperando jugadores, registro en Multiplay con degradación limpia al no haber `server.json`, y apagado automático por «nadie se conectó» (con `Application.Quit` omitido en el Editor). **Sin verificar:** el build real de Linux/Windows, un cliente conectándose a ese servidor, y el registro real en Multiplay.
+
+**Cómo probarlo tú**
+1. Servidor en el Editor: activa *Simular servidor dedicado*, abre `Login` y pulsa Play. Con Multiplayer Play Mode, el jugador virtual abre el menú ONLINE ▸ *UNIRSE POR IP* con `127.0.0.1` (dos jugadores virtuales para completar la sala). Desactiva la simulación al terminar.
+2. Servidor real: menú *Build Windows Dedicated Server* y `DharitzServer.exe -batchmode -nographics -port 7777 -queryport 7778 -maxPlayers 2`.
+
+**Configuración en el Dashboard de Unity (manual)**
+1. *Game Server Hosting ▸ Builds*: subir el build de Linux (`Builds/LinuxServer`).
+2. *Build configuration*: parámetros `-batchmode -nographics -port $$port$$ -queryport $$query_port$$ -maxPlayers 2 -logFile "$$log_dir$$/Engine.log"` (una configuración por modo: 2 y 4 jugadores).
+3. *Fleet* con región y densidad de servidores.
+4. *Matchmaker*: colas `2Player` y `4Player` enlazadas a esa fleet.
+
+**Pendiente**
+- El cliente aún usa quick join por Relay. Para jugar contra el servidor dedicado por cola hay que sustituir `MultiplayerMatchmaker` por `MatchmakeSessionAsync(MatchmakerOptions, ...)` con el nombre de cola del Dashboard (no se puede escribir hasta tener las colas).
+- Probar el build de Linux en una fleet real y ajustar los tiempos de apagado.
