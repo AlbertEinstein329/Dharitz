@@ -215,3 +215,28 @@ Decidido: tras colocar, el turno **no** termina. El servidor deja el turno abier
 - Validación de límites: colocar y mover comprueban fila/columna contra el tablero real del jugador. En Core, `CoreMatchProcessor` también rechaza filas/columnas fuera de rango (antes, una columna ≥ Cols «daba la vuelta» a otra fila del array 1D). `PlayerId` de más de 64 caracteres expulsa; el id de emoji debe estar en 0..7 y solo habla un jugador registrado.
 - **Verificado:** 6 pruebas de lógica pura (uso normal 4/s sin descartes, ráfaga, expulsión en la petición #28, aislamiento por cliente, recuperación, límites del tablero incl. control válido) y en Play con Host: 15 peticiones de robar seguidas → solo 1 robo válido (bolsa 52→51), exceso descartado con log `[AntiCheat]`; colocar/mover fuera del tablero (columna 13, fila -3, fila 10, 99,99) rechazados sin tocar el estado. **Sin verificar:** la expulsión real de un cliente remoto (en el host propio Netcode no permite desconectarse).
 - Pendiente: antitrampas más finos (p. ej. detectar patrones de automatización por temporización) y servidor dedicado (fase 4).
+
+### Fase 4: servidor dedicado (16-10-2026, parte 6)
+
+**Hecho**
+- Paquete `com.unity.services.multiplay` 1.3.1 (Game Server Hosting). Solo existe en Editor y Standalone, no en Android, así que el código que lo usa vive en su propio ensamblado `Dharitz.ServerHosting` (`Scripts/ServerHosting/`, plataformas Editor/Linux/macOS/Windows) y el juego lo llama solo bajo `#if UNITY_EDITOR || UNITY_STANDALONE`.
+- `DedicatedServerLauncher`: si el ejecutable es un build de servidor (`UNITY_SERVER`) o se lanza con `-server`, salta Login y menú, fija 30 fps, configura una partida online en memoria (`-maxPlayers` 2 o 4) y carga `Tablero`. Argumentos: `-port`, `-queryport`, `-maxPlayers`.
+- `OnlineAutoConnect` arranca Netcode con `StartServer` en `0.0.0.0:<puerto>` (rol `DedicatedServer`); `NetworkBootstrap` ya no arranca el servidor por su cuenta (un único camino) ni inicia sesión anónima en el servidor; `AuthManager` tampoco descarga progreso en un servidor.
+- `MultiplayServerManager` (ciclo de vida): se registra en Multiplay (`ReadyServerForPlayersAsync` + responder SQP con jugadores conectados). Sin asignación (pruebas locales) sigue funcionando por IP directa. Se apaga solo tras `postMatchDelay` (20 s) de GameOver, a los `abandonedTimeout` (60 s) si todos se van a media partida, o a los `noPlayersTimeout` (300 s) si nadie llega.
+- Menú `Tools ▸ Dharitz ▸ Server`: *Build Linux Dedicated Server (Multiplay)*, *Build Windows Dedicated Server (pruebas locales)* (ambos piden confirmación porque cambian la plataforma activa desde Android y reimportan) y *Simular servidor dedicado en Play (Editor)* (conmutador). Para CI: `-executeMethod DharitzServerBuild.BuildLinuxServerCli`.
+
+**Verificado (simulación en el Editor, empezando en Login):** carga `Tablero` sola, `NetworkManager` queda como servidor puro (`IsServer` sí, `IsHost` y `IsClient` no), partida online de 2 huecos esperando jugadores, registro en Multiplay con degradación limpia al no haber `server.json`, y apagado automático por «nadie se conectó» (con `Application.Quit` omitido en el Editor). **Sin verificar:** el build real de Linux/Windows, un cliente conectándose a ese servidor, y el registro real en Multiplay.
+
+**Cómo probarlo tú**
+1. Servidor en el Editor: activa *Simular servidor dedicado*, abre `Login` y pulsa Play. Con Multiplayer Play Mode, el jugador virtual abre el menú ONLINE ▸ *UNIRSE POR IP* con `127.0.0.1` (dos jugadores virtuales para completar la sala). Desactiva la simulación al terminar.
+2. Servidor real: menú *Build Windows Dedicated Server* y `DharitzServer.exe -batchmode -nographics -port 7777 -queryport 7778 -maxPlayers 2`.
+
+**Configuración en el Dashboard de Unity (manual)**
+1. *Game Server Hosting ▸ Builds*: subir el build de Linux (`Builds/LinuxServer`).
+2. *Build configuration*: parámetros `-batchmode -nographics -port $$port$$ -queryport $$query_port$$ -maxPlayers 2 -logFile "$$log_dir$$/Engine.log"` (una configuración por modo: 2 y 4 jugadores).
+3. *Fleet* con región y densidad de servidores.
+4. *Matchmaker*: colas `2Player` y `4Player` enlazadas a esa fleet.
+
+**Pendiente**
+- El cliente aún usa quick join por Relay. Para jugar contra el servidor dedicado por cola hay que sustituir `MultiplayerMatchmaker` por `MatchmakeSessionAsync(MatchmakerOptions, ...)` con el nombre de cola del Dashboard (no se puede escribir hasta tener las colas).
+- Probar el build de Linux en una fleet real y ajustar los tiempos de apagado.

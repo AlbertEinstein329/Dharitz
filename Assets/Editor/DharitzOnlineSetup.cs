@@ -49,6 +49,7 @@ public static class DharitzOnlineSetup
         GetOrAdd<NetworkBootstrap>(servicesGo);
         GetOrAdd<ReconnectionManager>(servicesGo);
         GetOrAdd<MultiplayerMatchmaker>(servicesGo);
+        GetOrAdd<MultiplayServerManager>(servicesGo);
         EditorUtility.SetDirty(servicesGo);
 
         GameObject hudGo = FindOrCreate("OnlineHud");
