@@ -2,11 +2,10 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Unica fuente de verdad de los ajustes del jugador (sonido, musica, idioma, modo zurdo) sobre PlayerPrefs.
+/// Unica fuente de verdad de los ajustes del jugador (sonido, musica, idioma) sobre PlayerPrefs.
 /// Menu, pausa y AudioManager leen y escriben aqui, asi que nunca se desincronizan.
 ///
-/// Se conservan las claves que ya existian (Volume_BGM, Volume_SFX, Setting_MuteMusic, Setting_MuteSFX, Setting_Language,
-/// Setting_LeftHanded), de modo que los ajustes guardados por versiones anteriores siguen valiendo sin migracion.
+/// Se conservan las claves que ya existian (Volume_BGM, Volume_SFX, Setting_MuteMusic, Setting_MuteSFX, Setting_Language), de modo que los ajustes guardados por versiones anteriores siguen valiendo sin migracion.
 /// </summary>
 public static class SettingsService
 {
@@ -15,7 +14,15 @@ public static class SettingsService
     public const string KeyMusicMuted = "Setting_MuteMusic";
     public const string KeySfxMuted = "Setting_MuteSFX";
     public const string KeyLanguage = "Setting_Language";
-    public const string KeyLeftHanded = "Setting_LeftHanded";
+
+    // Clave del modo zurdo, eliminado del juego: se borra una vez de los dispositivos que la guardaron
+    private const string ObsoleteKeyLeftHanded = "Setting_LeftHanded";
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RemoveObsoleteKeys()
+    {
+        if (PlayerPrefs.HasKey(ObsoleteKeyLeftHanded)) PlayerPrefs.DeleteKey(ObsoleteKeyLeftHanded);
+    }
 
     public const float DefaultMusicVolume = 0.75f;
     public const float DefaultSfxVolume = 0.80f;
@@ -31,7 +38,6 @@ public static class SettingsService
 
     /// <summary>Idioma del dispositivo mientras el jugador no elija otro: espanol (0) si el sistema esta en espanol, si no ingles (1).</summary>
     public static int DeviceLanguageIndex => Application.systemLanguage == SystemLanguage.Spanish ? 0 : 1;
-    public static bool LeftHanded => PlayerPrefs.GetInt(KeyLeftHanded, 0) == 1;
 
     /// <summary>Volumen que realmente debe sonar: 0 si esta silenciado.</summary>
     public static float EffectiveMusicVolume => MusicMuted ? 0f : MusicVolume;
@@ -42,7 +48,6 @@ public static class SettingsService
     public static void SetMusicMuted(bool muted) => SetInt(KeyMusicMuted, muted ? 1 : 0);
     public static void SetSfxMuted(bool muted) => SetInt(KeySfxMuted, muted ? 1 : 0);
     public static void SetLanguageIndex(int index) => SetInt(KeyLanguage, Mathf.Max(0, index));
-    public static void SetLeftHanded(bool value) => SetInt(KeyLeftHanded, value ? 1 : 0);
 
     /// <summary>Vuelca los cambios a disco. Se llama al cerrar paneles, al pausar y al salir (no en cada paso de un slider).</summary>
     public static void Save() => PlayerPrefs.Save();

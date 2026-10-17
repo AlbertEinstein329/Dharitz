@@ -30,7 +30,6 @@ public class MainMenuManager : MonoBehaviour
     [Header("Componentes Ajustes Persistentes")]
     [SerializeField] private Slider bgmSlider;
     [SerializeField] private Slider sfxSlider;
-    [SerializeField] private Toggle leftHandedToggle;
     [SerializeField] private TMP_Dropdown languageDropdown;
 
     private List<GameObject> activeVisualRows = new List<GameObject>();
@@ -56,7 +55,6 @@ public class MainMenuManager : MonoBehaviour
         // Listeners limpios de Ajustes por código
         if (bgmSlider != null) bgmSlider.onValueChanged.AddListener(SetBGMVolume);
         if (sfxSlider != null) sfxSlider.onValueChanged.AddListener(SetSFXVolume);
-        if (leftHandedToggle != null) leftHandedToggle.onValueChanged.AddListener(SetLeftHandedMode);
         if (languageDropdown != null)
         {
             // Mismo orden que Loc.Codes (0 = es, 1 = en); el desplegable antiguo traia English/Espanol/Portugues
@@ -409,14 +407,12 @@ public class MainMenuManager : MonoBehaviour
     // Todo pasa por SettingsService: AudioManager aplica volumen/mute al instante y la pausa ve el mismo estado
     private void SetBGMVolume(float value) { SettingsService.SetMusicVolume(value); }
     private void SetSFXVolume(float value) { SettingsService.SetSfxVolume(value); }
-    private void SetLeftHandedMode(bool isOn) { SettingsService.SetLeftHanded(isOn); }
     private void SetLanguage(int index) { SettingsService.SetLanguageIndex(index); }
 
     private void LoadSettings()
     {
         if (bgmSlider != null) bgmSlider.SetValueWithoutNotify(SettingsService.MusicVolume);
         if (sfxSlider != null) sfxSlider.SetValueWithoutNotify(SettingsService.SfxVolume);
-        if (leftHandedToggle != null) leftHandedToggle.SetIsOnWithoutNotify(SettingsService.LeftHanded);
         if (languageDropdown != null) languageDropdown.SetValueWithoutNotify(SettingsService.LanguageIndex);
     }
 

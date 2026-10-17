@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Panel de ajustes unico (menu principal y pausa). Lee y escribe solo en <see cref="SettingsService"/>:
-/// volumen y silencio de musica y efectos, idioma y modo zurdo. Se abre con <see cref="Open"/> sobre su propio canvas,
+/// volumen y silencio de musica y efectos, idioma. Se abre con <see cref="Open"/> sobre su propio canvas,
 /// asi funciona igual desde cualquier escena. El prefab lo arma Tools > Dharitz > UI > Construir kit de UI online.
 /// </summary>
 public class SettingsPanel : MonoBehaviour
@@ -19,9 +19,6 @@ public class SettingsPanel : MonoBehaviour
     [Header("Idioma")]
     [SerializeField] private Button languageSpanish;
     [SerializeField] private Button languageEnglish;
-
-    [Header("Accesibilidad")]
-    [SerializeField] private Toggle leftHandedToggle;
 
     [Header("Cierre")]
     [SerializeField] private Button closeButton;
@@ -76,7 +73,6 @@ public class SettingsPanel : MonoBehaviour
         sfxSlider.onValueChanged.AddListener(v => { if (!refreshing) SettingsService.SetSfxVolume(v); });
         musicToggle.onValueChanged.AddListener(on => { if (!refreshing) SettingsService.SetMusicMuted(!on); });
         sfxToggle.onValueChanged.AddListener(on => { if (!refreshing) SettingsService.SetSfxMuted(!on); });
-        leftHandedToggle.onValueChanged.AddListener(OnLeftHandedChanged);
         languageSpanish.onClick.AddListener(() => SetLanguage(0));
         languageEnglish.onClick.AddListener(() => SetLanguage(1));
         closeButton.onClick.AddListener(Close);
@@ -114,7 +110,6 @@ public class SettingsPanel : MonoBehaviour
         sfxSlider.SetValueWithoutNotify(SettingsService.SfxVolume);
         musicToggle.SetIsOnWithoutNotify(!SettingsService.MusicMuted);
         sfxToggle.SetIsOnWithoutNotify(!SettingsService.SfxMuted);
-        leftHandedToggle.SetIsOnWithoutNotify(SettingsService.LeftHanded);
 
         // El idioma elegido queda resaltado (el otro, atenuado)
         languageSpanish.interactable = SettingsService.LanguageIndex != 0;
@@ -125,14 +120,5 @@ public class SettingsPanel : MonoBehaviour
     private static void SetLanguage(int index)
     {
         SettingsService.SetLanguageIndex(index);
-    }
-
-    private void OnLeftHandedChanged(bool on)
-    {
-        if (refreshing) return;
-        SettingsService.SetLeftHanded(on);
-
-        UIManager ui = FindFirstObjectByType<UIManager>();
-        if (ui != null) ui.ApplyHandednessLayout();
     }
 }
