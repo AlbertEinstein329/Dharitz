@@ -28,6 +28,10 @@ namespace MyGame.Networking
         private TextMeshProUGUI bannerLabel;
         private GameObject reconnectButton;
         private GameObject copyIpButton;
+
+        private const float TextRefreshInterval = 0.25f;
+        private float nextTextRefresh;
+        private int lastTimerSeconds = -1;
         private GameObject confirmButton;
         private Animate_Shake_Free bannerShake;
         private float bannerHideTime;
@@ -66,16 +70,21 @@ namespace MyGame.Networking
             bool started = connected && game != null && (game.LocalPlayerIndex >= 0 || game.IsMatchStarted);
             if (started) matchEverStarted = true;
 
+            // Los textos se recalculan 4 veces por segundo y solo se asignan si cambian: asignar un TMP regenera su malla
+            bool refreshText = Time.unscaledTime >= nextTextRefresh;
+            if (refreshText) nextTextRefresh = Time.unscaledTime + TextRefreshInterval;
+
             waitingLabel.gameObject.SetActive(!matchEverStarted);
             // La IP de la sala sigue en pantalla mientras falte alguien; el boton de copiar solo aparece entonces
             copyIpButton.SetActive(!matchEverStarted && ShouldShowHostIp(NetworkManager.Singleton));
-            if (!matchEverStarted)
+            if (!matchEverStarted && refreshText)
             {
                 MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
-                if (!connected && mm != null && !string.IsNullOrEmpty(mm.LastStatus)) waitingLabel.text = mm.LastStatus;
-                else if (!connected) waitingLabel.text = Loc.T("hud_no_connection");
-                else if (net.IsServer) waitingLabel.text = WaitingForPlayersText(net);
-                else waitingLabel.text = Loc.T("hud_connected_waiting");
+                string status = mm != null && !connected ? mm.LastStatus : null;
+                if (!connected && !string.IsNullOrEmpty(status)) SetText(waitingLabel, status);
+                else if (!connected) SetText(waitingLabel, Loc.T("hud_no_connection"));
+                else if (net.IsServer) SetText(waitingLabel, WaitingForPlayersText(net));
+                else SetText(waitingLabel, Loc.T("hud_connected_waiting"));
             }
 
             bool inPlay = matchEverStarted && game != null;
@@ -86,17 +95,27 @@ namespace MyGame.Networking
             {
                 int current = game.NetworkCurrentPlayerIndex.Value;
                 bool gameOver = game.NetworkMatchPhase.Value == (int)Core.MatchPhase.GameOver;
-                if (gameOver) turnLabel.text = Loc.T("hud_match_over");
-                else turnLabel.text = current == game.LocalPlayerIndex ? "<color=#7CFC00>" + Loc.T("hud_your_turn") + "</color>" : Loc.T("hud_player_turn", current + 1);
+                if (refreshText)
+                {
+                    if (gameOver) SetText(turnLabel, Loc.T("hud_match_over"));
+                    else SetText(turnLabel, current == game.LocalPlayerIndex ? "<color=#7CFC00>" + Loc.T("hud_your_turn") + "</color>" : Loc.T("hud_player_turn", current + 1));
+                }
 
                 if (NetworkTurnManager.Instance != null && !gameOver)
                 {
                     float t = Mathf.Max(0f, NetworkTurnManager.Instance.NetworkTimeRemaining.Value);
-                    timerLabel.text = Mathf.CeilToInt(t).ToString();
-                    timerLabel.color = t <= 10f ? Color.red : OnlineLabelColor;
+                    int seconds = Mathf.CeilToInt(t);
+                    if (seconds != lastTimerSeconds)
+                    {
+                        // Solo cuando cambia el segundo: sin string nuevo ni malla nueva el resto de fotogramas
+                        lastTimerSeconds = seconds;
+                        timerLabel.text = seconds.ToString();
+                        timerLabel.color = t <= 10f ? Color.red : OnlineLabelColor;
+                    }
                 }
-                else
+                else if (lastTimerSeconds != -1)
                 {
+                    lastTimerSeconds = -1;
                     timerLabel.text = string.Empty;
                 }
             }
@@ -168,6 +187,12 @@ namespace MyGame.Networking
         // =========================================================
         // ACCIONES DE UI
         // =========================================================
+
+        // Asigna el texto solo si cambia (TMP regenera la malla en cada asignacion, aunque sea el mismo valor)
+        private static void SetText(TMP_Text label, string text)
+        {
+            if (!string.Equals(label.text, text)) label.text = text;
+        }
 
         // Sala creada por IP en esta maquina: hay que ensenar la IP para que el rival pueda unirse
         private static bool ShouldShowHostIp(NetworkManager net)
