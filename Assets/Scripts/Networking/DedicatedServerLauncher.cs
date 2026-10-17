@@ -9,7 +9,7 @@ namespace MyGame.Networking
     /// <c>-server</c>, salta el login y el menu, configura una partida online y carga directamente la escena Tablero,
     /// donde <see cref="OnlineAutoConnect"/> arranca Netcode como servidor.
     ///
-    /// Argumentos (los mismos que pasa Multiplay): -port, -queryport, -maxPlayers (2 o 4; 1 solo con -allowSolo, para pruebas).
+    /// Argumentos (los que pasan los orquestadores de servidores): -port, -queryport, -maxPlayers (2 o 4; 1 solo con -allowSolo, para pruebas).
     ///   Dharitz.x86_64 -batchmode -nographics -port 7777 -queryport 7778 -maxPlayers 2
     /// </summary>
     public static class DedicatedServerLauncher

@@ -1,22 +1,20 @@
-using System.Threading.Tasks;
 using UnityEngine;
 using Unity.Netcode;
-#if UNITY_EDITOR || UNITY_STANDALONE
-using MyGame.ServerHosting;
-#endif
 
 namespace MyGame.Networking
 {
     /// <summary>
-    /// Ciclo de vida del servidor dedicado: se registra en Multiplay (Game Server Hosting), publica los jugadores
-    /// conectados y apaga el proceso cuando ya no sirve (partida terminada, sala abandonada o nadie llego).
+    /// Ciclo de vida del servidor dedicado, independiente del proveedor de hosting: apaga el proceso cuando ya no
+    /// sirve (partida terminada, sala abandonada o nadie llego) para que el orquestador (Agones, Edgegap, GameLift,
+    /// Rocket Science Multiplay, un script propio...) libere la maquina.
     /// Solo actua cuando el ejecutable es un servidor (build de servidor o argumento -server).
     ///
-    /// Fuera de Multiplay (pruebas locales) no hay asignacion: el servidor funciona igual por IP directa.
+    /// Multiplay Hosting y su paquete com.unity.services.multiplay estan deprecados: ya no se usa. El registro con el
+    /// orquestador (readiness, consulta de jugadores) es especifico de cada proveedor y se anade en su integracion.
     /// </summary>
-    public class MultiplayServerManager : MonoBehaviour
+    public class DedicatedServerLifecycle : MonoBehaviour
     {
-        public static MultiplayServerManager Instance { get; private set; }
+        public static DedicatedServerLifecycle Instance { get; private set; }
 
         [Header("Apagado automatico (segundos)")]
         [Tooltip("Nadie se registro en la sala tras arrancar: el servidor se libera.")]
@@ -25,8 +23,6 @@ namespace MyGame.Networking
         public float abandonedTimeout = 60f;
         [Tooltip("Tiempo que se mantiene el servidor tras GameOver para que los clientes reciban el resultado final.")]
         public float postMatchDelay = 20f;
-
-        public bool IsRegisteredInMultiplay { get; private set; }
 
         private const float TickInterval = 0.5f;
 
@@ -68,32 +64,13 @@ namespace MyGame.Networking
             {
                 serverUp = true;
                 startTime = Time.realtimeSinceStartup;
-                _ = RegisterInMultiplayAsync();
+                Debug.Log("[DedicatedServerLifecycle] Servidor en marcha. Esperando jugadores.");
             }
 
             if (Time.realtimeSinceStartup - lastTick < TickInterval) return;
             lastTick = Time.realtimeSinceStartup;
 
-            int players = net.ConnectedClientsIds.Count;
-            TickMultiplay(players);
-            EvaluateLifecycle(players);
-        }
-
-        private async Task RegisterInMultiplayAsync()
-        {
-#if UNITY_EDITOR || UNITY_STANDALONE
-            IsRegisteredInMultiplay = await MultiplayHosting.TryRegisterAsync(
-                (ushort)DedicatedServerLauncher.MaxPlayers, "Dharitz", $"{DedicatedServerLauncher.MaxPlayers}p", "Tablero");
-#else
-            await Task.CompletedTask;
-#endif
-        }
-
-        private void TickMultiplay(int players)
-        {
-#if UNITY_EDITOR || UNITY_STANDALONE
-            if (IsRegisteredInMultiplay) MultiplayHosting.Tick(players);
-#endif
+            EvaluateLifecycle(net.ConnectedClientsIds.Count);
         }
 
         private void EvaluateLifecycle(int players)
@@ -125,24 +102,18 @@ namespace MyGame.Networking
                 Shutdown(matchSeenWithPlayers ? "todos los jugadores abandonaron" : "nadie se conecto");
         }
 
-        private async void Shutdown(string reason)
+        private void Shutdown(string reason)
         {
             if (shuttingDown) return;
             shuttingDown = true;
 
-            Debug.Log($"[MultiplayServerManager] Apagando servidor: {reason}.");
-
-#if UNITY_EDITOR || UNITY_STANDALONE
-            await MultiplayHosting.ShutdownAsync();
-#else
-            await Task.CompletedTask;
-#endif
+            Debug.Log($"[DedicatedServerLifecycle] Apagando servidor: {reason}.");
 
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
                 NetworkManager.Singleton.Shutdown();
 
 #if UNITY_EDITOR
-            Debug.Log("[MultiplayServerManager] (Editor) Application.Quit omitido para no cerrar el Editor.");
+            Debug.Log("[DedicatedServerLifecycle] (Editor) Application.Quit omitido para no cerrar el Editor.");
 #else
             Application.Quit();
 #endif

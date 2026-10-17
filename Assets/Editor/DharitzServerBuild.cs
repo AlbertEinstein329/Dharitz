@@ -7,7 +7,7 @@ using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 /// <summary>
-/// Builds del servidor dedicado (Linux para Multiplay, Windows para pruebas locales) y simulacion del servidor
+/// Builds del servidor dedicado (Linux para produccion, Windows para pruebas locales) y simulacion del servidor
 /// dedicado dentro del Editor.
 ///
 /// IMPORTANTE: compilar para Linux/Windows desde un proyecto con Android como plataforma activa obliga a cambiar de
@@ -48,7 +48,7 @@ public static class DharitzServerBuild
     // Builds
     // -----------------------------------------------------------------
 
-    [MenuItem("Tools/Dharitz/Server/Build Linux Dedicated Server (Multiplay)")]
+    [MenuItem("Tools/Dharitz/Server/Build Linux Dedicated Server")]
     public static void BuildLinuxFromMenu()
     {
         if (!ConfirmPlatformSwitch("Linux")) return;
@@ -90,7 +90,7 @@ public static class DharitzServerBuild
     }
 
     // El build de Windows es un ejecutable normal que se lanza con -batchmode -nographics -server: para pruebas locales no
-    // hace falta instalar el modulo "Dedicated Server" de Windows. El de Linux (Multiplay) si usa el subtarget Server,
+    // hace falta instalar el modulo "Dedicated Server" de Windows. El de Linux si usa el subtarget Server,
     // que exige el modulo "Linux Dedicated Server Build Support" en Unity Hub.
     private static bool Build(BuildTarget target, string relativeOutput, StandaloneBuildSubtarget subtarget = StandaloneBuildSubtarget.Server)
     {

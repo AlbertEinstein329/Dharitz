@@ -248,3 +248,11 @@ Decidido: tras colocar, el turno **no** termina. El servidor deja el turno abier
 - **Sigue sin verificar:** el registro real en Multiplay (sin `server.json` el servidor degrada a IP directa, como esperado), el build de **Linux** (el módulo «Dedicated Server» de Linux/Windows no está instalado en Unity Hub; el menú de Linux usa el subtarget Server y fallará hasta instalarlo) y partidas de 2+ jugadores contra el servidor.
 - Para que un build de jugador (no Editor) compile hubo que guardar código que solo existía para el Editor o Android: `SceneExporter` y `AdvancedSceneExporter` (`#if UNITY_EDITOR`) y los `using`/uso de Google Play Games en `AuthManager` (`#if UNITY_ANDROID`). Sin esto, ningún build de Windows/Linux compilaba.
 - `/Builds/` añadido a `.gitignore`.
+
+### Migración de Multiplay a paquetes vigentes (16-10-2026, parte 8)
+
+- `com.unity.services.multiplay` está **deprecado** y choca con el unificado (tipos duplicados). Se quitó, junto con el ensamblado `Dharitz.ServerHosting`. Paquetes vigentes: `com.unity.services.multiplayer` (Sessions, Lobby, Relay, Matchmaker), `com.unity.netcode.gameobjects`, `com.unity.multiplayer.playmode`, `multiplayer.tools` y `multiplayer.center`.
+- El paquete unificado 2.4.1 **no incluye** la API de Multiplay Hosting (readiness/SQP): su changelog indica que el soporte se eliminó. El servicio Multiplay Hosting habría cerrado el 31-mar-2026 (fuentes de terceros; sin confirmar en la web oficial de Unity). Matchmaker ya solo ofrece hosting «Client» o «Cloud Code» (módulos de ejemplo para PlayFab, GameLift, Agones y Rocket Science Multiplay).
+- `MultiplayServerManager` pasó a `DedicatedServerLifecycle` (mismo GUID, la escena sigue enlazada): apagado automático por partida terminada / abandono / nadie llegó, sin depender de ningún proveedor.
+- **Pendiente de decisión:** elegir proveedor de hosting para producción (Agones, Edgegap, GameLift, Rocket Science Multiplay u otro) y añadir su registro de disponibilidad. Con Matchmaker, el servidor crea la sesión con `MultiplayerServerService.Instance.CreateMatchSessionAsync(matchId, ...)` (API presente en el paquete unificado).
+- Las secciones de «Configuración en el Dashboard» de la fase 4 que hablan de Multiplay quedan obsoletas.
