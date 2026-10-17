@@ -36,7 +36,7 @@ namespace MyGame.Networking
             if (!Configure(players)) return;
 
             OnlineLaunchRequest.Set(OnlineRole.Host, "0.0.0.0", 7777);
-            statusLabel.text = $"Creando sala de {players} jugadores...\nIP para unirse: {ip}";
+            statusLabel.text = Loc.T("menu_creating_room", players, ip);
             SceneManager.LoadScene(boardSceneIndex);
         }
 
@@ -45,7 +45,7 @@ namespace MyGame.Networking
             if (!Configure((int)mode)) return;
 
             OnlineLaunchRequest.SetQuickMatch(mode);
-            statusLabel.text = $"Buscando partida de {(int)mode} jugadores...";
+            statusLabel.text = Loc.T("menu_searching", (int)mode);
             SceneManager.LoadScene(boardSceneIndex);
         }
 
@@ -55,7 +55,7 @@ namespace MyGame.Networking
             if (!Configure(2)) return;
 
             OnlineLaunchRequest.Set(OnlineRole.Client, ipField.text, 7777);
-            statusLabel.text = $"Conectando a {OnlineLaunchRequest.Ip}...";
+            statusLabel.text = Loc.T("menu_connecting", OnlineLaunchRequest.Ip);
             SceneManager.LoadScene(boardSceneIndex);
         }
 
@@ -63,7 +63,7 @@ namespace MyGame.Networking
         {
             if (sessionConfig == null)
             {
-                statusLabel.text = "Falta asignar SessionConfig en OnlineMenuController.";
+                statusLabel.text = Loc.T("menu_missing_config");
                 return false;
             }
 

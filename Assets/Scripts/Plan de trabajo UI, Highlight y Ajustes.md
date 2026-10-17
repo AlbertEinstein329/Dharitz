@@ -235,3 +235,15 @@ Fase 2 (ajustes de audio), Fase 3 (kit de UI con Mystic Realms + Juice) y Fase 4
 - El idioma elegido se guarda pero aún no traduce textos: es la fase 4 (localización).
 - Los textos del kit están en español en código; la fase 4 los pasa a claves.
 - El efecto de atenuación del fondo del panel de ajustes no se apreció en la captura; revisar en dispositivo.
+
+### Fase 4 — Localización español / inglés (hecha)
+
+**Decisión**: no se usó LeanLocalization (exigía un prefab persistente y editar cada escena). Se hizo un servicio mínimo, sin tocar las escenas:
+- `Loc` (`Scripts/Localization/Loc.cs`): tabla `Resources/Localization/Strings.csv` con columnas `key, es, en, aliases`. `Loc.T(clave, args)` devuelve el texto del idioma actual (si falta, el otro o la clave; admite `string.Format`). El idioma sale de `SettingsService.LanguageIndex` (0 = es, 1 = en; si el jugador no ha elegido, el del dispositivo: español si el sistema está en español, si no inglés).
+- `LocalizedText`: mantiene un TMP traducido y se refresca al cambiar el idioma. Al cargar cada escena, `LocalizedText.AttachToAll` reconoce los textos originales por los *aliases* del CSV (sin distinguir mayúsculas) y les asocia su clave; así no se editó ninguna escena.
+- Textos dinámicos por código (HUD online, menú online, estado del matchmaking —ahora clave + argumentos—, botón de extraer dado, fin de partida) usan `Loc.T`.
+- El desplegable antiguo de idioma de la escena (English/Español/Português) se reemplazó en tiempo de ejecución por Español/English para coincidir con los índices.
+
+**Pruebas (Editor)**: cambio de idioma en vivo con el menú online abierto (todo el panel pasa a inglés), 25 textos de escena enlazados al arrancar el menú, formato con argumentos correcto en ES y EN, sin errores nuevos en consola.
+
+**Pendiente / límites**: nombres de marca (Google Play, Facebook, PLAYSTORE) no se traducen; los textos con número (puntos, dados) son dinámicos y no llevan clave; añadir un idioma = una columna nueva en el CSV y su código en `Loc.Codes`. Probar en dispositivo con idioma del sistema distinto.

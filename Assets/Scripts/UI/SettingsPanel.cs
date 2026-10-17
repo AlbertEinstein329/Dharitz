@@ -66,6 +66,7 @@ public class SettingsPanel : MonoBehaviour
         }
 
         UiButtonSfx.AttachToAll();
+        LocalizedText.AttachToAll(); // etiquetas del prefab segun el idioma actual
         return panel;
     }
 

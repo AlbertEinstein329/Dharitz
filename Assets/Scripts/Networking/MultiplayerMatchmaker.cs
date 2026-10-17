@@ -33,7 +33,11 @@ namespace MyGame.Networking
         public event Action<string> OnMatchFailed;
 
         public bool IsSearching { get; private set; }
-        public string LastStatus { get; private set; } = string.Empty;
+        private string statusKey;
+        private object[] statusArgs;
+
+        /// <summary>Ultimo estado, siempre en el idioma actual.</summary>
+        public string LastStatus => statusKey == null ? string.Empty : Loc.T(statusKey, statusArgs);
         public ISession ActiveSession { get; private set; }
 
         // Id de la ultima sesion: permite volver a ella tras una caida de conexion
@@ -68,7 +72,7 @@ namespace MyGame.Networking
             IsSearching = true;
             searchCts = new CancellationTokenSource();
             int players = (int)mode;
-            SetStatus($"Buscando partida de {players} jugadores...");
+            SetStatus("mm_searching", players);
 
             try
             {
@@ -102,9 +106,8 @@ namespace MyGame.Networking
                 ActiveSession = await MultiplayerService.Instance.MatchmakeSessionAsync(quickJoin, sessionOptions, searchCts.Token);
 
                 IsSearching = false;
-                SetStatus(ActiveSession.IsHost
-                    ? $"Sala creada. Esperando rivales (1/{players})..."
-                    : "Partida encontrada. Conectando...");
+                if (ActiveSession.IsHost) SetStatus("mm_room_created", players);
+                else SetStatus("mm_match_found");
                 LastSessionId = ActiveSession.Id;
                 Debug.Log($"[Matchmaker] Sesion {ActiveSession.Id} (codigo {ActiveSession.Code}) host={ActiveSession.IsHost}");
                 OnMatchFound?.Invoke(ActiveSession);
@@ -112,13 +115,13 @@ namespace MyGame.Networking
             catch (OperationCanceledException)
             {
                 IsSearching = false;
-                SetStatus("Busqueda cancelada.");
+                SetStatus("mm_cancelled");
             }
             catch (Exception ex)
             {
                 IsSearching = false;
                 Debug.LogError($"[Matchmaker] Error en matchmaking: {ex.Message}");
-                SetStatus("No se pudo encontrar partida.");
+                SetStatus("mm_not_found");
                 OnMatchFailed?.Invoke(ex.Message);
             }
             finally
@@ -137,19 +140,19 @@ namespace MyGame.Networking
             if (string.IsNullOrEmpty(LastSessionId) || IsSearching) return false;
 
             IsSearching = true;
-            SetStatus("Reconectando a la partida...");
+            SetStatus("mm_reconnecting");
             try
             {
                 ActiveSession = await MultiplayerService.Instance.ReconnectToSessionAsync(LastSessionId);
                 IsSearching = false;
-                SetStatus("Reconectado.");
+                SetStatus("mm_reconnected");
                 return true;
             }
             catch (Exception ex)
             {
                 IsSearching = false;
                 Debug.LogWarning($"[Matchmaker] No se pudo reconectar: {ex.Message}");
-                SetStatus("No se pudo reconectar a la partida.");
+                SetStatus("mm_reconnect_failed");
                 return false;
             }
         }
@@ -184,10 +187,11 @@ namespace MyGame.Networking
             }
         }
 
-        private void SetStatus(string message)
+        private void SetStatus(string key, params object[] args)
         {
-            LastStatus = message;
-            OnStatusUpdated?.Invoke(message);
+            statusKey = key;
+            statusArgs = args;
+            OnStatusUpdated?.Invoke(LastStatus);
         }
     }
 }
