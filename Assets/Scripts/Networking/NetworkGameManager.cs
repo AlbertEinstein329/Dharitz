@@ -355,7 +355,8 @@ namespace MyGame.Networking
             bool success = CoreMatchProcessor.ProcessPlacementIntent(
                 serverState, placeCommand, pattern, pattern,
                 sc.RowCompleteBonus, sc.ColCompleteBonus, sc.IntersectionBonus,
-                sc.RowMultipliers, sc.ColMultipliers);
+                sc.RowMultipliers, sc.ColMultipliers,
+                out PlacementResult placement);
 
             if (!success)
             {
@@ -371,7 +372,8 @@ namespace MyGame.Networking
                 Row = row,
                 Col = col,
                 ScoreDelta = profile.Score - scoreBefore,
-                ClosedGroup = profile.ActiveGroups[color].IsClosed
+                ClosedGroup = placement.GroupClosed,
+                PatternCompleted = placement.PatternMatched
             };
 
             // El dado queda colocado pero el turno sigue abierto: Undo / Move / Confirmar
@@ -458,7 +460,8 @@ namespace MyGame.Networking
                 Row = toRow,
                 Col = toCol,
                 ScoreDelta = serverState.PlayerProfiles[playerIndex].Score - scoreBefore,
-                ClosedGroup = result.PatternCompleted
+                ClosedGroup = result.PatternCompleted,
+                PatternCompleted = result.PatternCompleted
             });
         }
 

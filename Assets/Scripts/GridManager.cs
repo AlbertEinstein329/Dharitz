@@ -528,6 +528,38 @@ public void NextBoard()
         }
     }
 
+    // Overlay persistente de «patron completado»: enciende solo las celdas indicadas y apaga el resto del tablero.
+    public void SetCompletionOverlays(int pIndex, HashSet<Vector2Int> cellsOn)
+    {
+        if (pIndex < 0 || pIndex >= allCellsVisual.Count) return;
+
+        CellComponent[,] cells = allCellsVisual[pIndex];
+        for (int r = 0; r < cells.GetLength(0); r++)
+        {
+            for (int c = 0; c < cells.GetLength(1); c++)
+            {
+                if (cells[r, c] != null) cells[r, c].ToggleCompletionSprite(cellsOn != null && cellsOn.Contains(new Vector2Int(r, c)));
+            }
+        }
+    }
+
+    // Partida local: recalcula los overlays desde lo que hay realmente en el tablero (los dados visibles) y la variante de la partida
+    public void RecomputeCompletionOverlays(int pIndex)
+    {
+        GameManager gm = GameManager.Instance;
+        if (gm == null || gm.ServerState == null || pIndex < 0 || pIndex >= allBoardsLogic.Count) return;
+
+        BoardStateDTO board = GetBoardStateDTO(pIndex);
+
+        var on = new HashSet<Vector2Int>();
+        foreach (int index in CoreCompletion.FindMatchedCells(board, gm.ServerState.VariantConfig))
+        {
+            GridPos pos = board.GetPos(index);
+            on.Add(new Vector2Int(pos.X, pos.Y));
+        }
+        SetCompletionOverlays(pIndex, on);
+    }
+
     // --------------------------------------------------------
     // DRAG AND DROP ELASTIC SYSTEM
     // --------------------------------------------------------

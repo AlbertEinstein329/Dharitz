@@ -81,6 +81,9 @@ public class MoveCommand : IGridCommand
             gm.gridManager.MarkGroupAsCompleted(playerIndex, visualCells);
             UIManager.Instance.UpdateScore(p.score);
         }
+
+        // El movimiento puede romper o formar un patron: el overlay se recalcula desde el estado
+        gm.gridManager.RecomputeCompletionOverlays(playerIndex);
     }
 
     public void Undo()
@@ -119,5 +122,8 @@ public class MoveCommand : IGridCommand
                 UIManager.Instance.UpdateScore(p.score);
             }
         }
+
+        // Al deshacer el movimiento la forma cambia otra vez: el overlay vuelve a salir del estado
+        gm.gridManager.RecomputeCompletionOverlays(playerIndex);
     }
 }

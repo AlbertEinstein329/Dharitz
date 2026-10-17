@@ -70,6 +70,9 @@ public class UndoCommand : IGridCommand
         // Mapeo inverso a la matriz visual (Y = row, X = col)
         gm.gridManager.RemoveDie(dtoCommand.PlayerId, dtoCommand.TargetCell.Y, dtoCommand.TargetCell.X);
 
+        // Si el dado retirado completaba un patron, su resaltado debe desaparecer
+        gm.gridManager.RecomputeCompletionOverlays(dtoCommand.PlayerId);
+
         // 3. RESTAURACIÓN DE LA INTERFAZ
         UIManager.Instance.UpdateScore(p.score);
 
