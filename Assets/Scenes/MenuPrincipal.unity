@@ -6545,7 +6545,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1784202866}
         m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
-        m_MethodName: StartCampaign
+        m_MethodName: ShowOnlinePanel
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -7232,6 +7232,7 @@ GameObject:
   - component: {fileID: 1852167510}
   - component: {fileID: 1852167509}
   - component: {fileID: 1852167508}
+  - component: {fileID: 1852167999}
   m_Layer: 5
   m_Name: MainMenuCanvas
   m_TagString: Untagged
@@ -8292,3 +8293,15 @@ SceneRoots:
   - {fileID: 1251881956}
   - {fileID: 1039738343}
   - {fileID: 506968320}
+--- !u!114 &1852167999
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1852167507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 581104c7d7eb6034598e89119995eadb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

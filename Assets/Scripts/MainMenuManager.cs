@@ -93,6 +93,9 @@ public class MainMenuManager : MonoBehaviour
         LoadSettings();
     }
 
+    /// <summary>El panel online lo crea OnlineMenuController por codigo; se registra aqui para que la navegacion lo oculte con el resto.</summary>
+    public void RegisterOnlinePanel(GameObject panel) { onlinePanel = panel; }
+
     public void ShowOnlinePanel()
     {
         mainPanel.SetActive(false);
@@ -131,6 +134,7 @@ public class MainMenuManager : MonoBehaviour
         mainPanel.SetActive(false);
         freePlayPanel.SetActive(true);
         settingsPanel.SetActive(false);
+        if (onlinePanel != null) onlinePanel.SetActive(false);
 
         // 1. Inicializamos la bolsa con todos los IDs de avatar disponibles (del 0 al 9)
         ResetAvailableAvatarsPool();

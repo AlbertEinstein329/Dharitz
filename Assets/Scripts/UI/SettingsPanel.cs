@@ -25,6 +25,7 @@ public class SettingsPanel : MonoBehaviour
 
     private static SettingsPanel current;
     private Action onClosed;
+    private GameObject ownedCanvas; // canvas de respaldo (solo si la escena no tiene UiRoot)
     private bool refreshing;
 
     /// <summary>Abre el panel de ajustes. Si ya hay uno abierto no crea otro.</summary>
@@ -35,26 +36,28 @@ public class SettingsPanel : MonoBehaviour
         OnlineUiKit kit = OnlineUiKit.Instance;
         if (kit == null || kit.settingsPanel == null) return null;
 
-        var canvasObject = new GameObject("[SettingsCanvas]", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        var canvas = canvasObject.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 500;
-        var scaler = canvasObject.GetComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1080f, 1920f);
-        scaler.matchWidthOrHeight = 0.5f;
+        // Cuelga del canvas unico de la escena (capa Overlays); sin UiRoot crea un canvas propio
+        RectTransform overlayParent = UiRoot.GetOverlayParent("[SettingsCanvas]", 500);
+
+        var container = new GameObject("SettingsOverlay", typeof(RectTransform));
+        container.transform.SetParent(overlayParent, false);
+        var containerRect = (RectTransform)container.transform;
+        containerRect.anchorMin = Vector2.zero;
+        containerRect.anchorMax = Vector2.one;
+        containerRect.offsetMin = containerRect.offsetMax = Vector2.zero;
 
         // Fondo que oscurece y bloquea lo que hay detras
         var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(UnityEngine.UI.Image));
-        backdrop.transform.SetParent(canvasObject.transform, false);
+        backdrop.transform.SetParent(container.transform, false);
         var backdropRect = (RectTransform)backdrop.transform;
         backdropRect.anchorMin = Vector2.zero;
         backdropRect.anchorMax = Vector2.one;
         backdropRect.offsetMin = backdropRect.offsetMax = Vector2.zero;
         backdrop.GetComponent<UnityEngine.UI.Image>().color = new Color(0f, 0f, 0f, 0.6f);
 
-        SettingsPanel panel = Instantiate(kit.settingsPanel, canvasObject.transform, false);
+        SettingsPanel panel = Instantiate(kit.settingsPanel, container.transform, false);
         panel.onClosed = onClosed;
+        panel.ownedCanvas = UiRoot.Instance == null ? overlayParent.gameObject : null;
         current = panel;
 
         if (UnityEngine.EventSystems.EventSystem.current == null)
@@ -97,9 +100,10 @@ public class SettingsPanel : MonoBehaviour
         Action callback = onClosed;
         onClosed = null;
 
-        // Destruye el canvas completo (fondo incluido)
+        // Destruye el contenedor completo (fondo incluido) y el canvas de respaldo si lo hubo
         Transform root = transform.parent != null ? transform.parent : transform;
         Destroy(root.gameObject);
+        if (ownedCanvas != null) Destroy(ownedCanvas);
         callback?.Invoke();
     }
 

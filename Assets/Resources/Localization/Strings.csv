@@ -2,7 +2,7 @@ key,es,en,aliases
 # Comunes
 back,VOLVER,BACK,VOLVER|Back
 leave,SALIR,LEAVE,SALIR
-online,ONLINE,ONLINE,ONLINE
+online,ONLINE,ONLINE,ONLINE|Online (WIP)
 start,JUGAR,START,Start
 settings,AJUSTES,SETTINGS,AJUSTES|Settings
 options,OPCIONES,OPTIONS,Opcions|Options
@@ -15,7 +15,6 @@ profile,PERFIL Y CUENTA,PROFILE AND ACCOUNT,PROFILE AND ACCOUNT
 language,Idioma,Language,Lenguage
 vibrations,Vibraciones,Vibrations,Vibrations
 classic_mode,Modo clásico,Classic mode,Classic Mode
-online_wip,Online (en desarrollo),Online (WIP),Online (WIP)
 main_menu,MENÚ PRINCIPAL,MAIN MENU,Main Menu|MAIN MENU
 restart,REINICIAR,RESTART,RESTART
 play_again,JUGAR DE NUEVO,PLAY AGAIN,Play Again
