@@ -14,6 +14,15 @@ namespace MyGame.Networking
 
         public static void ResetPresentation() => hasAppliedOnce = false;
 
+        /// <summary>Revancha con el mismo rival: se oculta el resultado y el siguiente snapshot repinta la partida desde cero.</summary>
+        public static void PrepareRematch()
+        {
+            hasAppliedOnce = false;
+            GameManager gm = GameManager.Instance;
+            if (gm != null) gm.isGameOver = false;
+            if (UIManager.Instance != null) UIManager.Instance.HideResultsPanel();
+        }
+
         // La escena debe tener tableros y jugadores creados (GridManager.Start) antes de aplicar
         public static bool IsSceneReady(int playerCount)
         {

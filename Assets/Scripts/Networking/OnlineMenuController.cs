@@ -35,6 +35,8 @@ namespace MyGame.Networking
             string ip = GetLocalIp();
             if (!Configure(players)) return;
 
+            OnlineLaunchRequest.HostDisplayIp = ip; // el tablero la muestra hasta que el rival se una
+
             OnlineLaunchRequest.Set(OnlineRole.Host, "0.0.0.0", 7777);
             statusLabel.text = Loc.T("menu_creating_room", players, ip);
             SceneManager.LoadScene(boardSceneIndex);

@@ -27,6 +27,7 @@ namespace MyGame.Networking
         private TextMeshProUGUI timerLabel;
         private TextMeshProUGUI bannerLabel;
         private GameObject reconnectButton;
+        private GameObject copyIpButton;
         private GameObject confirmButton;
         private Animate_Shake_Free bannerShake;
         private float bannerHideTime;
@@ -66,12 +67,14 @@ namespace MyGame.Networking
             if (started) matchEverStarted = true;
 
             waitingLabel.gameObject.SetActive(!matchEverStarted);
+            // La IP de la sala sigue en pantalla mientras falte alguien; el boton de copiar solo aparece entonces
+            copyIpButton.SetActive(!matchEverStarted && ShouldShowHostIp(NetworkManager.Singleton));
             if (!matchEverStarted)
             {
                 MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
                 if (!connected && mm != null && !string.IsNullOrEmpty(mm.LastStatus)) waitingLabel.text = mm.LastStatus;
                 else if (!connected) waitingLabel.text = Loc.T("hud_no_connection");
-                else if (net.IsServer) waitingLabel.text = Loc.T("hud_waiting_players", net.ConnectedClientsIds.Count, GameManager.Instance.numPlayers);
+                else if (net.IsServer) waitingLabel.text = WaitingForPlayersText(net);
                 else waitingLabel.text = Loc.T("hud_connected_waiting");
             }
 
@@ -166,14 +169,27 @@ namespace MyGame.Networking
         // ACCIONES DE UI
         // =========================================================
 
-        private void LeaveMatch()
+        // Sala creada por IP en esta maquina: hay que ensenar la IP para que el rival pueda unirse
+        private static bool ShouldShowHostIp(NetworkManager net)
         {
-            if (MultiplayerMatchmaker.Instance != null) _ = MultiplayerMatchmaker.Instance.LeaveSessionAsync();
+            return net != null && net.IsListening && net.IsServer && OnlineLaunchRequest.LastRole == OnlineRole.Host
+                && !string.IsNullOrEmpty(OnlineLaunchRequest.HostDisplayIp);
+        }
 
-            if (NetworkBootstrap.Instance != null) NetworkBootstrap.Instance.Disconnect();
-            else if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) NetworkManager.Singleton.Shutdown();
+        private static string WaitingForPlayersText(NetworkManager net)
+        {
+            string text = Loc.T("hud_waiting_players", net.ConnectedClientsIds.Count, GameManager.Instance.numPlayers);
+            if (ShouldShowHostIp(net))
+            {
+                text += "\n" + Loc.T("hud_share_ip") + "\n<size=76><b>" + OnlineLaunchRequest.HostDisplayIp + "</b></size>\n<size=34>" + Loc.T("hud_port", OnlineLaunchRequest.Port) + "</size>";
+            }
+            return text;
+        }
 
-            SceneManager.LoadScene(menuSceneIndex);
+        private void CopyHostIp()
+        {
+            GUIUtility.systemCopyBuffer = OnlineLaunchRequest.HostDisplayIp;
+            ShowBanner(Loc.T("hud_ip_copied"), 2f);
         }
 
         private void ConfirmTurn()
@@ -211,7 +227,7 @@ namespace MyGame.Networking
             PlaceBelowModals(rootRect);
             root.AddComponent<SafeAreaFitter>(); // botones y textos dentro del area segura (notch, barra de gestos)
 
-            waitingLabel = CreateLabel("Waiting", new Vector2(0.5f, 0.55f), new Vector2(900, 200), 48, TextAlignmentOptions.Center);
+            waitingLabel = CreateLabel("Waiting", new Vector2(0.5f, 0.6f), new Vector2(980, 420), 48, TextAlignmentOptions.Center);
             turnLabel = CreateLabel("Turn", new Vector2(0.5f, 0.965f), new Vector2(700, 70), 44, TextAlignmentOptions.Center);
             timerLabel = CreateLabel("Timer", new Vector2(0.9f, 0.965f), new Vector2(160, 70), 54, TextAlignmentOptions.Center);
             bannerLabel = CreateLabel("Banner", new Vector2(0.5f, 0.9f), new Vector2(980, 90), 36, TextAlignmentOptions.Center);
@@ -228,7 +244,12 @@ namespace MyGame.Networking
             reconnectButton = CreateButton(OnlineUiKit.ButtonStyle.Secondary, "Reconnect", "RECONECTAR", new Vector2(0.5f, 0.55f), new Vector2(520, 130), Reconnect);
             reconnectButton.SetActive(false);
 
-            CreateButton(OnlineUiKit.ButtonStyle.Danger, "Leave", "SALIR", new Vector2(0.14f, 0.115f), new Vector2(200, 90), LeaveMatch);
+            // Salir de la partida vive solo en el menu de pausa (boton Main Menu), no durante el juego
+
+            // Quien crea una sala por IP ve la suya sobre el tablero, grande y con boton de copiar, hasta que entre el rival
+            copyIpButton = CreateButton(OnlineUiKit.ButtonStyle.Neutral, "CopyIp", "COPIAR IP", new Vector2(0.5f, 0.45f), new Vector2(520, 120), CopyHostIp);
+            LocalizedText.Bind(copyIpButton.GetComponentInChildren<TMP_Text>(true), "copy_ip");
+            copyIpButton.SetActive(false);
 
             for (int i = 0; i < EmojiLabels.Length; i++)
             {

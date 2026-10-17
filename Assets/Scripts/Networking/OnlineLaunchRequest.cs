@@ -24,9 +24,17 @@ namespace MyGame.Networking
         public static ushort Port { get; private set; } = 7777;
         public static MatchMode Mode { get; private set; } = MatchMode.TwoPlayers;
 
+        // Como se entro a la partida actual; no se borra con Clear() para poder jugar de nuevo igual
+        public static OnlineRole LastRole { get; private set; } = OnlineRole.None;
+        public static MatchMode LastMode { get; private set; } = MatchMode.TwoPlayers;
+
+        /// <summary>IP de esta maquina que debe compartir quien crea una sala por IP (se muestra en el tablero hasta que entra el rival).</summary>
+        public static string HostDisplayIp { get; set; } = string.Empty;
+
         public static void Set(OnlineRole role, string ip, ushort port)
         {
             Role = role;
+            LastRole = role;
             Ip = string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip.Trim();
             Port = port == 0 ? (ushort)7777 : port;
         }
@@ -41,7 +49,9 @@ namespace MyGame.Networking
         public static void SetQuickMatch(MatchMode mode)
         {
             Role = OnlineRole.QuickMatch;
+            LastRole = OnlineRole.QuickMatch;
             Mode = mode;
+            LastMode = mode;
         }
 
         public static void Clear() => Role = OnlineRole.None;

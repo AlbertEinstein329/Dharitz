@@ -28,10 +28,17 @@ namespace LapKan
 
         private void Start()
         {
+            // En una partida online reiniciar la escena no tiene sentido: solo quedan reanudar y salir (que cierra la sesion)
+            bool online = MyGame.Networking.OnlineMatchFlow.IsOnline;
+
             // 1. Vinculación de botones de navegación normales
             if (pauseButton != null) pauseButton.onClick.AddListener(OpenPauseMenu);
             if (resumeButton != null) resumeButton.onClick.AddListener(ClosePauseMenu);
-            if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
+            if (restartButton != null)
+            {
+                if (online) restartButton.gameObject.SetActive(false);
+                else restartButton.onClick.AddListener(RestartGame);
+            }
             // Acceso al panel de ajustes unico (idioma, volumenes) desde la pausa
             OnlineUiKit kit = OnlineUiKit.Instance;
             if (kit != null)
@@ -39,7 +46,16 @@ namespace LapKan
                 kit.CreateButton(transform, OnlineUiKit.ButtonStyle.Neutral, "AJUSTES", new Vector2(0.5f, 0.45f), new Vector2(420, 120), () => SettingsPanel.Open(null));
             }
             if (backToMenuButton != null) backToMenuButton.onClick.AddListener(ReturnToMainMenu);
-            if (PlayAgainButton != null) PlayAgainButton.onClick.AddListener(RestartGame);
+            if (PlayAgainButton != null)
+            {
+                if (online)
+                {
+                    // Online: otra busqueda del mismo tipo (partida rapida) o revancha con el mismo rival (por IP)
+                    PlayAgainButton.gameObject.AddComponent<MyGame.Networking.RematchButtonFeedback>();
+                    PlayAgainButton.onClick.AddListener(() => MyGame.Networking.OnlineMatchFlow.PlayAgain(PlayAgainButton));
+                }
+                else PlayAgainButton.onClick.AddListener(RestartGame);
+            }
             if (MainMenuButton != null) MainMenuButton.onClick.AddListener(ReturnToMainMenu);
 
             // El sonido «Click» de estos botones lo añade UiButtonSfx (respeta volumen y mute); no se cablea aquí.
@@ -98,6 +114,14 @@ namespace LapKan
 
         private void ReturnToMainMenu()
         {
+            // Online: salir de verdad (cierra la sesion y la conexion antes de volver al menu)
+            if (MyGame.Networking.OnlineMatchFlow.IsOnline)
+            {
+                DG.Tweening.DOTween.KillAll();
+                MyGame.Networking.OnlineMatchFlow.LeaveToMenu();
+                return;
+            }
+
             Time.timeScale = 1f;
             DG.Tweening.DOTween.KillAll();
             SceneManager.LoadScene(1);

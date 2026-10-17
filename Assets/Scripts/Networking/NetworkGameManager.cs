@@ -50,6 +50,15 @@ namespace MyGame.Networking
         private readonly List<TurnCheckpoint> turnHistory = new List<TurnCheckpoint>();
         private bool turnPlaced;
 
+        // Revancha (solo servidor): votos de los jugadores que quieren volver a jugar con el mismo rival al terminar
+        private readonly HashSet<int> rematchVotes = new HashSet<int>();
+
+        /// <summary>Votos de revancha actuales y los necesarios (llega a todos los clientes).</summary>
+        public event Action<int, int> OnRematchVotes;
+
+        /// <summary>El servidor reinicio la partida con los mismos jugadores.</summary>
+        public event Action OnRematchStarted;
+
         private bool matchStarted;
         private NetworkMatchSnapshot pendingSnapshot;
         private bool hasPendingSnapshot;
@@ -248,6 +257,60 @@ namespace MyGame.Networking
 
             SyncTurnVariables(state);
             BroadcastSnapshot(new NetworkActionSnapshot { Type = NetworkActionType.MatchStarted });
+        }
+
+        // =========================================================
+        // REVANCHA (mismo rival)
+        // =========================================================
+
+        /// <summary>El jugador quiere jugar de nuevo con el mismo rival. Cuando todos lo piden, el servidor reinicia la partida.</summary>
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestRematchServerRpc(ServerRpcParams rpcParams = default)
+        {
+            ulong senderId = rpcParams.Receive.SenderClientId;
+            if (!AllowRpc(senderId, "rematch")) return;
+
+            GameManager gm = GameManager.Instance;
+            if (!matchStarted || gm == null || gm.ServerState == null || gm.ServerState.CurrentPhase != MatchPhase.GameOver) return;
+
+            int slot = GetPlayerIndex(senderId);
+            if (slot < 0) return;
+
+            rematchVotes.Add(slot);
+            if (rematchVotes.Count >= ExpectedPlayers)
+            {
+                StartRematch();
+                return;
+            }
+
+            RematchVotesClientRpc(rematchVotes.Count, ExpectedPlayers);
+        }
+
+        private void StartRematch()
+        {
+            rematchVotes.Clear();
+            turnHistory.Clear();
+            turnPlaced = false;
+            matchStarted = false;
+
+            GameManager gm = GameManager.Instance;
+            if (gm != null) gm.isGameOver = false;
+
+            RematchStartedClientRpc();
+            TryStartMatch();
+        }
+
+        [ClientRpc]
+        private void RematchVotesClientRpc(int votes, int needed)
+        {
+            OnRematchVotes?.Invoke(votes, needed);
+        }
+
+        [ClientRpc]
+        private void RematchStartedClientRpc()
+        {
+            OnlineMatchPresenter.PrepareRematch();
+            OnRematchStarted?.Invoke();
         }
 
         public int GetPlayerIndex(ulong clientId)

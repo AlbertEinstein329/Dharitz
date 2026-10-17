@@ -74,3 +74,10 @@ login_error_offline,No hay conexión a internet.\nComprueba tu red e inténtalo 
 login_error_generic,No se pudo iniciar sesión.\nInténtalo de nuevo.,Could not sign in.\nPlease try again.,
 login_version,Versión {0},Version {0},
 back_again_to_exit,Pulsa otra vez para salir,Press again to exit,
+# Revancha y sala por IP
+rematch_votes,JUGAR DE NUEVO ({0}/{1}),PLAY AGAIN ({0}/{1}),
+rematch_waiting,ESPERANDO AL RIVAL ({0}/{1}),WAITING FOR OPPONENT ({0}/{1}),
+hud_share_ip,Pasa esta IP a tu rival:,Share this IP with your opponent:,
+hud_port,Puerto {0},Port {0},
+hud_ip_copied,IP copiada al portapapeles,IP copied to clipboard,
+copy_ip,COPIAR IP,COPY IP,
