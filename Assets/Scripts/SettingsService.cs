@@ -27,7 +27,10 @@ public static class SettingsService
     public static float SfxVolume => Mathf.Clamp01(PlayerPrefs.GetFloat(KeySfxVolume, DefaultSfxVolume));
     public static bool MusicMuted => PlayerPrefs.GetInt(KeyMusicMuted, 0) == 1;
     public static bool SfxMuted => PlayerPrefs.GetInt(KeySfxMuted, 0) == 1;
-    public static int LanguageIndex => PlayerPrefs.GetInt(KeyLanguage, 0);
+    public static int LanguageIndex => PlayerPrefs.HasKey(KeyLanguage) && PlayerPrefs.GetInt(KeyLanguage) is 0 or 1 ? PlayerPrefs.GetInt(KeyLanguage) : DeviceLanguageIndex;
+
+    /// <summary>Idioma del dispositivo mientras el jugador no elija otro: espanol (0) si el sistema esta en espanol, si no ingles (1).</summary>
+    public static int DeviceLanguageIndex => Application.systemLanguage == SystemLanguage.Spanish ? 0 : 1;
     public static bool LeftHanded => PlayerPrefs.GetInt(KeyLeftHanded, 0) == 1;
 
     /// <summary>Volumen que realmente debe sonar: 0 si esta silenciado.</summary>

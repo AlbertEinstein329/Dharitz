@@ -70,9 +70,9 @@ namespace MyGame.Networking
             {
                 MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
                 if (!connected && mm != null && !string.IsNullOrEmpty(mm.LastStatus)) waitingLabel.text = mm.LastStatus;
-                else if (!connected) waitingLabel.text = "Sin conexion.\nInicia Host / Client desde el panel de pruebas.";
-                else if (net.IsServer) waitingLabel.text = $"Esperando jugadores ({net.ConnectedClientsIds.Count}/{GameManager.Instance.numPlayers})...";
-                else waitingLabel.text = "Conectado. Esperando al inicio de la partida...";
+                else if (!connected) waitingLabel.text = Loc.T("hud_no_connection");
+                else if (net.IsServer) waitingLabel.text = Loc.T("hud_waiting_players", net.ConnectedClientsIds.Count, GameManager.Instance.numPlayers);
+                else waitingLabel.text = Loc.T("hud_connected_waiting");
             }
 
             bool inPlay = matchEverStarted && game != null;
@@ -83,8 +83,8 @@ namespace MyGame.Networking
             {
                 int current = game.NetworkCurrentPlayerIndex.Value;
                 bool gameOver = game.NetworkMatchPhase.Value == (int)Core.MatchPhase.GameOver;
-                if (gameOver) turnLabel.text = "Partida terminada";
-                else turnLabel.text = current == game.LocalPlayerIndex ? "<color=#7CFC00>TU TURNO</color>" : $"Turno de Jugador {current + 1}";
+                if (gameOver) turnLabel.text = Loc.T("hud_match_over");
+                else turnLabel.text = current == game.LocalPlayerIndex ? "<color=#7CFC00>" + Loc.T("hud_your_turn") + "</color>" : Loc.T("hud_player_turn", current + 1);
 
                 if (NetworkTurnManager.Instance != null && !gameOver)
                 {
@@ -147,10 +147,10 @@ namespace MyGame.Networking
             subscribed = false;
         }
 
-        private void HandleDisconnected(int slot) => ShowBanner($"Jugador {slot + 1} desconectado. Esperando reconexión (30 s)...", 6f);
-        private void HandleReconnected(int slot) => ShowBanner($"Jugador {slot + 1} se ha reconectado", 3f);
-        private void HandleEliminated(int slot) => ShowBanner($"Jugador {slot + 1} eliminado por abandono", 4f);
-        private void HandleEmoji(int slot, int emojiId) => ShowBanner($"Jugador {slot + 1}: {EmojiLabels[Mathf.Clamp(emojiId, 0, EmojiLabels.Length - 1)]}", 2f);
+        private void HandleDisconnected(int slot) => ShowBanner(Loc.T("hud_player_disconnected", slot + 1), 6f);
+        private void HandleReconnected(int slot) => ShowBanner(Loc.T("hud_player_reconnected", slot + 1), 3f);
+        private void HandleEliminated(int slot) => ShowBanner(Loc.T("hud_player_eliminated", slot + 1), 4f);
+        private void HandleEmoji(int slot, int emojiId) => ShowBanner(Loc.T("hud_player_emoji", slot + 1, Loc.T("emoji_" + Mathf.Clamp(emojiId, 0, EmojiLabels.Length - 1))), 2f);
         private void HandleEmojiError(string message) => ShowBanner(message, 2f);
 
         private void ShowBanner(string message, float seconds)
@@ -186,7 +186,7 @@ namespace MyGame.Networking
             if (MultiplayerMatchmaker.Instance == null) return;
 
             bool ok = await MultiplayerMatchmaker.Instance.ReconnectAsync();
-            if (!ok) ShowBanner("No se pudo reconectar. Puedes salir al menu.", 4f);
+            if (!ok) ShowBanner(Loc.T("hud_reconnect_failed"), 4f);
         }
 
         private void SendEmoji(int id)

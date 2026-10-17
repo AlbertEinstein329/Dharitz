@@ -1,0 +1,67 @@
+key,es,en,aliases
+# Comunes
+back,VOLVER,BACK,VOLVER|Back
+leave,SALIR,LEAVE,SALIR
+online,ONLINE,ONLINE,ONLINE
+start,JUGAR,START,Start
+settings,AJUSTES,SETTINGS,AJUSTES|Settings
+options,OPCIONES,OPTIONS,Opcions|Options
+music,Música,Music,Música|Music
+sound,Sonido,Sound,Sound
+effects,Efectos,Effects,Efectos
+audio,Audio,Audio,Audio
+accessibility,Accesibilidad,Accessibility,accessibility
+profile,PERFIL Y CUENTA,PROFILE AND ACCOUNT,PROFILE AND ACCOUNT
+language,Idioma,Language,Lenguage
+left_handed,Modo zurdo,Left-handed mode,Modo zurdo|LEFT-HANDED MODE|Left Hand Mode
+vibrations,Vibraciones,Vibrations,Vibrations
+classic_mode,Modo clásico,Classic mode,Classic Mode
+online_wip,Online (en desarrollo),Online (WIP),Online (WIP)
+main_menu,MENÚ PRINCIPAL,MAIN MENU,Main Menu|MAIN MENU
+restart,REINICIAR,RESTART,RESTART
+play_again,JUGAR DE NUEVO,PLAY AGAIN,Play Again
+hide,Ocultar,Hide,Ocultar
+game_over,¡FIN DE LA PARTIDA!,GAME OVER!,¡GAME OVER!
+match_end,FIN DE PARTIDA,MATCH END,
+extract_dice,EXTRAER DADO,EXTRACT DICE,
+# Menu online
+online_title,JUGAR ONLINE,PLAY ONLINE,JUGAR ONLINE
+quick2,PARTIDA RÁPIDA 2 JUGADORES,QUICK MATCH 2 PLAYERS,PARTIDA RÁPIDA 2 JUGADORES
+quick4,PARTIDA RÁPIDA 4 JUGADORES,QUICK MATCH 4 PLAYERS,PARTIDA RÁPIDA 4 JUGADORES
+lan_label,Red local (sin matchmaking),Local network (no matchmaking),Red local (sin matchmaking)
+create2,CREAR SALA 2J,CREATE ROOM 2P,CREAR SALA 2J
+create4,CREAR SALA 4J,CREATE ROOM 4P,CREAR SALA 4J
+ip_placeholder,IP del anfitrión,Host IP,IP del anfitrión
+join_ip,UNIRSE POR IP,JOIN BY IP,UNIRSE POR IP
+menu_status_hint,"Partida rápida: te une a una sala libre o crea una nueva y espera rivales.","Quick match: joins a free room or creates a new one and waits for opponents.","Partida rápida: te une a una sala libre o crea una nueva y espera rivales."
+menu_creating_room,"Creando sala de {0} jugadores...\nIP para unirse: {1}","Creating a {0}-player room...\nIP to join: {1}",
+menu_searching,Buscando partida de {0} jugadores...,Searching for a {0}-player match...,
+menu_connecting,Conectando a {0}...,Connecting to {0}...,
+menu_missing_config,Falta asignar SessionConfig en OnlineMenuController.,SessionConfig is not assigned in OnlineMenuController.,
+# HUD online
+confirm_turn,CONFIRMAR TURNO,CONFIRM TURN,CONFIRMAR TURNO
+reconnect,RECONECTAR,RECONNECT,RECONECTAR
+hud_no_connection,"Sin conexión.\nInicia Host / Client desde el panel de pruebas.","No connection.\nStart Host / Client from the test panel.",
+hud_waiting_players,Esperando jugadores ({0}/{1})...,Waiting for players ({0}/{1})...,
+hud_connected_waiting,Conectado. Esperando al inicio de la partida...,Connected. Waiting for the match to start...,
+hud_match_over,Partida terminada,Match over,
+hud_your_turn,TU TURNO,YOUR TURN,
+hud_player_turn,Turno de Jugador {0},Player {0}'s turn,
+hud_player_disconnected,Jugador {0} desconectado. Esperando reconexión (30 s)...,Player {0} disconnected. Waiting for reconnection (30 s)...,
+hud_player_reconnected,Jugador {0} se ha reconectado,Player {0} has reconnected,
+hud_player_eliminated,Jugador {0} eliminado por abandono,Player {0} eliminated for leaving,
+hud_player_emoji,Jugador {0}: {1},Player {0}: {1},
+hud_reconnect_failed,No se pudo reconectar. Puedes salir al menú.,Could not reconnect. You can leave to the menu.,
+emoji_0,GG,GG,GG
+emoji_1,WOW,WOW,WOW
+emoji_2,UPS,OOPS,UPS
+emoji_3,HOLA,HI,HOLA
+# Estado del matchmaking
+mm_searching,Buscando partida de {0} jugadores...,Searching for a {0}-player match...,
+mm_cancelled,Búsqueda cancelada.,Search cancelled.,
+mm_not_found,No se pudo encontrar partida.,Could not find a match.,
+mm_reconnecting,Reconectando a la partida...,Reconnecting to the match...,
+mm_reconnected,Reconectado.,Reconnected.,
+mm_reconnect_failed,No se pudo reconectar a la partida.,Could not reconnect to the match.,
+mm_room_created,Sala creada. Esperando rivales (1/{0})...,Room created. Waiting for opponents (1/{0})...,
+mm_match_found,Partida encontrada. Conectando...,Match found. Connecting...,

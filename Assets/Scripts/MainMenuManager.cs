@@ -57,7 +57,13 @@ public class MainMenuManager : MonoBehaviour
         if (bgmSlider != null) bgmSlider.onValueChanged.AddListener(SetBGMVolume);
         if (sfxSlider != null) sfxSlider.onValueChanged.AddListener(SetSFXVolume);
         if (leftHandedToggle != null) leftHandedToggle.onValueChanged.AddListener(SetLeftHandedMode);
-        if (languageDropdown != null) languageDropdown.onValueChanged.AddListener(SetLanguage);
+        if (languageDropdown != null)
+        {
+            // Mismo orden que Loc.Codes (0 = es, 1 = en); el desplegable antiguo traia English/Espanol/Portugues
+            languageDropdown.ClearOptions();
+            languageDropdown.AddOptions(new System.Collections.Generic.List<string> { "Español", "English" });
+            languageDropdown.onValueChanged.AddListener(SetLanguage);
+        }
 
         // Listener del botón dinámico (+)
         if (addPlayerButton != null) addPlayerButton.OnClick.AddListener(AddPlayerDynamic);
