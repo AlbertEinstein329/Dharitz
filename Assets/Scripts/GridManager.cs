@@ -21,13 +21,6 @@ public class GridManager : MonoBehaviour, IGridValidator
     public int cols = 10;
     public float cellSize = 1.1f;
 
-    [Header("Dynamic Grid Settings")]
-    public float screenPadding = 0.5f; // Padding en unidades del mundo
-    public float bottomUIOffset = 1.5f; // Espacio que reservamos abajo para los botones
-
-    [Header("Responsive Grid Positioning")]
-    [SerializeField] private float bottomVerticalOffset = 1.5f;
-
     [Header("Prefabs y Referencias")]
     public GameObject cellPrefab;
     public GameObject redPrefab, bluePrefab, whitePrefab, blackPrefab;
