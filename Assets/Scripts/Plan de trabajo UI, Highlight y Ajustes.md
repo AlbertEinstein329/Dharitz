@@ -219,3 +219,19 @@ Fase 2 (ajustes de audio), Fase 3 (kit de UI con Mystic Realms + Juice) y Fase 4
 - El **panel de ajustes unificado en un prefab** (menú + pausa con slider y mute de música y SFX con el aspecto de Mystic Realms) pasa a la **fase 3**, junto con el resto del kit de UI: hacerlo ahora obligaba a estilizar dos veces. Hoy el menú tiene los sliders y la pausa los toggles de mute, ambos funcionando sobre el mismo estado.
 - «Tick» usa el clip `Diceroll` de la biblioteca (el nombre del sonido y su clip no coinciden); si quieres un tic de cuenta atrás, basta cambiar el clip en el prefab.
 - Tus ajustes guardados en el Editor tenían **música y SFX silenciados** (mute activado); se respetaron y se restauraron tras las pruebas. Por eso al pulsar Play no se oye nada hasta quitar el mute (toggle de la pausa).
+
+### Fase 3 — Kit de UI con Mystic Realms Wooden + Juice UI (hecha)
+
+**Qué se hizo**
+- `OnlineUiKit` (`Resources/OnlineUiKit.asset`, `Scripts/UI/OnlineUiKit.cs`): fábrica de botones (Primary verde, Secondary azul, Neutral crema, Danger rojo, Close), paneles con banner, etiquetas TMP, campo de texto TMP, slider y toggle con los sprites de Mystic Realms. Los botones llevan `ButtonAnimator_Free` (hover con rebote, clic con squeeze) y `UiButtonSfx`; el panel usa `PanelAnimator_Free` (pop).
+- `Tools ▸ Dharitz ▸ UI ▸ Construir kit de UI online` (`DharitzUiKitBuilder`) genera todo en `Assets/Prefabs/OnlineUI/` y es idempotente. Los botones son variantes de los `ButtonRect {Green,Blue,Cream,Yellow}` (los prefabs con `SceneBase` se evitan).
+- **Fuentes**: las SDF de Mystic Realms son estáticas y no traen á é í ó ú ñ ¿ ¡. Se crearon fuentes dinámicas desde los TTF y se añadieron como respaldo global en `TMP Settings` (PassionOne primero, porque Luckiest Guy solo tiene mayúsculas).
+- `SettingsPanel` (prefab): música y efectos (slider + mute), idioma ES/EN (`SettingsService.SetLanguageIndex`), modo zurdo. Se abre con `SettingsPanel.Open()` desde el menú (`MainMenuManager.ShowSettingsPanel`) y desde un botón AJUSTES creado en la pausa. El panel antiguo de la escena queda como respaldo.
+- `OnlineMenuController` y `OnlineHudController` instancian del kit. Pulso en CONFIRMAR TURNO y sacudida del banner (`Animate_Shake_Free`). SALIR y los emojis se recolocaron para no solaparse con el HUD del tablero.
+
+**Pruebas (Editor, 1080×2340)**: panel de ajustes, menú online y HUD online renderizan con las fuentes y sprites correctos, tildes y Ñ incluidas; 24/24 botones del tablero con `UiButtonSfx`; ajustes abiertos desde pausa y menú.
+
+**Pendiente / límites**
+- El idioma elegido se guarda pero aún no traduce textos: es la fase 4 (localización).
+- Los textos del kit están en español en código; la fase 4 los pasa a claves.
+- El efecto de atenuación del fondo del panel de ajustes no se apreció en la captura; revisar en dispositivo.
