@@ -240,3 +240,11 @@ Decidido: tras colocar, el turno **no** termina. El servidor deja el turno abier
 **Pendiente**
 - El cliente aún usa quick join por Relay. Para jugar contra el servidor dedicado por cola hay que sustituir `MultiplayerMatchmaker` por `MatchmakeSessionAsync(MatchmakerOptions, ...)` con el nombre de cola del Dashboard (no se puede escribir hasta tener las colas).
 - Probar el build de Linux en una fleet real y ajustar los tiempos de apagado.
+
+### Fase 4: prueba real con build de Windows (16-10-2026, parte 7)
+
+- Build de Windows (ejecutable normal, 210 MB) lanzado como servidor: `DharitzServer.exe -batchmode -nographics -server -port 7790 -queryport 7791 -maxPlayers 1 -allowSolo`. `-allowSolo` (solo para pruebas) permite 1 jugador; en producción solo valen 2 o 4.
+- **Verificado contra ese servidor con un cliente del Editor (IP directa):** el servidor arranca solo desde `Login`, carga `Tablero` y escucha (UDP 7790); el cliente se registra con su PlayerId (slot 0) y la partida empieza; robar → colocar → CONFIRMAR TURNO pasan por el servidor y el cliente refleja tablero, puntaje y turno; **reconexión real**: se cortó el cliente (ClientId 1) y al volver (ClientId 2) el servidor lo reconoció por PlayerId, devolvió su slot y el cliente recuperó tablero y puntaje intactos.
+- **Sigue sin verificar:** el registro real en Multiplay (sin `server.json` el servidor degrada a IP directa, como esperado), el build de **Linux** (el módulo «Dedicated Server» de Linux/Windows no está instalado en Unity Hub; el menú de Linux usa el subtarget Server y fallará hasta instalarlo) y partidas de 2+ jugadores contra el servidor.
+- Para que un build de jugador (no Editor) compile hubo que guardar código que solo existía para el Editor o Android: `SceneExporter` y `AdvancedSceneExporter` (`#if UNITY_EDITOR`) y los `using`/uso de Google Play Games en `AuthManager` (`#if UNITY_ANDROID`). Sin esto, ningún build de Windows/Linux compilaba.
+- `/Builds/` añadido a `.gitignore`.

@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System.IO;
 using UnityEngine;
 using UnityEditor;
@@ -43,3 +44,4 @@ public class SceneExporter : MonoBehaviour
         }
     }
 }
+#endif
