@@ -335,10 +335,10 @@ public static class DharitzUiKitBuilder
         root.name = "SettingsPanel";
         var rootRect = (RectTransform)root.transform;
         rootRect.anchorMin = rootRect.anchorMax = new Vector2(0.5f, 0.5f);
-        rootRect.sizeDelta = new Vector2(900f, 1050f);
+        rootRect.sizeDelta = new Vector2(900f, 950f);
         OnlineUiKit.SetPanelTitle(rootRect, "AJUSTES");
 
-        Slider music, sfx; Toggle musicToggle, sfxToggle, left; Button es, en;
+        Slider music, sfx; Toggle musicToggle, sfxToggle; Button es, en;
 
         MakeRow(root, labelPrefab, "Música", 260f, sliderPrefab, togglePrefab, out music, out musicToggle);
         MakeRow(root, labelPrefab, "Efectos", 80f, sliderPrefab, togglePrefab, out sfx, out sfxToggle);
@@ -346,11 +346,6 @@ public static class DharitzUiKitBuilder
         MakeLabel(root, labelPrefab, "Idioma / Language", new Vector2(0f, -110f));
         es = MakeButton(root, languageButtonPrefab, "ESPAÑOL", new Vector2(-190f, -220f), new Vector2(340f, 130f));
         en = MakeButton(root, languageButtonPrefab, "ENGLISH", new Vector2(190f, -220f), new Vector2(340f, 130f));
-
-        MakeLabel(root, labelPrefab, "Modo zurdo", new Vector2(-120f, -400f), 40f, new Vector2(520f, 80f));
-        left = (Toggle)PrefabUtility.InstantiatePrefab(togglePrefab, root.transform);
-        PlaceCenter((RectTransform)left.transform, new Vector2(250f, -400f), new Vector2(88f, 88f));
-        left.name = "LeftHandedToggle";
 
         var close = (Button)PrefabUtility.InstantiatePrefab(closePrefab, root.transform);
         var closeRect = (RectTransform)close.transform;
@@ -367,7 +362,6 @@ public static class DharitzUiKitBuilder
         so.FindProperty("sfxToggle").objectReferenceValue = sfxToggle;
         so.FindProperty("languageSpanish").objectReferenceValue = es;
         so.FindProperty("languageEnglish").objectReferenceValue = en;
-        so.FindProperty("leftHandedToggle").objectReferenceValue = left;
         so.FindProperty("closeButton").objectReferenceValue = close;
         so.ApplyModifiedPropertiesWithoutUndo();
 

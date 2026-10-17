@@ -390,34 +390,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Reubica el panel de extracción según la configuración de zurdo/diestro.
-    /// Ejecutar en Start().
-    /// </summary>
-    public void ApplyHandednessLayout()
-    {
-        if (diceExtractionPanel == null) return;
-
-        // Lee la configuración guardada por MainMenuManager (1 = Zurdo, 0 = Diestro)
-        bool isLeftHanded = SettingsService.LeftHanded;
-
-        // Ajustamos Anclajes (Anchors) y Pivotes dinámicamente
-        if (isLeftHanded)
-        {
-            diceExtractionPanel.anchorMin = new Vector2(0f, diceExtractionPanel.anchorMin.y);
-            diceExtractionPanel.anchorMax = new Vector2(0f, diceExtractionPanel.anchorMax.y);
-            diceExtractionPanel.pivot = new Vector2(0f, diceExtractionPanel.pivot.y);
-            diceExtractionPanel.anchoredPosition = new Vector2(25f, diceExtractionPanel.anchoredPosition.y); // Margen de 25px
-        }
-        else
-        {
-            diceExtractionPanel.anchorMin = new Vector2(1f, diceExtractionPanel.anchorMin.y);
-            diceExtractionPanel.anchorMax = new Vector2(1f, diceExtractionPanel.anchorMax.y);
-            diceExtractionPanel.pivot = new Vector2(1f, diceExtractionPanel.pivot.y);
-            diceExtractionPanel.anchoredPosition = new Vector2(-25f, diceExtractionPanel.anchoredPosition.y); // Margen de -25px
-        }
-    }
-
     public void UpdateUndoUI(int usesLeft, bool hasHistory)
     {
         if (undoButton != null)
