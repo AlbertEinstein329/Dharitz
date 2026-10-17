@@ -31,6 +31,9 @@ namespace MyGame.Networking
 
         public event Action<NetworkMatchSnapshot> OnSnapshotApplied;
 
+        /// <summary>El servidor rechazo una jugada de ESTE cliente (colocar, mover o deshacer).</summary>
+        public event Action OnPlacementRejected;
+
         // Ultimo estado aplicado en esta maquina (para que la UI sepa si hay que confirmar, deshacer, etc.)
         public NetworkMatchSnapshot LastSnapshot { get; private set; }
         public bool HasSnapshot { get; private set; }
@@ -641,6 +644,7 @@ namespace MyGame.Networking
             if (NetworkManager.Singleton.LocalClientId == targetClientId)
             {
                 Debug.LogWarning($"[Cliente Local] Placement rechazado por el servidor: {reason}");
+                OnPlacementRejected?.Invoke();
                 if (PopUpManager.Instance != null)
                 {
                     PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "Movimiento no válido", Color.red);

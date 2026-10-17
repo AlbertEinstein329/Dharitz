@@ -39,6 +39,9 @@ namespace MyGame.Networking
             }
 
             BuildUi();
+
+            // Sonidos de la partida online (tu turno, cuenta atras, rechazos...); no requiere tocar la escena
+            if (GetComponent<OnlineAudioFeedback>() == null) gameObject.AddComponent<OnlineAudioFeedback>();
         }
 
         private void OnDestroy()

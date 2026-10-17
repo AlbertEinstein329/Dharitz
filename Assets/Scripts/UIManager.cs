@@ -399,7 +399,7 @@ public class UIManager : MonoBehaviour
         if (diceExtractionPanel == null) return;
 
         // Lee la configuración guardada por MainMenuManager (1 = Zurdo, 0 = Diestro)
-        bool isLeftHanded = PlayerPrefs.GetInt("Setting_LeftHanded", 0) == 1;
+        bool isLeftHanded = SettingsService.LeftHanded;
 
         // Ajustamos Anclajes (Anchors) y Pivotes dinámicamente
         if (isLeftHanded)
