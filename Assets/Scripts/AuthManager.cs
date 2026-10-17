@@ -2,8 +2,10 @@ using UnityEngine;
 using Unity.Services.Core;
 using Unity.Services.Authentication;
 using System.Threading.Tasks;
+#if UNITY_ANDROID
 using GooglePlayGames;
 using GooglePlayGames.BasicApi;
+#endif
 using UnityEngine.SceneManagement;
 
 public class AuthManager : MonoBehaviour
@@ -100,6 +102,7 @@ public class AuthManager : MonoBehaviour
     /// </summary>
     public void VincularCuentaGooglePlay()
     {
+#if UNITY_ANDROID
         Debug.Log("Iniciando Google Play Games...");
 
         // 1. Activamos la plataforma de GPGS
@@ -135,6 +138,10 @@ public class AuthManager : MonoBehaviour
                 Debug.LogError($"Fallo al iniciar sesión en Play Games: {status}");
             }
         });
+#else
+        // Google Play Games solo existe en Android (el SDK no compila en Windows, Linux ni en el servidor dedicado)
+        Debug.LogWarning("Google Play Games solo esta disponible en Android.");
+#endif
     }
 
 

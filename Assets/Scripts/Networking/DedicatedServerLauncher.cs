@@ -9,7 +9,7 @@ namespace MyGame.Networking
     /// <c>-server</c>, salta el login y el menu, configura una partida online y carga directamente la escena Tablero,
     /// donde <see cref="OnlineAutoConnect"/> arranca Netcode como servidor.
     ///
-    /// Argumentos (los mismos que pasa Multiplay): -port, -queryport, -maxPlayers.
+    /// Argumentos (los que pasan los orquestadores de servidores): -port, -queryport, -maxPlayers (2 o 4; 1 solo con -allowSolo, para pruebas).
     ///   Dharitz.x86_64 -batchmode -nographics -port 7777 -queryport 7778 -maxPlayers 2
     /// </summary>
     public static class DedicatedServerLauncher
@@ -72,8 +72,9 @@ namespace MyGame.Networking
             if (TryGetArg("-port", out string port) && ushort.TryParse(port, out ushort parsedPort) && parsedPort != 0) Port = parsedPort;
             if (TryGetArg("-queryport", out string query) && ushort.TryParse(query, out ushort parsedQuery) && parsedQuery != 0) QueryPort = parsedQuery;
 
-            // Solo 2 o 4 jugadores son modos validos
-            if (TryGetArg("-maxPlayers", out string max) && int.TryParse(max, out int parsedMax) && (parsedMax == 2 || parsedMax == 4))
+            // Solo 2 o 4 jugadores son modos validos; 1 jugador solo con -allowSolo (pruebas con un unico cliente)
+            if (TryGetArg("-maxPlayers", out string max) && int.TryParse(max, out int parsedMax)
+                && (parsedMax == 2 || parsedMax == 4 || (parsedMax == 1 && HasArg("-allowSolo"))))
                 MaxPlayers = parsedMax;
         }
 

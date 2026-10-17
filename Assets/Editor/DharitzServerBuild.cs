@@ -7,7 +7,7 @@ using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 /// <summary>
-/// Builds del servidor dedicado (Linux para Multiplay, Windows para pruebas locales) y simulacion del servidor
+/// Builds del servidor dedicado (Linux para produccion, Windows para pruebas locales) y simulacion del servidor
 /// dedicado dentro del Editor.
 ///
 /// IMPORTANTE: compilar para Linux/Windows desde un proyecto con Android como plataforma activa obliga a cambiar de
@@ -48,7 +48,7 @@ public static class DharitzServerBuild
     // Builds
     // -----------------------------------------------------------------
 
-    [MenuItem("Tools/Dharitz/Server/Build Linux Dedicated Server (Multiplay)")]
+    [MenuItem("Tools/Dharitz/Server/Build Linux Dedicated Server")]
     public static void BuildLinuxFromMenu()
     {
         if (!ConfirmPlatformSwitch("Linux")) return;
@@ -59,8 +59,14 @@ public static class DharitzServerBuild
     public static void BuildWindowsFromMenu()
     {
         if (!ConfirmPlatformSwitch("Windows")) return;
-        Build(BuildTarget.StandaloneWindows64, WindowsOutput);
+        Build(BuildTarget.StandaloneWindows64, WindowsOutput, StandaloneBuildSubtarget.Player);
     }
+
+    /// <summary>Compila el servidor de Windows sin dialogo ni cierre del Editor (uso programatico / automatizado).</summary>
+    public static bool BuildWindowsServer() => Build(BuildTarget.StandaloneWindows64, WindowsOutput, StandaloneBuildSubtarget.Player);
+
+    /// <summary>Compila el servidor de Linux sin dialogo ni cierre del Editor (uso programatico / automatizado).</summary>
+    public static bool BuildLinuxServer() => Build(BuildTarget.StandaloneLinux64, LinuxOutput);
 
     /// <summary>Para CI: Unity -batchmode -quit -executeMethod DharitzServerBuild.BuildLinuxServerCli</summary>
     public static void BuildLinuxServerCli()
@@ -71,7 +77,7 @@ public static class DharitzServerBuild
     /// <summary>Para CI: Unity -batchmode -quit -executeMethod DharitzServerBuild.BuildWindowsServerCli</summary>
     public static void BuildWindowsServerCli()
     {
-        EditorApplication.Exit(Build(BuildTarget.StandaloneWindows64, WindowsOutput) ? 0 : 1);
+        EditorApplication.Exit(Build(BuildTarget.StandaloneWindows64, WindowsOutput, StandaloneBuildSubtarget.Player) ? 0 : 1);
     }
 
     private static bool ConfirmPlatformSwitch(string platform)
@@ -83,7 +89,10 @@ public static class DharitzServerBuild
             "Compilar", "Cancelar");
     }
 
-    private static bool Build(BuildTarget target, string relativeOutput)
+    // El build de Windows es un ejecutable normal que se lanza con -batchmode -nographics -server: para pruebas locales no
+    // hace falta instalar el modulo "Dedicated Server" de Windows. El de Linux si usa el subtarget Server,
+    // que exige el modulo "Linux Dedicated Server Build Support" en Unity Hub.
+    private static bool Build(BuildTarget target, string relativeOutput, StandaloneBuildSubtarget subtarget = StandaloneBuildSubtarget.Server)
     {
         string[] scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
         if (scenes.Length == 0)
@@ -103,7 +112,7 @@ public static class DharitzServerBuild
             scenes = scenes,
             locationPathName = output,
             target = target,
-            subtarget = (int)StandaloneBuildSubtarget.Server,
+            subtarget = (int)subtarget,
             options = BuildOptions.None
         };
 
@@ -114,7 +123,7 @@ public static class DharitzServerBuild
         if (summary.result == BuildResult.Succeeded)
         {
             Debug.Log($"[DharitzServerBuild] OK: {summary.totalSize / (1024 * 1024)} MB en {summary.totalTime.TotalSeconds:F0} s. " +
-                      $"Ejecutar: {Path.GetFileName(output)} -batchmode -nographics -port 7777 -queryport 7778 -maxPlayers 2");
+                      $"Ejecutar: {Path.GetFileName(output)} -batchmode -nographics -server -port 7777 -queryport 7778 -maxPlayers 2");
             return true;
         }
 
