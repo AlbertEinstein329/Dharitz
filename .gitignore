@@ -108,3 +108,7 @@ InitTestScene*.unity*
 
 # Builds locales del servidor dedicado
 /Builds/
+
+# Resultados de entrenamiento de ML-Agents (checkpoints, .onnx, tensorboard): pesan >1 GB y se regeneran
+/Assets/ML-Config/results/
+/Assets/ML-Config/results.meta
