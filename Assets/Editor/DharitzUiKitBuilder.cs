@@ -78,22 +78,32 @@ public static class DharitzUiKitBuilder
 
     // ------------------------------------------------------------------ Fuentes
 
+    [MenuItem("Tools/Dharitz/UI/Reconstruir fuentes de respaldo")]
+    public static void RebuildFallbackFonts() => Debug.Log($"[DharitzUiKitBuilder] {BuildFonts()} fuente(s) de respaldo estaticas reconstruidas.");
+
+    /// <summary>
+    /// Fuentes de respaldo con los glifos que faltan en las SDF de Mystic Realms (tildes, enes, signos de apertura y cualquier
+    /// caracter no ASCII de la tabla de textos). Son <b>estaticas</b>: el atlas se genera aqui, sin rasterizar nada en el movil,
+    /// a 512x512 y sin copia legible en memoria de CPU.
+    /// </summary>
     private static int BuildFonts()
     {
         string[] sources = { "PassionOne-Bold", "Luckiest Guy" }; // Passion primero: tiene minusculas, Luckiest solo mayusculas
+        string characters = CollectNonAsciiCharacters();
         var created = new System.Collections.Generic.List<TMP_FontAsset>();
 
         foreach (string name in sources)
         {
-            string assetPath = $"{FontDir}/{name} Dynamic SDF.asset";
-            var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
-            if (existing != null) { created.Add(existing); continue; }
+            // Sustituye tanto la version estatica anterior como la dinamica de la primera version
+            AssetDatabase.DeleteAsset($"{FontDir}/{name} Dynamic SDF.asset");
+            string assetPath = $"{FontDir}/{name} Fallback SDF.asset";
+            AssetDatabase.DeleteAsset(assetPath);
 
             var ttf = AssetDatabase.LoadAssetAtPath<Font>($"{MysticRoot}/Resources/FontsGame/{name}.ttf");
             if (ttf == null) { Debug.LogError($"[DharitzUiKitBuilder] Falta {name}.ttf"); continue; }
 
-            TMP_FontAsset fa = TMP_FontAsset.CreateFontAsset(ttf, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
-            fa.name = $"{name} Dynamic SDF";
+            TMP_FontAsset fa = TMP_FontAsset.CreateFontAsset(ttf, 90, 9, GlyphRenderMode.SDFAA, 512, 512, AtlasPopulationMode.Dynamic, false);
+            fa.name = $"{name} Fallback SDF";
             AssetDatabase.CreateAsset(fa, assetPath);
             fa.material.name = fa.name + " Material";
             AssetDatabase.AddObjectToAsset(fa.material, fa);
@@ -102,18 +112,30 @@ public static class DharitzUiKitBuilder
                 atlas.name = fa.name + " Atlas";
                 AssetDatabase.AddObjectToAsset(atlas, fa);
             }
-            // Precarga lo que usa el idioma espanol para que no aparezcan huecos
-            fa.TryAddCharacters("áéíóúüñÁÉÍÓÚÜÑ¿¡ºª", out _);
+
+            fa.TryAddCharacters(characters, out string missing);
+            if (!string.IsNullOrEmpty(missing)) Debug.LogWarning($"[DharitzUiKitBuilder] {name}: sin glifo para «{missing}»");
+
+            // Estatica: no se genera nada en ejecucion; atlas no legible (la copia en CPU duplicaria la memoria)
+            var so = new SerializedObject(fa);
+            so.FindProperty("m_AtlasPopulationMode").intValue = (int)AtlasPopulationMode.Static;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            foreach (Texture2D atlas in fa.atlasTextures) atlas.Apply(false, true);
+
             EditorUtility.SetDirty(fa);
             created.Add(fa);
         }
 
-        // Respaldo global: cualquier TMP que pida un glifo ausente lo busca aqui
+        // Respaldo global: cualquier TMP que pida un glifo ausente lo busca aqui (sin entradas rotas ni repetidas)
         var settings = TMP_Settings.instance;
         if (settings != null)
         {
             var so = new SerializedObject(settings);
             SerializedProperty list = so.FindProperty("m_fallbackFontAssets");
+            for (int i = list.arraySize - 1; i >= 0; i--)
+            {
+                if (list.GetArrayElementAtIndex(i).objectReferenceValue == null) list.DeleteArrayElementAtIndex(i);
+            }
             foreach (TMP_FontAsset fa in created)
             {
                 bool present = false;
@@ -127,6 +149,15 @@ public static class DharitzUiKitBuilder
         }
         AssetDatabase.SaveAssets();
         return created.Count;
+    }
+
+    // Caracteres que no son ASCII: los de la tabla de textos (es/en) mas las tildes y signos habituales del espanol
+    private static string CollectNonAsciiCharacters()
+    {
+        var set = new System.Collections.Generic.SortedSet<char>("áéíóúüñÁÉÍÓÚÜÑ¿¡ºª«»");
+        var csv = AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Resources/Localization/Strings.csv");
+        if (csv != null) foreach (char c in csv.text) if (c > 127) set.Add(c);
+        return new string(new System.Collections.Generic.List<char>(set).ToArray());
     }
 
     // ------------------------------------------------------------------ Botones
