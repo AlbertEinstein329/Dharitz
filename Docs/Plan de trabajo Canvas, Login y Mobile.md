@@ -220,3 +220,29 @@ Criterio: se calculó qué assets alcanzan las escenas del build, `Resources`, `
 **Verificación**: compilación completa sin errores, 0 scripts perdidos en las 3 escenas y en los prefabs, partida local de prueba (robar, colocar, puntuar) sin errores en consola y tests EditMode: 173 correctos, 1 fallo (`InputModuleTests`, test del paquete ugui que espera el módulo de entrada antiguo; no depende de la purga).
 
 **No tocado (decisión pendiente)**: paquetes de desarrollo que instalaste (`multiplayer.*`, `vivox`, `antigravity.ide`, `ai.assistant`), el panel de ajustes antiguo de MenuPrincipal (respaldo si falta el kit), reescritura del historial de git.
+
+---
+
+## 11. Fase de optimización (rama `perf/mobile`)
+
+**Corrección de la purga.** Al borrar carpetas enteras de Mystic Realms Wooden (`Source`, `Match-3 Demo`, `SpritesGeneric/V` y `VI`) se llevaron por delante 30 ficheros que las escenas sí usan (iconos de deshacer y repetir, panel de dados, marco del dado actual, botón del libro de patrones, bandera de España). Se detectó al ver cuadros blancos en el tablero. Se restauraron todos los assets cuyo guid sigue referenciado (también en `chore/purge`) y se añadió `Tools/DharitzMissingRefs`, que busca referencias rotas en escenas y prefabs. Queda una referencia rota **anterior a la purga** (`Panel_Retractil / Image`, ya rota en `master`).
+
+| Área | Cambio | Efecto medido o estimado |
+|---|---|---|
+| Fotogramas | 60 FPS en el tablero, 30 en login y menús; sin vSync de calidad | Menos batería en menús |
+| Render | URP con HDR desactivado (juego 2D sin postproceso) | Sin buffer de color de 16 bits por píxel |
+| Texturas | ASTC 4x4 / 6x6 en Android, sin mipmaps ni lectura, dados y avatares a 256 px, resto ≤1024 | Memoria de texturas estimada 73 MB → ~9 MB |
+| Audio | Música (130 s) en *streaming*; efectos mono Vorbis q0,5; cortos descomprimidos, largos comprimidos en memoria | RAM de audio estimada 25 MB → ~1 MB |
+| TMP | Fuentes de respaldo estáticas de 512×512 y no legibles (antes dos atlas dinámicos de 1024×1024 legibles) | Sin rasterizar en el móvil y sin copia en CPU |
+| Código | HUD online: textos 4 veces por segundo y solo si cambian (el temporizador solo al cambiar el segundo); `BoardLogic` en caché | Sin strings ni mallas TMP nuevas cada fotograma |
+| Build Android | Solo ARM64, *stripping* Low, acelerómetro a 0 Hz, vertical invertida desactivada | AAB sin librerías de 32 bits |
+
+**Medido y descartado**
+- *Sprite Atlas* de la interfaz: salían 10,5 Mpíxeles de páginas (los PSD de pictogramas arrastran todos sus recortes) frente a ~8,6 MB de las texturas sueltas ya en ASTC. Reduce *draw calls* pero gasta más memoria; solo merece la pena decidirlo con el Profiler en un dispositivo.
+- Quitar *raycast target* de los textos: riesgo de romper el arrastre en listas con poco beneficio.
+- *Stripping* Medium/High: necesita un `link.xml` para Netcode/UGS antes de probarlo.
+
+**Pendiente de decisión o de dispositivo**
+- `targetSdk` (lo sube el equipo), splash de Unity y el perfil real en un móvil: FPS, RAM y *draw calls* antes y después.
+- `EDM4U` reescribió `mainTemplate.gradle` y `AndroidResolverDependencies.xml` al quitar ARMv7 (excluye `armeabi-v7a`, pero también cambió `ndkVersion` y `packaging`); no se ha comprometido porque no se ha podido validar con un build.
+- Herramientas nuevas en `Tools ▸ Dharitz ▸ Optimizar` (texturas y audio) para repetir el ajuste si se añaden assets.
