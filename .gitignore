@@ -112,3 +112,6 @@ InitTestScene*.unity*
 # Resultados de entrenamiento de ML-Agents (checkpoints, .onnx, tensorboard): pesan >1 GB y se regeneran
 /Assets/ML-Config/results/
 /Assets/ML-Config/results.meta
+
+# Tiempos que ML-Agents escribe en cada ejecucion (cambian en cada Play)
+/Assets/ML-Agents/Timers/
