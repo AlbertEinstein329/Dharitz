@@ -185,7 +185,7 @@ public static class DharitzUiKitBuilder
         text.fontSize = 40;
         text.color = Cream;
         text.alignment = TextAlignmentOptions.Center;
-        text.enableWordWrapping = true;
+        text.textWrappingMode = TextWrappingModes.Normal;
         text.raycastTarget = false;
         ((RectTransform)go.transform).sizeDelta = new Vector2(600f, 80f);
         return Save(go, "OnlineLabel").GetComponent<TMP_Text>();
