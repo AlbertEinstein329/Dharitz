@@ -192,3 +192,31 @@ Respuestas a las preguntas abiertas y lo que cambió en el código:
 - La geometría del tablero es siempre la fija (celdas de 1,1 centradas): el Grid Sensor de la IA sigue alineado y es la cámara la que se adapta a cada pantalla.
 - `DarithzAgent` solo toma el control de un jugador marcado como bot en la sesión (o del jugador 0 cuando hay entrenador).
 - Verificado en Play: partida local con juego normal (robar, colocar, puntos 00050, popup y contadores).
+
+---
+
+## 10. Fase de purga (rama `chore/purge`, un commit por borrado)
+
+Criterio: se calculó qué assets alcanzan las escenas del build, `Resources`, `Prefabs`, `Settings` y los ajustes del proyecto (`Tools`/`DharitzPurgeAudit`) y solo se borró lo que nadie referencia. Se conservan `purchasing`, `levelplay`, `GooglePlayGames`, `ExternalDependencyManager` y los paquetes de desarrollo que instaló el equipo.
+
+| Qué | Ahorro | Nota |
+|---|---|---|
+| `ML-Config/results` y `ML-Agents/Timers` dejan de estar en git (siguen en disco, ignorados) | 1,2 GB en el árbol de trabajo | El historial sigue pesando ~1,1 GB: reducirlo exige reescribir historia (BFG/`filter-repo`), no hecho. Mover `results` fuera de `Assets` evitaría que Unity lo importe. |
+| `Materials` (fondos antiguos + vídeo mp4 de 35 MB) | 48 MB | El `VideoPlayer` ya se había retirado con el canvas del fondo. |
+| `Background for mobile games, forest` | 101 MB | Sin referencias. |
+| `Sounds` (pack de sonidos y prefabs CFXR copiados) | 12 MB | `AudioManager` usa `Assets/Audio`. |
+| `JMO Assets` (Cartoon FX Remaster) | 37 MB | Sin referencias. |
+| `HintsStarsLite`, `Procedural Text Animator - LITE` | 17 MB | Sin referencias. |
+| `Photon` (restos de Fusion), `LeanLocalization` (sustituido por `Loc`) | ~1 MB | |
+| Mystic Realms Wooden: `Source`, `Scenes`, `Match-3 Demo`, guía PDF, sets de iconos sin uso | ~105 MB | Se conservan los sprites y prefabs que usa el kit de UI y los scripts (`BasePanel`). |
+| TMP `Examples & Extras` (sin referencias) | 9 MB | Se restauraron las fuentes Roboto y Anton porque las usan los tests del propio paquete TMP. |
+| Dados antiguos, demos de Juice UI | 6 MB | |
+| Paquetes: `timeline`, módulos `director`, `visualscripting` y 13 módulos integrados (cloth, terrainphysics, vehicles, vr, xr, wind, video, umbra, vectorgraphics, unityanalytics, accessibility, adaptiveperformance, ai) | build más pequeño y compilación más rápida | Solo el `manifest.json` (sin los cambios locales del equipo); `packages-lock.json` se regenera. |
+| Notas internas y planes de `Assets/Scripts` → `Docs/` | | Ya no se importan como assets. |
+| `SceneExporter`, `AdvancedSceneExporter`, `SceneHierarchy.txt`, campos muertos de `GridManager` | | Utilidades de volcado de escena sin uso. |
+
+`Assets` sin `ML-Config` pasó de ~470 MB a ~70 MB.
+
+**Verificación**: compilación completa sin errores, 0 scripts perdidos en las 3 escenas y en los prefabs, partida local de prueba (robar, colocar, puntuar) sin errores en consola y tests EditMode: 173 correctos, 1 fallo (`InputModuleTests`, test del paquete ugui que espera el módulo de entrada antiguo; no depende de la purga).
+
+**No tocado (decisión pendiente)**: paquetes de desarrollo que instalaste (`multiplayer.*`, `vivox`, `antigravity.ide`, `ai.assistant`), el panel de ajustes antiguo de MenuPrincipal (respaldo si falta el kit), reescritura del historial de git.
