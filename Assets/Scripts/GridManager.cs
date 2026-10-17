@@ -52,6 +52,10 @@ public class GridManager : MonoBehaviour, IGridValidator
     public float dragScaleMultiplier = 1.15f;
     //private bool isDraggingDie = false;
 
+    // BoardLogic se buscaba en cada colocacion o resaltado: se encuentra una vez
+    private BoardLogic cachedBoardLogic;
+    private BoardLogic BoardLogicRef => cachedBoardLogic != null ? cachedBoardLogic : (cachedBoardLogic = FindFirstObjectByType<BoardLogic>());
+
     private float startX;
     private float startY;
 
@@ -213,7 +217,7 @@ public void NextBoard()
         if (!PlacementValidator.CanBotPlaceHere(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId, number, GameManager.Instance.players[pIndex], GameManager.Instance.currentVariant))
             return false;
 
-        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        BoardLogic boardLogic = BoardLogicRef;
         if (boardLogic != null)
         {
             boardLogic.occupiedCells.Add(new Vector2Int(c, r));
@@ -373,7 +377,7 @@ public void NextBoard()
         InstantiateDieVisual(pIndex, r, c, color, number);
 
 
-        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        BoardLogic boardLogic = BoardLogicRef;
         if (boardLogic != null)
         {
             boardLogic.occupiedCells.Add(new Vector2Int(c, r));
@@ -398,7 +402,7 @@ public void NextBoard()
         // 1. Limpieza lógica
         allBoardsLogic[pIndex][r, c] = null;
 
-        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        BoardLogic boardLogic = BoardLogicRef;
         if (boardLogic != null)
         {
             boardLogic.occupiedCells.Remove(new Vector2Int(c, r));
@@ -752,7 +756,7 @@ public void NextBoard()
     public void ResetGrid()
     {
         // 1. Limpiar el historial lógico global para evitar "fantasmas"
-        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        BoardLogic boardLogic = BoardLogicRef;
         if (boardLogic != null)
         {
             boardLogic.occupiedCells.Clear();
