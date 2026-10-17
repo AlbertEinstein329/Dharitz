@@ -70,6 +70,7 @@ public class MainMenuManager : MonoBehaviour
     // ==========================================
     public void ShowMainPanel()
     {
+        SettingsService.Save(); // al volver desde ajustes se guardan en disco
         mainPanel.SetActive(true);
         freePlayPanel.SetActive(false);
         settingsPanel.SetActive(false);
@@ -396,17 +397,18 @@ public class MainMenuManager : MonoBehaviour
     // ==========================================
     // --- MODULO SETTINGS (PERSISTENCIA) ---
     // ==========================================
-    private void SetBGMVolume(float value) { PlayerPrefs.SetFloat("Volume_BGM", value); }
-    private void SetSFXVolume(float value) { PlayerPrefs.SetFloat("Volume_SFX", value); }
-    private void SetLeftHandedMode(bool isOn) { PlayerPrefs.SetInt("Setting_LeftHanded", isOn ? 1 : 0); }
-    private void SetLanguage(int index) { PlayerPrefs.SetInt("Setting_Language", index); }
+    // Todo pasa por SettingsService: AudioManager aplica volumen/mute al instante y la pausa ve el mismo estado
+    private void SetBGMVolume(float value) { SettingsService.SetMusicVolume(value); }
+    private void SetSFXVolume(float value) { SettingsService.SetSfxVolume(value); }
+    private void SetLeftHandedMode(bool isOn) { SettingsService.SetLeftHanded(isOn); }
+    private void SetLanguage(int index) { SettingsService.SetLanguageIndex(index); }
 
     private void LoadSettings()
     {
-        if (bgmSlider != null) bgmSlider.value = PlayerPrefs.GetFloat("Volume_BGM", 0.75f);
-        if (sfxSlider != null) sfxSlider.value = PlayerPrefs.GetFloat("Volume_SFX", 0.80f);
-        if (leftHandedToggle != null) leftHandedToggle.isOn = PlayerPrefs.GetInt("Setting_LeftHanded", 0) == 1;
-        if (languageDropdown != null) languageDropdown.value = PlayerPrefs.GetInt("Setting_Language", 0);
+        if (bgmSlider != null) bgmSlider.SetValueWithoutNotify(SettingsService.MusicVolume);
+        if (sfxSlider != null) sfxSlider.SetValueWithoutNotify(SettingsService.SfxVolume);
+        if (leftHandedToggle != null) leftHandedToggle.SetIsOnWithoutNotify(SettingsService.LeftHanded);
+        if (languageDropdown != null) languageDropdown.SetValueWithoutNotify(SettingsService.LanguageIndex);
     }
 
     public void StartFreePlay()

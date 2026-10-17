@@ -197,3 +197,25 @@ Total aproximado: **6-8 días**.
 
 ### Siguientes fases
 Fase 2 (ajustes de audio), Fase 3 (kit de UI con Mystic Realms + Juice) y Fase 4 (idioma) siguen sin empezar.
+
+### Fase 2 (bloque C.2, sonido y música): hecha y verificada (16-10-2026)
+
+**Qué se cambió**
+- `SettingsService` (nuevo): única fuente de verdad de volumen y mute de música/SFX, idioma y modo zurdo sobre `PlayerPrefs`, con evento `Changed`. **Reutiliza las claves que ya existían** (`Volume_BGM`, `Volume_SFX`, `Setting_MuteMusic`, `Setting_MuteSFX`, `Setting_Language`, `Setting_LeftHanded`), así que los ajustes guardados siguen valiendo y no hizo falta migración.
+- `AudioMixer` `Assets/Audio/MainMixer.mixer` con grupos **Music** y **SFX** y parámetros expuestos `MusicVolume` / `SFXVolume`. `AudioManager` convierte el volumen lineal a dB (`20·log10(v)`; 0 o mute = −80 dB) y lo aplica al mixer (sin mixer, directo a los `AudioSource`). Se guardan los ajustes al pausar/salir.
+- **Un único `AudioManager`:** ahora es el prefab `Resources/AudioManager.prefab` (con la biblioteca de 10 sonidos y la música «Troll forest») y se instancia solo antes de la primera escena. Se retiraron las copias de `MenuPrincipal` y `Tablero` (el `Tablero` ni tenía música cuando se arrancaba directamente). Funciona igual arrancando desde Login, el menú o el tablero.
+- `UiButtonSfx`: el sonido «Click» se añade solo a **todos** los botones y toggles de cada escena que se carga (respeta volumen, mute e interactividad). Se quitaron los 6 `PlaySFX("Click")` cableados a mano en `PanelPauseController`.
+- `OnlineAudioFeedback` (lo añade `OnlineHudController`): sonidos de tu turno, cuenta atrás de los últimos 5 s («Tick»), tiempo agotado, confirmar turno, jugada rechazada (nuevo evento `NetworkGameManager.OnPlacementRejected`), desconexión/reconexión y emojis.
+- Menú y pausa pasan por `SettingsService`: los sliders del menú ya **cambian el volumen de verdad** y los toggles de la pausa comparten el mismo estado.
+- Herramienta `Tools ▸ Dharitz ▸ Audio` (`DharitzAudioSetup`) que crea el mixer, el prefab y limpia las escenas (idempotente).
+
+**Pruebas (en el Editor)**
+- Arranque desde `MenuPrincipal` y directo desde `Tablero` online: exactamente **1** `AudioManager`; la música suena en ambos; **15/15** botones del menú y **21/21** del tablero tienen `UiButtonSfx`.
+- Curva del mixer: 0,5 → −6,0 dB; 0,25 → −12,0 dB; 1,0 → 0,0 dB; 0 y mute → −80 dB.
+- Mover el slider del menú (rango 0..1) cambia `SettingsService` al instante; `AudioManager.SetMusicMute` y los toggles de la pausa ven el mismo estado.
+- Sin errores nuevos en la consola.
+
+**Decisiones y límites**
+- El **panel de ajustes unificado en un prefab** (menú + pausa con slider y mute de música y SFX con el aspecto de Mystic Realms) pasa a la **fase 3**, junto con el resto del kit de UI: hacerlo ahora obligaba a estilizar dos veces. Hoy el menú tiene los sliders y la pausa los toggles de mute, ambos funcionando sobre el mismo estado.
+- «Tick» usa el clip `Diceroll` de la biblioteca (el nombre del sonido y su clip no coinciden); si quieres un tic de cuenta atrás, basta cambiar el clip en el prefab.
+- Tus ajustes guardados en el Editor tenían **música y SFX silenciados** (mute activado); se respetaron y se restauraron tras las pruebas. Por eso al pulsar Play no se oye nada hasta quitar el mute (toggle de la pausa).
