@@ -79,6 +79,9 @@ public class MainMenuManager : MonoBehaviour
 
     public void ShowSettingsPanel()
     {
+        // Panel de ajustes unico (kit de UI); el panel antiguo de la escena queda como respaldo si falta el kit
+        if (SettingsPanel.Open(null) != null) return;
+
         mainPanel.SetActive(false);
         freePlayPanel.SetActive(false);
         settingsPanel.SetActive(true);

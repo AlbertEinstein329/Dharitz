@@ -32,6 +32,12 @@ namespace LapKan
             if (pauseButton != null) pauseButton.onClick.AddListener(OpenPauseMenu);
             if (resumeButton != null) resumeButton.onClick.AddListener(ClosePauseMenu);
             if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
+            // Acceso al panel de ajustes unico (idioma, volumenes, modo zurdo) desde la pausa
+            OnlineUiKit kit = OnlineUiKit.Instance;
+            if (kit != null)
+            {
+                kit.CreateButton(transform, OnlineUiKit.ButtonStyle.Neutral, "AJUSTES", new Vector2(0.5f, 0.45f), new Vector2(420, 120), () => SettingsPanel.Open(null));
+            }
             if (backToMenuButton != null) backToMenuButton.onClick.AddListener(ReturnToMainMenu);
             if (PlayAgainButton != null) PlayAgainButton.onClick.AddListener(RestartGame);
             if (MainMenuButton != null) MainMenuButton.onClick.AddListener(ReturnToMainMenu);
