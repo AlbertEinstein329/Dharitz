@@ -150,16 +150,16 @@ public class UiRoot : MonoBehaviour
     }
 }
 
-/// <summary>Pantalla fija en vertical (el juego solo existe en retrato en movil).</summary>
+/// <summary>El juego admite vertical y horizontal (giro automatico, sin permitir la vertical invertida).</summary>
 public static class MobileDisplay
 {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    private static void LockPortrait()
+    private static void AllowRotation()
     {
-        Screen.autorotateToLandscapeLeft = false;
-        Screen.autorotateToLandscapeRight = false;
-        Screen.autorotateToPortraitUpsideDown = false;
         Screen.autorotateToPortrait = true;
-        Screen.orientation = ScreenOrientation.Portrait;
+        Screen.autorotateToLandscapeLeft = true;
+        Screen.autorotateToLandscapeRight = true;
+        Screen.autorotateToPortraitUpsideDown = false;
+        Screen.orientation = ScreenOrientation.AutoRotation;
     }
 }

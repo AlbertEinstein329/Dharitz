@@ -106,6 +106,7 @@ public class OnlineUiKit : ScriptableObject
         instancePanel.name = "Panel";
         Place(instancePanel, new Vector2(0.5f, 0.5f), size);
         SetPanelTitle(instancePanel, title);
+        if (instancePanel.GetComponent<PanelFit>() == null) instancePanel.gameObject.AddComponent<PanelFit>();
         return instancePanel;
     }
 

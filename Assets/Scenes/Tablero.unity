@@ -336,6 +336,7 @@ GameObject:
   - component: {fileID: 96448996}
   - component: {fileID: 96448995}
   - component: {fileID: 1852168100}
+  - component: {fileID: 1852168301}
   m_Layer: 5
   m_Name: ScoreHud
   m_TagString: Untagged
@@ -2760,6 +2761,7 @@ GameObject:
   - component: {fileID: 549411866}
   - component: {fileID: 549411867}
   - component: {fileID: 1852168101}
+  - component: {fileID: 1852168300}
   m_Layer: 5
   m_Name: Panel_GamelayHUD
   m_TagString: Untagged
@@ -7299,6 +7301,7 @@ GameObject:
   - component: {fileID: 1591584284}
   - component: {fileID: 1591584283}
   - component: {fileID: 1852168103}
+  - component: {fileID: 1852168302}
   m_Layer: 5
   m_Name: DiceExtraction
   m_TagString: Untagged
@@ -9791,6 +9794,59 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   topHud: {fileID: 549411866}
   bottomHud: {fileID: 1591584282}
+  leftHud: {fileID: 549411866}
+  rightHud: {fileID: 1591584282}
   boardSize: {x: 0, y: 0}
   margin: 0.04
   minOrthographicSize: 10
+--- !u!114 &1852168300
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549411865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 913de62d605da5840be7c9aa33f3624a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  landscapeAnchorMin: {x: 0, y: 1}
+  landscapeAnchorMax: {x: 0, y: 1}
+  landscapePivot: {x: 0, y: 1}
+  landscapePosition: {x: 10, y: -250}
+  landscapeScale: 0.55
+--- !u!114 &1852168301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 96448993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 913de62d605da5840be7c9aa33f3624a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  landscapeAnchorMin: {x: 1, y: 1}
+  landscapeAnchorMax: {x: 1, y: 1}
+  landscapePivot: {x: 1, y: 1}
+  landscapePosition: {x: -200, y: -20}
+  landscapeScale: 0.6
+--- !u!114 &1852168302
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1591584281}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 913de62d605da5840be7c9aa33f3624a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  landscapeAnchorMin: {x: 1, y: 0}
+  landscapeAnchorMax: {x: 1, y: 0}
+  landscapePivot: {x: 0.5, y: 0.5}
+  landscapePosition: {x: -249, y: 160}
+  landscapeScale: 0.9

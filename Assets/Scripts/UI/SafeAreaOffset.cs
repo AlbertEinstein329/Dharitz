@@ -32,6 +32,14 @@ public class SafeAreaOffset : MonoBehaviour
 
     private void LateUpdate() => Apply();
 
+    /// <summary>La posicion base cambio (p. ej. al girar la pantalla): se vuelve a capturar y a aplicar el margen.</summary>
+    public void Recapture()
+    {
+        captured = false;
+        appliedVersion = -1;
+        if (isActiveAndEnabled) Apply();
+    }
+
     private void Apply()
     {
         if (canvasRect == null) return;

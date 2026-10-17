@@ -173,3 +173,22 @@ Cada rama: edición con hand-patch de YAML cuando se toquen escenas (evita ruido
 ### Pendiente de este plan
 - Ajustes de build recomendados (ProjectSettings, no se tocaron porque el fichero tiene cambios locales tuyos): `targetSdk` fijo, quitar ARMv7, bloquear orientación Portrait en Player Settings, quitar el splash de Unity si la licencia lo permite.
 - Fases de **purga** y **optimización** (secciones 4 y 5): no se han empezado; implican borrar assets, quitar paquetes y sacar `ML-Config/results` (1,2 GB) de git, así que se hacen cuando lo confirmes.
+
+---
+
+## 9. Decisiones del producto y cambios posteriores
+
+Respuestas a las preguntas abiertas y lo que cambió en el código:
+
+| Decisión | Efecto |
+|---|---|
+| Se mantiene **horizontal** | El juego gira en vertical y horizontal (`MobileDisplay` ya no bloquea; el bloqueo vertical del apartado 2 queda sin efecto). En horizontal el HUD cambia de disposición (`OrientationLayout`: jugador a la izquierda, puntos arriba a la derecha, extracción abajo a la derecha), `BoardCameraFitter` encuadra el tablero a toda la altura entre ambos lados y los paneles modales se reducen si no caben (`PanelFit`). Medido en 1920×1080, 2400×1080 y 2560×1600. |
+| **IAP y anuncios se mantienen** | `com.unity.purchasing` y `com.unity.services.levelplay` **no se purgan**; hay que implementarlos (pendiente del roadmap). |
+| **Sin modo invitado ni sin conexión** | Login solo con Google Play Games (Android). Una sesión guardada entra sola. En el Editor y en builds de desarrollo aparece «ENTRAR (DESARROLLO)» para poder probar sin cuenta. Eliminados `OfflineMode`, el botón sin conexión y sus textos. |
+| `targetSdk` y API | Lo sube el equipo al nivel recomendado por Google Play (ProjectSettings no se toca desde aquí). |
+
+### Separación del modo entrenamiento (rama `fix/training-mode-separation`)
+- `GameManager.isTrainingMode` solo se activa de verdad si hay un entrenador de ML-Agents conectado (`Academy.IsCommunicatorOn`); jugando, se apaga solo aunque la escena lo tenga marcado. Con eso vuelven los popups, contadores, entrada táctil y el highlight local.
+- La geometría del tablero es siempre la fija (celdas de 1,1 centradas): el Grid Sensor de la IA sigue alineado y es la cámara la que se adapta a cada pantalla.
+- `DarithzAgent` solo toma el control de un jugador marcado como bot en la sesión (o del jugador 0 cuando hay entrenador).
+- Verificado en Play: partida local con juego normal (robar, colocar, puntos 00050, popup y contadores).

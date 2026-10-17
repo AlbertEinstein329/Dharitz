@@ -65,6 +65,7 @@ public class SettingsPanel : MonoBehaviour
 
         SettingsPanel panel = Instantiate(kit.settingsPanel, container.transform, false);
         panel.onClosed = onClosed;
+        if (panel.GetComponent<PanelFit>() == null) panel.gameObject.AddComponent<PanelFit>();
         panel.ownedCanvas = UiRoot.Instance == null ? overlayParent.gameObject : null;
         current = panel;
 

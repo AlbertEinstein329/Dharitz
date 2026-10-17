@@ -25,6 +25,8 @@ public static class DharitzLayoutAudit
         Vector3 bl = cam.WorldToScreenPoint(new Vector3(-halfW, -halfH, 0f));
         Vector3 tr = cam.WorldToScreenPoint(new Vector3(halfW, halfH, 0f));
 
+        var leftHud = so.FindProperty("leftHud").objectReferenceValue as RectTransform;
+        var rightHud = so.FindProperty("rightHud").objectReferenceValue as RectTransform;
         float topHudBottom = MinY(top), bottomHudTop = MaxY(bottom);
         var sb = new StringBuilder();
         sb.Append($"{w}x{h} (aspect {w / h:F3}) camSize={cam.orthographicSize:F2} camY={cam.transform.position.y:F2} | ");
@@ -34,6 +36,14 @@ public static class DharitzLayoutAudit
         float overlapTop = tr.y - topHudBottom;        // >0: el tablero entra bajo el HUD superior
         float overlapBottom = bottomHudTop - bl.y;     // >0: el tablero entra sobre el HUD inferior
         sb.Append($"ancho {(leftOk ? "OK" : "RECORTADO")}, solape sup {overlapTop:F0}px, solape inf {overlapBottom:F0}px");
+        if (w > h && leftHud != null && rightHud != null)
+        {
+            // Horizontal: el tablero debe quedar entre el HUD izquierdo y el derecho
+            var lc = new Vector3[4]; leftHud.GetWorldCorners(lc);
+            var rc = new Vector3[4]; rightHud.GetWorldCorners(rc);
+            float leftEdge = Mathf.Max(lc[0].x, lc[2].x), rightEdge = Mathf.Min(rc[0].x, rc[2].x);
+            sb.Append($" | HORIZONTAL: HUD izq hasta x={leftEdge:F0}, HUD der desde x={rightEdge:F0}, holgura izq {bl.x - leftEdge:F0}px, der {rightEdge - tr.x:F0}px, alto tablero {tr.y - bl.y:F0} de {h:F0}");
+        }
         return sb.ToString();
     }
 

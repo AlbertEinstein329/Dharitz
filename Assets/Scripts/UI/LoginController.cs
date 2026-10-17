@@ -1,12 +1,14 @@
 using System.Collections;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// Pantalla de Login: fondo del juego, titulo y tres opciones (invitado, Google Play en Android, sin conexion), con
+/// Pantalla de Login: fondo del juego, titulo y entrada con Google Play Games (unica via de acceso en el movil), con
 /// estado de carga, mensaje de error y reintento. Si ya hay una sesion guardada entra sola tras un instante.
+/// En el Editor y en builds de desarrollo aparece ademas un acceso de desarrollo sin cuenta para poder probar.
 /// La UI se crea por codigo con el kit (botones de madera) sobre el canvas unico de la escena.
 /// </summary>
 public class LoginController : MonoBehaviour
@@ -16,11 +18,9 @@ public class LoginController : MonoBehaviour
     [Tooltip("Indice de la escena del menu principal en Build Settings.")]
     [SerializeField] private int menuSceneIndex = 1;
 
-    private Button guestButton;
     private Button googleButton;
-    private Button offlineButton;
+    private Button developmentButton;
     private Button retryButton;
-    private Button failureOfflineButton;
     private TMP_Text statusLabel;
     private GameObject optionsGroup;
     private bool busy;
@@ -39,12 +39,12 @@ public class LoginController : MonoBehaviour
         AuthManager auth = AuthManager.Instance;
         if (auth == null)
         {
-            ShowStatus("login_error_generic");
+            ShowFailure("login_error_generic");
             yield break;
         }
 
         SetBusy(true, "login_connecting");
-        var init = auth.InitializeAsync();
+        Task<bool> init = auth.InitializeAsync();
         while (!init.IsCompleted) yield return null;
 
         if (!init.Result)
@@ -53,12 +53,12 @@ public class LoginController : MonoBehaviour
             yield break;
         }
 
-        // Sesion guardada: entra sola (con un respiro para ver el titulo)
+        // Sesion guardada de una visita anterior: entra sola (con un respiro para ver el titulo)
         if (auth.HasCachedSession)
         {
             SetBusy(true, "login_entering");
             yield return new WaitForSeconds(0.6f);
-            yield return RunSignIn(auth.SignInAsGuestAsync());
+            yield return RunSignIn(auth.ResumeCachedSessionAsync());
             yield break;
         }
 
@@ -67,23 +67,18 @@ public class LoginController : MonoBehaviour
 
     // ------------------------------------------------------------------ Acciones
 
-    private void OnGuest()
-    {
-        if (busy || AuthManager.Instance == null) return;
-        StartCoroutine(SignIn(AuthManager.Instance.SignInAsGuestAsync, "login_entering"));
-    }
-
     private void OnGoogle()
     {
         if (busy || AuthManager.Instance == null) return;
-        StartCoroutine(SignIn(AuthManager.Instance.SignInWithGooglePlayAsync, "login_google_working"));
+        StartCoroutine(SignIn(AuthManager.Instance.SignInWithGooglePlayAsync(), "login_google_working"));
     }
 
-    private void OnOffline()
+    private void OnDevelopment()
     {
-        if (busy) return;
-        if (AuthManager.Instance != null) AuthManager.Instance.ContinueOffline();
-        SceneManager.LoadScene(menuSceneIndex);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (busy || AuthManager.Instance == null) return;
+        StartCoroutine(SignIn(AuthManager.Instance.SignInForDevelopmentAsync(), "login_entering"));
+#endif
     }
 
     private void OnRetry()
@@ -92,13 +87,13 @@ public class LoginController : MonoBehaviour
         SetBusy(false, null);
     }
 
-    private IEnumerator SignIn(System.Func<System.Threading.Tasks.Task<AuthManager.AuthResult>> signIn, string workingKey)
+    private IEnumerator SignIn(Task<AuthManager.AuthResult> task, string workingKey)
     {
         SetBusy(true, workingKey);
-        yield return RunSignIn(signIn());
+        yield return RunSignIn(task);
     }
 
-    private IEnumerator RunSignIn(System.Threading.Tasks.Task<AuthManager.AuthResult> task)
+    private IEnumerator RunSignIn(Task<AuthManager.AuthResult> task)
     {
         while (!task.IsCompleted) yield return null;
 
@@ -126,7 +121,6 @@ public class LoginController : MonoBehaviour
         busy = value;
         optionsGroup.SetActive(!value);
         retryButton.gameObject.SetActive(false);
-        failureOfflineButton.gameObject.SetActive(false);
         statusLabel.gameObject.SetActive(value);
         if (value) ShowStatus(statusKey);
     }
@@ -137,7 +131,6 @@ public class LoginController : MonoBehaviour
         optionsGroup.SetActive(false);
         statusLabel.gameObject.SetActive(true);
         retryButton.gameObject.SetActive(true);
-        failureOfflineButton.gameObject.SetActive(true);
         ShowStatus(statusKey);
     }
 
@@ -179,21 +172,17 @@ public class LoginController : MonoBehaviour
         groupRect.anchorMax = Vector2.one;
         groupRect.offsetMin = groupRect.offsetMax = Vector2.zero;
 
-        guestButton = Make(kit, OnlineUiKit.ButtonStyle.Primary, "login_guest", new Vector2(0.5f, 0.36f), new Vector2(760f, 140f), OnGuest);
-
 #if UNITY_ANDROID
-        googleButton = Make(kit, OnlineUiKit.ButtonStyle.Secondary, "login_google", new Vector2(0.5f, 0.26f), new Vector2(760f, 140f), OnGoogle);
+        googleButton = Make(kit, OnlineUiKit.ButtonStyle.Primary, "login_google", new Vector2(0.5f, 0.30f), new Vector2(820f, 150f), OnGoogle);
 #endif
-        offlineButton = Make(kit, OnlineUiKit.ButtonStyle.Neutral, "login_offline", new Vector2(0.5f, googleButton != null ? 0.16f : 0.26f), new Vector2(760f, 140f), OnOffline);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // Acceso de desarrollo: sin cuenta, solo para probar en el Editor y en builds de desarrollo
+        developmentButton = Make(kit, OnlineUiKit.ButtonStyle.Neutral, "login_dev", new Vector2(0.5f, googleButton != null ? 0.19f : 0.30f), new Vector2(820f, 150f), OnDevelopment);
+#endif
 
         retryButton = kit.CreateButton(content.transform, OnlineUiKit.ButtonStyle.Primary, string.Empty, new Vector2(0.5f, 0.26f), new Vector2(520f, 130f), OnRetry);
         LocalizedText.Bind(retryButton.GetComponentInChildren<TMP_Text>(true), "login_retry");
         retryButton.gameObject.SetActive(false);
-
-        // «Sin conexion» tambien disponible desde la pantalla de error
-        failureOfflineButton = kit.CreateButton(content.transform, OnlineUiKit.ButtonStyle.Neutral, string.Empty, new Vector2(0.5f, 0.15f), new Vector2(520f, 130f), OnOffline);
-        LocalizedText.Bind(failureOfflineButton.GetComponentInChildren<TMP_Text>(true), "login_offline");
-        failureOfflineButton.gameObject.SetActive(false);
 
         TMP_Text version = kit.CreateLabel(content.transform, string.Empty, new Vector2(0.5f, 0.03f), new Vector2(500f, 60f), 30f, TextAlignmentOptions.Center);
         version.text = Loc.T("login_version", Application.version);

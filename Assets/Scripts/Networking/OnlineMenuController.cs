@@ -42,12 +42,6 @@ namespace MyGame.Networking
 
         private void QuickMatch(MatchMode mode)
         {
-            if (AuthManager.OfflineMode)
-            {
-                statusLabel.text = Loc.T("menu_offline_required");
-                return;
-            }
-
             if (!Configure((int)mode)) return;
 
             OnlineLaunchRequest.SetQuickMatch(mode);

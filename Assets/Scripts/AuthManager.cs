@@ -10,8 +10,8 @@ using GooglePlayGames.BasicApi;
 
 /// <summary>
 /// Sesion del jugador con Unity Gaming Services. Ya no decide por si sola a donde ir: la pantalla de Login
-/// (<see cref="LoginController"/>) llama a <see cref="SignInAsGuestAsync"/> o <see cref="SignInWithGooglePlayAsync"/> y
-/// carga el menu cuando termina. Persiste entre escenas.
+/// (<see cref="LoginController"/>) llama a <see cref="SignInWithGooglePlayAsync"/> (o a <see cref="ResumeCachedSessionAsync"/> si ya hay sesion) y
+/// carga el menu cuando termina. Persiste entre escenas. El acceso al juego es con Google Play Games (sin invitados ni modo sin conexion).
 /// </summary>
 public class AuthManager : MonoBehaviour
 {
@@ -21,9 +21,6 @@ public class AuthManager : MonoBehaviour
     public enum AuthResult { Success, NoConnection, Failed, Cancelled, NotSupported }
 
     public event Action OnAuthenticationComplete;
-
-    /// <summary>El jugador eligio jugar sin conexion: el menu desactiva lo online.</summary>
-    public static bool OfflineMode { get; private set; }
 
     private Task initTask;
     private bool eventsHooked;
@@ -82,26 +79,43 @@ public class AuthManager : MonoBehaviour
 
     // ------------------------------------------------------------------ Inicio de sesion
 
-    public async Task<AuthResult> SignInAsGuestAsync()
+    /// <summary>
+    /// Reanuda la sesion guardada de una visita anterior (la de Google Play o la de desarrollo): con una sesion en cache,
+    /// UGS devuelve al mismo jugador sin pedir nada.
+    /// </summary>
+    public async Task<AuthResult> ResumeCachedSessionAsync()
     {
-        OfflineMode = false;
         if (!await InitializeAsync()) return Application.internetReachability == NetworkReachability.NotReachable ? AuthResult.NoConnection : AuthResult.Failed;
+        if (!AuthenticationService.Instance.SessionTokenExists && !AuthenticationService.Instance.IsSignedIn) return AuthResult.Failed;
+        return await SignInAnonymousCoreAsync();
+    }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>Entrada sin cuenta, solo para probar en el Editor y en builds de desarrollo (el juego publicado entra con Google Play).</summary>
+    public async Task<AuthResult> SignInForDevelopmentAsync()
+    {
+        if (!await InitializeAsync()) return Application.internetReachability == NetworkReachability.NotReachable ? AuthResult.NoConnection : AuthResult.Failed;
+        return await SignInAnonymousCoreAsync();
+    }
+#endif
+
+    private async Task<AuthResult> SignInAnonymousCoreAsync()
+    {
         try
         {
-            // Con sesion en cache reutiliza al mismo jugador anonimo
+            // Con sesion en cache reutiliza al mismo jugador
             if (!AuthenticationService.Instance.IsSignedIn) await AuthenticationService.Instance.SignInAnonymouslyAsync();
             await FinishSignInAsync();
             return AuthResult.Success;
         }
         catch (RequestFailedException ex)
         {
-            Debug.LogWarning($"[Auth] Invitado: {ex.Message}");
+            Debug.LogWarning($"[Auth] Sesion: {ex.Message}");
             return ex.ErrorCode == CommonErrorCodes.TransportError || ex.ErrorCode == CommonErrorCodes.Timeout ? AuthResult.NoConnection : AuthResult.Failed;
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"[Auth] Invitado: {ex.Message}");
+            Debug.LogWarning($"[Auth] Sesion: {ex.Message}");
             return AuthResult.Failed;
         }
     }
@@ -110,7 +124,6 @@ public class AuthManager : MonoBehaviour
     public async Task<AuthResult> SignInWithGooglePlayAsync()
     {
 #if UNITY_ANDROID
-        OfflineMode = false;
         if (!await InitializeAsync()) return Application.internetReachability == NetworkReachability.NotReachable ? AuthResult.NoConnection : AuthResult.Failed;
 
         string authCode = await RequestGooglePlayAuthCodeAsync();
@@ -175,12 +188,6 @@ public class AuthManager : MonoBehaviour
         return completion.Task;
     }
 #endif
-
-    /// <summary>Juega sin sesion: solo modos locales.</summary>
-    public void ContinueOffline()
-    {
-        OfflineMode = true;
-    }
 
     public void SignOut()
     {
