@@ -335,6 +335,7 @@ GameObject:
   - component: {fileID: 96448994}
   - component: {fileID: 96448996}
   - component: {fileID: 96448995}
+  - component: {fileID: 1852168100}
   m_Layer: 5
   m_Name: ScoreHud
   m_TagString: Untagged
@@ -2606,6 +2607,7 @@ GameObject:
   - component: {fileID: 519420030}
   - component: {fileID: 519420033}
   - component: {fileID: 1852168002}
+  - component: {fileID: 1852168110}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -2757,6 +2759,7 @@ GameObject:
   m_Component:
   - component: {fileID: 549411866}
   - component: {fileID: 549411867}
+  - component: {fileID: 1852168101}
   m_Layer: 5
   m_Name: Panel_GamelayHUD
   m_TagString: Untagged
@@ -7295,6 +7298,7 @@ GameObject:
   - component: {fileID: 1591584282}
   - component: {fileID: 1591584284}
   - component: {fileID: 1591584283}
+  - component: {fileID: 1852168103}
   m_Layer: 5
   m_Name: DiceExtraction
   m_TagString: Untagged
@@ -9078,6 +9082,7 @@ GameObject:
   - component: {fileID: 2009907455}
   - component: {fileID: 2009907454}
   - component: {fileID: 2009907453}
+  - component: {fileID: 1852168102}
   m_Layer: 5
   m_Name: Pausa
   m_TagString: Untagged
@@ -9724,3 +9729,68 @@ MonoBehaviour:
   texture: {fileID: 2800000, guid: 8da29beae8a6149409d7e34f24ac325e, type: 3}
   unlitMaterial: {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
   sortingOrder: -1000
+--- !u!114 &1852168100
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 96448993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce06a084508df9846aeb650258754602, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+--- !u!114 &1852168101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549411865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce06a084508df9846aeb650258754602, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+--- !u!114 &1852168102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2009907451}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce06a084508df9846aeb650258754602, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+--- !u!114 &1852168103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1591584281}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce06a084508df9846aeb650258754602, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+--- !u!114 &1852168110
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519420028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32c53fc5118f9554696b6f0ca4a1a6f8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  topHud: {fileID: 549411866}
+  bottomHud: {fileID: 1591584282}
+  boardSize: {x: 0, y: 0}
+  margin: 0.04
+  minOrthographicSize: 10

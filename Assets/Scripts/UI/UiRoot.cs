@@ -14,6 +14,8 @@ public class UiRoot : MonoBehaviour
 
     private RectTransform overlays;
     private RectTransform toasts;
+    private CanvasScaler scaler;
+    private Vector2Int lastScreen;
 
     /// <summary>Canvas raiz (ya escalado con CanvasScaler).</summary>
     public RectTransform Root => (RectTransform)transform;
@@ -47,7 +49,36 @@ public class UiRoot : MonoBehaviour
         }
 
         Instance = this;
+        scaler = GetComponent<CanvasScaler>();
         EnsureLayers();
+        FitScale();
+    }
+
+    private void LateUpdate()
+    {
+        SafeInsets.Refresh(Root);
+        Vector2Int pixels = CanvasPixels();
+        if (pixels != lastScreen) FitScale();
+    }
+
+    private Vector2Int CanvasPixels()
+    {
+        Rect pixels = GetComponent<Canvas>().pixelRect;
+        return new Vector2Int(Mathf.RoundToInt(pixels.width), Mathf.RoundToInt(pixels.height));
+    }
+
+    /// <summary>
+    /// Escalado segun la pantalla: mas estrecha que la de referencia (movil alto) se ajusta al ancho para no recortar
+    /// por los lados; igual o mas ancha (16:9, tabletas) se ajusta al alto para que los elementos no crezcan de mas.
+    /// </summary>
+    private void FitScale()
+    {
+        lastScreen = CanvasPixels();
+        if (scaler == null || scaler.uiScaleMode != CanvasScaler.ScaleMode.ScaleWithScreenSize || lastScreen.y <= 0) return;
+
+        float screenAspect = (float)lastScreen.x / lastScreen.y;
+        float referenceAspect = scaler.referenceResolution.x / scaler.referenceResolution.y;
+        scaler.matchWidthOrHeight = screenAspect >= referenceAspect ? 1f : 0f;
     }
 
     private void OnDestroy()
@@ -116,5 +147,19 @@ public class UiRoot : MonoBehaviour
         scaler.referenceResolution = new Vector2(1080f, 1920f);
         scaler.matchWidthOrHeight = 0.5f;
         return (RectTransform)go.transform;
+    }
+}
+
+/// <summary>Pantalla fija en vertical (el juego solo existe en retrato en movil).</summary>
+public static class MobileDisplay
+{
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void LockPortrait()
+    {
+        Screen.autorotateToLandscapeLeft = false;
+        Screen.autorotateToLandscapeRight = false;
+        Screen.autorotateToPortraitUpsideDown = false;
+        Screen.autorotateToPortrait = true;
+        Screen.orientation = ScreenOrientation.Portrait;
     }
 }

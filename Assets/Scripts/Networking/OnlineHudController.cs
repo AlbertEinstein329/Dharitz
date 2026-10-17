@@ -209,6 +209,7 @@ namespace MyGame.Networking
             rootRect.anchorMax = Vector2.one;
             rootRect.offsetMin = rootRect.offsetMax = Vector2.zero;
             PlaceBelowModals(rootRect);
+            root.AddComponent<SafeAreaFitter>(); // botones y textos dentro del area segura (notch, barra de gestos)
 
             waitingLabel = CreateLabel("Waiting", new Vector2(0.5f, 0.55f), new Vector2(900, 200), 48, TextAlignmentOptions.Center);
             turnLabel = CreateLabel("Turn", new Vector2(0.5f, 0.965f), new Vector2(700, 70), 44, TextAlignmentOptions.Center);
