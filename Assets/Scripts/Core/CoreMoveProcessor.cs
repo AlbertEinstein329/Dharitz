@@ -48,7 +48,15 @@ namespace MyGame.Core
                 group.OccupiedCells.Remove(originPos);
                 group.OccupiedCells.Add(targetPos);
 
-                if (group.OccupiedCells.Count == group.TargetSize)
+                // Solo cuenta (puntos, highlight, contador) si el grupo esta lleno Y su forma coincide con el patron de la
+                // variante. Antes bastaba con tener los dados, asi que mover dentro de un grupo completo repetia el +100.
+                bool shapeMatches = false;
+                if (group.OccupiedCells.Count == group.TargetSize && variantPattern != null)
+                {
+                    shapeMatches = CorePatternValidator.CheckPattern(new System.Collections.Generic.List<GridPos>(group.OccupiedCells), variantPattern);
+                }
+
+                if (shapeMatches)
                 {
                     // La topología ya fue garantizada por el CoreMoveValidator
                     result.PatternCompleted = true;

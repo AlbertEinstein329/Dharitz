@@ -39,6 +39,7 @@ namespace MyGame.Networking
             {
                 ApplyPlayer(gm.players[i], snap.Players[i]);
                 ApplyBoard(gm.gridManager, i, snap.Players[i].Board);
+                ApplyCompletionOverlays(gm.gridManager, i, snap.Players[i]);
             }
 
             DieColor drawnColor = snap.DrawnColor >= 0 ? (DieColor)snap.DrawnColor : DieColor.Red;
@@ -82,6 +83,19 @@ namespace MyGame.Networking
                 foreach (short cell in g.Cells) group.occupiedCells.Add(new Vector2Int(cell / cols, cell % cols));
                 player.activeGroups[group.color] = group;
             }
+        }
+
+        // El overlay de «patron completado» se deriva siempre del estado del servidor: asi se repinta bien al reconectar
+        // y se retira solo al deshacer o mover un dado que rompe la forma. La celebracion (animacion) es aparte.
+        private static void ApplyCompletionOverlays(GridManager grid, int playerIndex, NetworkPlayerSnapshot ps)
+        {
+            int cols = ps.Board.Cols;
+            var cells = new HashSet<Vector2Int>();
+            if (ps.MatchedCells != null)
+            {
+                foreach (short index in ps.MatchedCells) cells.Add(new Vector2Int(index / cols, index % cols));
+            }
+            grid.SetCompletionOverlays(playerIndex, cells);
         }
 
         // Diff contra la matriz lógica local: solo se tocan las casillas que cambiaron
@@ -136,11 +150,15 @@ namespace MyGame.Networking
 
             if (action.Type == NetworkActionType.Moved)
             {
-                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(action.ClosedGroup ? "Nice" : "Placed");
-                if (action.ClosedGroup && PopUpManager.Instance != null)
+                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(action.PatternCompleted ? "Nice" : "Placed");
+                if (action.PatternCompleted)
                 {
-                    Vector3 movePos = gm.gridManager.GetWorldPosition(action.PlayerIndex, action.Row, action.Col);
-                    PopUpManager.Instance.ShowPopUp(movePos, $"PERFECT! +{action.ScoreDelta}", Color.cyan);
+                    if (PopUpManager.Instance != null)
+                    {
+                        Vector3 movePos = gm.gridManager.GetWorldPosition(action.PlayerIndex, action.Row, action.Col);
+                        PopUpManager.Instance.ShowPopUp(movePos, $"PERFECT! +{action.ScoreDelta}", Color.cyan);
+                    }
+                    CelebrateCompletedPattern(gm, snap, action);
                 }
                 return;
             }
@@ -155,20 +173,36 @@ namespace MyGame.Networking
                 PopUpManager.Instance.ShowPopUp(worldPos, $"+{action.ScoreDelta}", Color.white);
             }
 
-            if (action.ClosedGroup)
+            // Grupo cerrado con forma distinta al patron: sin «Nice» ni highlight
+            if (action.PatternCompleted)
             {
                 if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Nice");
 
-                PlayerData player = gm.players[action.PlayerIndex];
-                foreach (GroupData group in player.activeGroups.Values)
-                {
-                    if (group.isClosed && group.occupiedCells.Contains(new Vector2Int(action.Row, action.Col)))
-                    {
-                        gm.gridManager.MarkGroupAsCompleted(action.PlayerIndex, group.occupiedCells);
-                        break;
-                    }
-                }
+                CelebrateCompletedPattern(gm, snap, action);
             }
+        }
+
+        // Anima el patron que acaba de completarse: las celdas del grupo (mismo GroupId) que el servidor marco como patron
+        private static void CelebrateCompletedPattern(GameManager gm, NetworkMatchSnapshot snap, NetworkActionSnapshot action)
+        {
+            NetworkPlayerSnapshot ps = snap.Players[action.PlayerIndex];
+            int cols = ps.Board.Cols;
+            int actionIndex = action.Row * cols + action.Col;
+            if (actionIndex < 0 || actionIndex >= ps.Board.GroupIds.Length) return;
+
+            int groupId = ps.Board.GroupIds[actionIndex];
+            var matched = new HashSet<int>();
+            if (ps.MatchedCells != null) foreach (short index in ps.MatchedCells) matched.Add(index);
+            if (!matched.Contains(actionIndex)) return;
+
+            var cells = new List<Vector2Int>();
+            for (int i = 0; i < ps.Board.GroupIds.Length; i++)
+            {
+                if (ps.Board.CompressedCells[i] != 0 && ps.Board.GroupIds[i] == groupId && matched.Contains(i))
+                    cells.Add(new Vector2Int(i / cols, i % cols));
+            }
+
+            if (cells.Count > 0) gm.gridManager.MarkGroupAsCompleted(action.PlayerIndex, cells);
         }
 
         // Cada cliente guarda su propio progreso: el servidor dedicado no tiene perfil ni Cloud Save

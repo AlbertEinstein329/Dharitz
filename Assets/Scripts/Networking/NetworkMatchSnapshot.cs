@@ -28,6 +28,7 @@ namespace MyGame.Networking
         public int Col;
         public int ScoreDelta;
         public bool ClosedGroup;
+        public bool PatternCompleted; // la forma coincide con el patron de la variante: unica condicion para el highlight
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -37,6 +38,7 @@ namespace MyGame.Networking
             serializer.SerializeValue(ref Col);
             serializer.SerializeValue(ref ScoreDelta);
             serializer.SerializeValue(ref ClosedGroup);
+            serializer.SerializeValue(ref PatternCompleted);
         }
     }
 
@@ -68,6 +70,7 @@ namespace MyGame.Networking
         public int[] PatternCounts;
         public NetworkBoardState Board;
         public NetworkGroupSnapshot[] Groups;
+        public short[] MatchedCells; // celdas (fila * columnas + columna) de patrones completados, segun el servidor
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -81,6 +84,7 @@ namespace MyGame.Networking
             serializer.SerializeValue(ref IsEliminated);
             NetworkMatchSnapshot.SerializeArray(serializer, ref PatternCounts);
             Board.NetworkSerialize(serializer);
+            NetworkMatchSnapshot.SerializeArray(serializer, ref MatchedCells);
 
             int groupCount = serializer.IsWriter ? (Groups?.Length ?? 0) : 0;
             serializer.SerializeValue(ref groupCount);
@@ -179,11 +183,19 @@ namespace MyGame.Networking
                     IsEliminated = profile.IsEliminated,
                     PatternCounts = (int[])profile.PatternCounts.Clone(),
                     Board = new NetworkBoardState(i, board),
-                    Groups = groups.ToArray()
+                    Groups = groups.ToArray(),
+                    MatchedCells = ToShortArray(CoreCompletion.FindMatchedCells(board, state.VariantConfig))
                 };
             }
 
             return snap;
+        }
+
+        private static short[] ToShortArray(List<int> indices)
+        {
+            var result = new short[indices.Count];
+            for (int i = 0; i < result.Length; i++) result[i] = (short)indices[i];
+            return result;
         }
 
         /// <summary>
