@@ -45,6 +45,10 @@ namespace MyGame.Core
 
                 if (grp == null || grp.IsClosed) continue;
 
+                // Un grupo que ya no se puede completar (p. ej. rodeado de dados) no debe bloquear el resto del tablero
+                bool isNewGroup = grpColor == color && grp.Id == newGroupId;
+                if (!isNewGroup && IsGroupDoomed(board, grp, variantPattern)) continue;
+
                 int demand = grp.TargetSize - grp.OccupiedCells.Count;
                 List<GridPos> startCells = new List<GridPos>(grp.OccupiedCells);
 
@@ -98,6 +102,39 @@ namespace MyGame.Core
             }
 
             return true;
+        }
+
+        /// <summary>True si el grupo abierto ya no puede alcanzar su tamaño objetivo con las casillas libres que le quedan.</summary>
+        public static bool IsGroupDoomed(BoardStateDTO board, GroupDataDTO group, PatternDefDTO pattern)
+        {
+            if (group == null || group.IsClosed || group.OccupiedCells.Count == 0) return false;
+
+            int demand = group.TargetSize - group.OccupiedCells.Count;
+            bool allowDiagonal = pattern != null && pattern.AllowDiagonalReservation;
+            HashSet<GridPos> reachable = GetReachableCells(board.Cells, board.Rows, board.Cols, group.Color, group.Id,
+                new List<GridPos>(group.OccupiedCells), allowDiagonal);
+            return reachable.Count < demand;
+        }
+
+        /// <summary>
+        /// Abandona los grupos abiertos del jugador que ya son imposibles de completar: sus dados quedan en el tablero pero
+        /// el color podra abrir un grupo nuevo. Sin esto, un grupo emparedado deja sin jugada a ese color (y, por la
+        /// comprobacion de supervivencia, a todos) para el resto de la partida. Devuelve cuantos se abandonaron.
+        /// </summary>
+        public static int AbandonDoomedGroups(MatchStateDTO state, int playerIndex)
+        {
+            if (!state.PlayerBoards.TryGetValue(playerIndex, out BoardStateDTO board)) return 0;
+            if (!state.PlayerProfiles.TryGetValue(playerIndex, out PlayerDataDTO player)) return 0;
+
+            var doomed = new List<DieColor>();
+            foreach (var kvp in player.ActiveGroups)
+            {
+                PatternDefDTO pattern = kvp.Value != null ? state.VariantConfig?.GetPattern(kvp.Value.TargetSize) : null;
+                if (IsGroupDoomed(board, kvp.Value, pattern)) doomed.Add(kvp.Key);
+            }
+
+            foreach (DieColor color in doomed) player.ActiveGroups.Remove(color);
+            return doomed.Count;
         }
 
         private static HashSet<GridPos> GetReachableCells(CellStateDTO[] grid, int rows, int cols, DieColor gColor, int gId, List<GridPos> startCells, bool allowDiagonal)
