@@ -28,6 +28,14 @@ public class SettingsPanel : MonoBehaviour
     private GameObject ownedCanvas; // canvas de respaldo (solo si la escena no tiene UiRoot)
     private bool refreshing;
 
+    public static bool IsOpen => current != null;
+
+    /// <summary>Cierra el panel si esta abierto (boton Atras de Android).</summary>
+    public static void CloseCurrent()
+    {
+        if (current != null) current.Close();
+    }
+
     /// <summary>Abre el panel de ajustes. Si ya hay uno abierto no crea otro.</summary>
     public static SettingsPanel Open(Action onClosed = null)
     {
@@ -99,6 +107,7 @@ public class SettingsPanel : MonoBehaviour
         SettingsService.Save();
         Action callback = onClosed;
         onClosed = null;
+        if (current == this) current = null; // Destroy es diferido: se libera ya para que IsOpen sea cierto de inmediato
 
         // Destruye el contenedor completo (fondo incluido) y el canvas de respaldo si lo hubo
         Transform root = transform.parent != null ? transform.parent : transform;

@@ -63,6 +63,16 @@ namespace LapKan
             }
         }
 
+        /// <summary>El menu de pausa esta abierto.</summary>
+        public bool IsOpen => panelRoot != null && panelRoot.activeSelf;
+
+        /// <summary>Boton Atras de Android: cierra la pausa si esta abierta y, si no, la abre.</summary>
+        public void ToggleFromBackButton()
+        {
+            if (IsOpen) ClosePauseMenu();
+            else OpenPauseMenu();
+        }
+
         private void OpenPauseMenu()
         {
             Show();

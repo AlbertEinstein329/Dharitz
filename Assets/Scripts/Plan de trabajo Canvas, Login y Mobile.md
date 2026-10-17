@@ -80,7 +80,7 @@ Rediseño de flujo:
 
 ### 3.1 Imprescindible antes de publicar
 - **Botón Atrás de Android**: no hay gestión; hoy cierra la app desde cualquier pantalla. Definir comportamiento por pantalla (cerrar panel → atrás → confirmar salida).
-- **Panel de pruebas de red visible**: los botones «Start Host / Start Client / Shutdown» se ven arriba a la izquierda en el tablero. Deben estar solo en builds de desarrollo (`#if DEVELOPMENT_BUILD || UNITY_EDITOR`).
+- ~~Panel de pruebas de red visible~~: revisado, `NetworkDebugLauncher` ya está limitado a Editor y builds de desarrollo (`#if UNITY_EDITOR || DEVELOPMENT_BUILD`); no hay nada que hacer.
 - **Modo sin conexión**: sin internet el juego se queda en Login. El modo local contra IA no necesita red.
 - **Servidor dedicado en producción**: sigue pendiente el proveedor de hosting (Agones/Edgegap/GameLift/Rocket Science) y la prueba con 2 dispositivos reales.
 - **Requisitos de Google Play**: `targetSdk` está en «Auto» (fijar el nivel que exija la tienda), política de privacidad, formulario de seguridad de datos, ficha, iconos adaptativos y capturas. Se publica como AAB (ya activo).
@@ -148,3 +148,28 @@ Cada rama: edición con hand-patch de YAML cuando se toquen escenas (evita ruido
 2. Monetización: ¿IAP y anuncios entran en 1.0? Decide si se purgan `purchasing`/`levelplay` ahora o se implementan.
 3. ¿Hay **modo sin conexión** completo (IA local) desde Login, o solo invitado online?
 4. ¿Mínimo Android soportado? Hoy API 25; subirlo a 26–28 reduciría pruebas y tamaño.
+
+---
+
+## 8. Estado de ejecución (puntos 1–5 y parte de «lo que falta»)
+
+| Rama (apiladas) | Contenido | Estado |
+|---|---|---|
+| `feat/remove-left-handed` | Punto 2: modo zurdo eliminado (código, prefab, escenas, CSV; la clave de PlayerPrefs se borra al arrancar) | Hecho |
+| `feat/ui-root-menu` | Punto 1: `UiRoot` (capas Overlays/Toasts), un solo canvas en el menú; ONLINE es el botón del menú y el panel online es una pantalla más | Hecho |
+| `feat/ui-root-board` | Punto 5: un solo canvas en el tablero; fondo como `SpriteRenderer` bajo la cámara; popups en la capa Toasts; HUD online bajo pausa y fin de partida | Hecho |
+| `feat/responsive-ui` | Punto 4: bloqueo vertical, `match` del canvas según aspecto, `SafeAreaOffset/Fitter`, `BoardCameraFitter` | Hecho |
+| `feat/login` | Punto 3: Login con invitado, Google Play, sin conexión, carga, error y reintento; fondos «cover» en menú y online | Hecho (Google Play: solo probable en dispositivo) |
+| `feat/mobile-gaps` | Botón Atrás de Android (`BackNavigation`) | Hecho |
+
+**Verificación del encuadre (numérica, tablero, Editor):** 720×1280, 1080×1920, 1080×2340, 1080×2400, 1440×3200 y 1536×2048. En todas el tablero queda dentro de la pantalla y entre el HUD superior y el inferior (sin recortes ni solapes).
+
+### Hallazgos nuevos durante la ejecución (requieren decisión)
+1. **`isTrainingMode` está activo en la escena Tablero** (desde el commit «ML-Agent implemented»). Con él activo se desactivan los popups de puntos, la actualización de varios contadores de UI, el efecto del highlight local y el tamaño dinámico del tablero (celdas fijas de 1,1 para el sensor de la IA). En la práctica, la partida local se ejecuta en «modo entrenamiento». Hace falta decidir cómo separar «entrenar la IA» de «jugar con la IA» antes de publicar.
+2. `DarithzAgent` sigue jugando el turno del jugador 0 en la escena local y genera errores al salir de Play (`DiceManager.DrawDie`, `GameManager.ResetGame`).
+3. Los fondos de Menú, Ajustes y Modo libre estaban estirados a pantalla completa (se deformaban un ~20 % en 20:9); ahora cubren sin deformarse.
+4. El campo `Screen.safeArea` del simulador del Editor no cambia con la resolución de la ventana Game: `SafeInsets` ignora áreas seguras que no corresponden a la pantalla actual (solo afecta al Editor).
+
+### Pendiente de este plan
+- Ajustes de build recomendados (ProjectSettings, no se tocaron porque el fichero tiene cambios locales tuyos): `targetSdk` fijo, quitar ARMv7, bloquear orientación Portrait en Player Settings, quitar el splash de Unity si la licencia lo permite.
+- Fases de **purga** y **optimización** (secciones 4 y 5): no se han empezado; implican borrar assets, quitar paquetes y sacar `ML-Config/results` (1,2 GB) de git, así que se hacen cuando lo confirmes.

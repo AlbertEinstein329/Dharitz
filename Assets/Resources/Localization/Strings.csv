@@ -75,3 +75,4 @@ login_error_offline,No hay conexión a internet.\nPuedes reintentar o jugar sin 
 login_error_generic,No se pudo iniciar sesión.\nInténtalo de nuevo o juega sin conexión.,Could not sign in.\nTry again or play offline.,
 login_version,Versión {0},Version {0},
 menu_offline_required,Necesitas conexión a internet para la partida rápida.,You need an internet connection for quick match.,
+back_again_to_exit,Pulsa otra vez para salir,Press again to exit,
