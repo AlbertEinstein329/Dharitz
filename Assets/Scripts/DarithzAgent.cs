@@ -23,6 +23,8 @@ public class DarithzAgent : Agent
     private const int TotalCells = BoardCols * BoardRows;
     private const int PassTurnAction = 80;
 
+    private bool attached;
+
     public override void Initialize()
     {
         gm = GameManager.Instance ?? FindFirstObjectByType<GameManager>();
@@ -41,23 +43,48 @@ public class DarithzAgent : Agent
         }
 
         gridManager = gm.gridManager;
-
-        if (gm.players != null && targetPlayerIndex < gm.players.Count)
-        {
-            gm.players[targetPlayerIndex].agentComponent = this;
-            gm.players[targetPlayerIndex].isBot = true;
-        }
+        EnsureAttached();
     }
+
+    /// <summary>
+    /// Con un entrenador conectado el agente controla al jugador objetivo (como siempre). Jugando normalmente solo toma el
+    /// control de un jugador que la sesion marque como bot; si no hay ninguno queda inerte y el humano juega sin interferencias.
+    /// El GameManager puede crear los jugadores despues de Initialize, por eso se reintenta en cada llamada.
+    /// </summary>
+    private bool EnsureAttached()
+    {
+        if (attached) return true;
+        if (inertOnline || gm == null || gm.players == null || gm.players.Count == 0) return false;
+
+        if (gm.isTrainingMode)
+        {
+            if (targetPlayerIndex >= gm.players.Count) return false;
+        }
+        else
+        {
+            int botIndex = gm.players.FindIndex(player => player.isBot);
+            if (botIndex < 0) return false;
+            targetPlayerIndex = botIndex;
+        }
+
+        gridManager = gm.gridManager;
+        gm.players[targetPlayerIndex].agentComponent = this;
+        gm.players[targetPlayerIndex].isBot = true;
+        attached = true;
+        return true;
+    }
+
+    private bool IsInert => inertOnline || !EnsureAttached();
 
     public override void OnEpisodeBegin()
     {
-        if (inertOnline) return;
+        if (IsInert) return;
         gm.ResetGame();
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        if (inertOnline)
+        if (IsInert)
         {
             sensor.AddObservation(0f);
             sensor.AddObservation(0f);
@@ -72,7 +99,7 @@ public class DarithzAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        if (inertOnline) return;
+        if (IsInert) return;
 
         if (gm.isGameOver || gm.players[targetPlayerIndex].isEliminated)
         {
@@ -202,7 +229,7 @@ public class DarithzAgent : Agent
     // =========================================================
     public override void WriteDiscreteActionMask(IDiscreteActionMask actionMask)
     {
-        if (inertOnline)
+        if (IsInert)
         {
             actionMask.SetActionEnabled(0, PassTurnAction, true);
             return;

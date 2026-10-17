@@ -105,35 +105,12 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     private void CalculateDynamicGridSize()
     {
-        // =========================================================
-        // 🛡️ ESCUDO ML-AGENTS: Tablero Estático y Centrado
-        // =========================================================
-        if (GameManager.Instance != null && GameManager.Instance.isTrainingMode)
-        {
-            cellSize = 1.1f; // Forzamos el valor exacto del Grid Sensor
-
-            // Centramos el tablero matemáticamente en el origen (0,0)
-            // Esto garantiza que encaje pixel por pixel con el Grid Sensor.
-            startX = -((cols - 1) * cellSize) / 2f;
-            startY = -((rows - 1) * cellSize) / 2f;
-            return;
-        }
-
-        Camera mainCamera = Camera.main;
-        if (mainCamera == null)
-        {
-            Debug.LogError("Main Camera not found! Cannot calculate dynamic grid size.");
-            return;
-        }
-
-        float screenHeight = mainCamera.orthographicSize * 2f;
-        float screenWidth = screenHeight * mainCamera.aspect;
-
-        float availableWidth = screenWidth - (screenPadding * 2f);
-        cellSize = availableWidth / cols;
-
-        startX = (-screenWidth / 2f) + screenPadding + (cellSize / 2f);
-        startY = -mainCamera.orthographicSize + bottomVerticalOffset + (cellSize / 2f);
+        // La geometria del tablero es fija (celdas de 1,1 centradas en el origen): asi coincide pixel a pixel con el Grid
+        // Sensor de la IA y no cambia entre entrenar y jugar. Lo que se adapta a cada pantalla es la camara
+        // (BoardCameraFitter), que encuadra el tablero entre el HUD superior y el inferior.
+        cellSize = 1.1f;
+        startX = -((cols - 1) * cellSize) / 2f;
+        startY = -((rows - 1) * cellSize) / 2f;
     }
 
     void GenerateGridForPlayer(int playerIndex)

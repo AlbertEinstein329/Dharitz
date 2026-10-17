@@ -28,6 +28,8 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
     public bool isGameOver = false;
 
     [Header("ML-Agents Integration")]
+    [Tooltip("Permite el modo entrenamiento (sin visuales ni popups, simulacion pura). Solo se activa de verdad cuando hay un " +
+             "entrenador de ML-Agents conectado; jugando normalmente se apaga solo, aunque este marcado.")]
     public bool isTrainingMode = false;
     public MLAgentsMetricsController metricsController;
 
@@ -60,6 +62,14 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         {
             Destroy(gameObject);
             return;
+        }
+
+        // Entrenar es una sesion con un entrenador externo conectado (mlagents-learn); en cualquier otro caso se juega con
+        // todos los visuales, entrada tactil y popups. La marca de la escena solo habilita el modo, no lo fuerza.
+        if (isTrainingMode)
+        {
+            isTrainingMode = Unity.MLAgents.Academy.Instance.IsCommunicatorOn;
+            Debug.Log(isTrainingMode ? "[GameManager] Modo entrenamiento: entrenador conectado." : "[GameManager] Sin entrenador: modo de juego normal.");
         }
 
         // Semilla de la partida: en online la proveerá el servidor; en local usamos el reloj.
