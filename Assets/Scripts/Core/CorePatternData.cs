@@ -12,6 +12,9 @@ namespace MyGame.Core
         public bool AllowRotation { get; set; }
         public bool AllowMirror { get; set; }
         public bool AllowDiagonalReservation { get; set; }
+
+        /// <summary>Regla especial del patron (valor de SpecialRule en la capa visual; 1 = PenalizeOnContact).</summary>
+        public int SpecialRule { get; set; }
         public List<GridPos> BaseShape { get; set; }
 
         public PatternDefDTO()

@@ -25,6 +25,7 @@ public class PatternData : ScriptableObject
             AllowRotation = this.allowRotation,
             AllowMirror = this.allowMirror,
             AllowDiagonalReservation = this.allowDiagonalReservation,
+            SpecialRule = (int)this.specialRule,
             BaseShape = this.baseShape.Select(v => new GridPos(v.x, v.y)).ToList()
         };
     }
