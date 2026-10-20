@@ -12,6 +12,10 @@ public class VariantData : ScriptableObject
     [Header("Patterns for this Variant")]
     public List<PatternData> patterns = new List<PatternData>();
 
+    [Header("Bot (partida local)")]
+    [Tooltip("Nivel del bot en esta variante: Greedy (facil), GreedyPenalized (normal), MonteCarlo (dificil)")]
+    public BotLevel botLevel = BotLevel.Greedy;
+
     [Header("UI")]
     public Sprite iconSprite;
     public Color highlightColor = Color.white;

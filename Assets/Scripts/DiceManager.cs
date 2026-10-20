@@ -87,6 +87,8 @@ public class DiceManager
         // Sincronizamos el perfil del jugador actual antes del procesado
         gm.ServerState.CurrentPlayerIndex = command.PlayerId;
         gm.ServerState.PlayerProfiles[command.PlayerId] = currentPlayer.ToDTO();
+        // El tablero visual es la referencia en local (Undo/Move lo cambian): el nucleo lo necesita al dia para abandonar grupos condenados
+        gm.ServerState.PlayerBoards[command.PlayerId] = gm.gridManager.GetBoardStateDTO(command.PlayerId);
 
         bool isLegalDraw = CoreDrawProcessor.ProcessDrawIntent(gm.ServerState, command, gm.ServerState.ServerRNG);
         if (!isLegalDraw)
@@ -105,8 +107,15 @@ public class DiceManager
         DieColor drawnColor = gm.turnManager.CurrentDrawnColor;
         GroupDataDTO serverGroup = gm.ServerState.PlayerProfiles[command.PlayerId].ActiveGroups[(MyGame.Core.DieColor)(int)drawnColor];
 
+        // El nucleo abandona los grupos imposibles de completar al robar: la capa visual los olvida tambien
+        PlayerDataDTO serverProfile = gm.ServerState.PlayerProfiles[command.PlayerId];
+        foreach (DieColor key in currentPlayer.activeGroups.Keys.ToList())
+        {
+            if (!serverProfile.ActiveGroups.ContainsKey((MyGame.Core.DieColor)(int)key)) currentPlayer.activeGroups.Remove(key);
+        }
+
         currentPlayer.activeGroups.TryGetValue(drawnColor, out GroupData group);
-        if (group == null || group.isClosed)
+        if (group == null || group.isClosed || group.id != serverGroup.Id)
         {
             group = new GroupData
             {
@@ -144,11 +153,11 @@ public class DiceManager
         });
     }
 
-    public void UseReDraw()
+    public void UseReDraw(bool byBot = false)
     {
         PlayerData p = gm.turnManager.GetCurrentPlayer();
 
-        if (!gm.turnManager.HasDrawn || p.reDraws <= 0 || p.isBot) return;
+        if (!gm.turnManager.HasDrawn || p.reDraws <= 0 || (p.isBot && !byBot)) return;
 
         // F1.2: Sincronizamos el estado actual y procesamos en la Capa 0
         var command = new ReDrawCommand { PlayerId = gm.turnManager.CurrentPlayerIndex };

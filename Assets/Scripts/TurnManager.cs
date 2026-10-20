@@ -110,9 +110,16 @@ public class TurnManager
             }
         }
 
-        if (currentPlayer.isBot && currentPlayer.agentComponent != null)
+        if (currentPlayer.isBot)
         {
-            currentPlayer.agentComponent.RequestDecision(); // Pide a la IA que juegue su turno
+            if (gm.isTrainingMode)
+            {
+                if (currentPlayer.agentComponent != null) currentPlayer.agentComponent.RequestDecision(); // Entrenamiento: juega la red neuronal
+            }
+            else if (!gm.IsOnlineMatch)
+            {
+                BotRunner.RunTurn(gm); // Partida local: juega el bot del nucleo (nivel segun la variante)
+            }
         }
     }
 
