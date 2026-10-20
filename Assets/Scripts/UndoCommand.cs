@@ -57,6 +57,8 @@ public class UndoCommand : IGridCommand
         p.score = updatedProfile.Score;
         p.placedDice = updatedProfile.PlacedDice;
         p.accumulatedStructurePoints = updatedProfile.AccumulatedStructurePoints;
+        p.accumulatedOnesPenalty = updatedProfile.AccumulatedOnesPenalty;
+        System.Array.Copy(updatedProfile.PatternCounts, p.patternCounts, p.patternCounts.Length);
         p.currentUndoUses = updatedProfile.CurrentUndoUses;
 
         DieColor visualColor = (DieColor)(int)dtoCommand.Color;
