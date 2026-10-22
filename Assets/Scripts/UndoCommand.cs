@@ -29,8 +29,8 @@ public class UndoCommand : IGridCommand
     public void Undo()
     {
         // 1. ENVIAR INTENCIÓN A LA AUTORIDAD (Usando el estado real del servidor persistente)
-        float[] rowMults = { 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 4.0f };
-        float[] colMults = { 1.0f, 2.0f, 3.0f, 3.5f, 5.0f, 6.0f };
+        float[] rowMults = ScoreManager.RowMultipliers;
+        float[] colMults = ScoreManager.ColMultipliers;
 
         // FIREWALL: El cliente no crea estados, usa la verdad absoluta (gm.ServerState)
         bool isLegalUndo = CoreUndoProcessor.ProcessUndoIntent(

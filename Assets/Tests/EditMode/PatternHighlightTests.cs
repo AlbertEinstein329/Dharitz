@@ -117,7 +117,7 @@ namespace MyGame.Core.Tests
             Assert.IsTrue(last.GroupClosed, "el grupo se cierra por cantidad");
             Assert.IsFalse(last.PatternMatched, "pero la forma NO es la del patron");
             Assert.AreEqual(0, last.PatternBonus);
-            Assert.AreEqual(50, state.PlayerProfiles[0].Score - scoreBeforeLast, "solo los 50 base, sin bonus de patron");
+            Assert.AreEqual(state.ScoringConfig.PointsPerDie, state.PlayerProfiles[0].Score - scoreBeforeLast, "solo los puntos base, sin bonus de patron");
         }
 
         [Test]
@@ -135,7 +135,7 @@ namespace MyGame.Core.Tests
             Assert.IsFalse(second.PatternMatched, "con 2 de 3 dados aun no hay patron");
             Assert.IsTrue(last.GroupClosed);
             Assert.IsTrue(last.PatternMatched, "la forma coincide con el patron");
-            Assert.AreEqual(200, last.PatternBonus);
+            Assert.AreEqual(state.ScoringConfig.GetPatternBonus(3), last.PatternBonus);
         }
 
         [Test]
@@ -209,7 +209,7 @@ namespace MyGame.Core.Tests
             MoveExecutionResult forms = CoreTurnActions.TryMove(state, 0, 3, 5, 4, 4, l, history);
             Assert.IsTrue(forms.IsValid, "el movimiento es legal");
             Assert.IsTrue(forms.PatternCompleted, "ahora la forma coincide");
-            Assert.AreEqual(100, forms.PointsAwarded);
+            Assert.AreEqual(state.ScoringConfig.GetPatternBonus(3), forms.PointsAwarded);
 
             // Deshacer lo devuelve a la linea sin patron
             Assert.IsTrue(CoreTurnActions.TryUndo(state, 0, history));

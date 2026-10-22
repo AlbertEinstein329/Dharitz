@@ -62,15 +62,8 @@ namespace MyGame.Core
                     result.PatternCompleted = true;
 
                     // Economía procesada internamente
-                    result.PointsAwarded = 100; // Extraer del diccionario de sesión de CoreEconomyProcessor 
+                    result.PointsAwarded = CoreScoring.AwardPattern(player, group.TargetSize, state.ScoringConfig ?? ScoringConfigDTO.Shared);
                     player.Score += result.PointsAwarded;
-
-                    // CORRECCIÓN CS1061: Acceso de alto rendimiento al Array Primitivo
-                    // Protegemos el servidor validando los límites de memoria del array
-                    if (group.TargetSize >= 0 && group.TargetSize < player.PatternCounts.Length)
-                    {
-                        player.PatternCounts[group.TargetSize]++;
-                    }
 
                     result.CompletedCells.AddRange(group.OccupiedCells);
                 }

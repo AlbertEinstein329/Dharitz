@@ -263,24 +263,22 @@ namespace MyGame.Core
 
         public static int CalculateGapPenalty(CellStateDTO[] grid, int rows, int cols, out List<List<GridPos>> enclosedGapsOut)
         {
-            int totalPenalty = 0;
-            enclosedGapsOut = FindEnclosedGaps(grid, rows, cols);
-
-            foreach (var gapCells in enclosedGapsOut)
-            {
-                totalPenalty += GetPenaltyForGapSize(gapCells.Count);
-            }
-
-            return totalPenalty;
+            return CalculateGapPenalty(grid, rows, cols, ScoringConfigDTO.Shared, out enclosedGapsOut);
         }
 
+        public static int CalculateGapPenalty(CellStateDTO[] grid, int rows, int cols, ScoringConfigDTO scoring, out List<List<GridPos>> enclosedGapsOut)
+        {
+            enclosedGapsOut = FindEnclosedGaps(grid, rows, cols);
+
+            var sizes = new List<int>(enclosedGapsOut.Count);
+            foreach (var gapCells in enclosedGapsOut) sizes.Add(gapCells.Count);
+            return scoring.GapPenaltyTotal(sizes);
+        }
+
+        /// <summary>Penalizacion (sin tope) de un hueco de ese tamano con la configuracion estandar.</summary>
         public static int GetPenaltyForGapSize(int size)
         {
-            if (size <= 0) return 0;
-            if (size == 1) return size * -500;
-            if (size == 2) return size * -700;
-            if (size >= 3) return size * -1000;
-            return 0;
+            return ScoringConfigDTO.Shared.GapPenaltyFor(size);
         }
 
         public static bool IsValidMoveExtraction(CellStateDTO[] grid, int rows, int cols, int targetR, int targetC, int groupId, PlayerDataDTO player)

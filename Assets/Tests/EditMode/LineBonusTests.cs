@@ -28,9 +28,9 @@ namespace MyGame.Core.Tests
             int next = Place(st, 5, 5, 2);      // un dado cualquiera despues
             int another = Place(st, 5, 6, 2);
 
-            Assert.AreEqual(50 + st.ScoringConfig.RowCompleteBonus, closing);
-            Assert.AreEqual(50, next);
-            Assert.AreEqual(50, another);
+            Assert.AreEqual(st.ScoringConfig.PointsPerDie + st.ScoringConfig.RowCompleteBonus, closing);
+            Assert.AreEqual(st.ScoringConfig.PointsPerDie, next);
+            Assert.AreEqual(st.ScoringConfig.PointsPerDie, another);
         }
 
         [Test]
@@ -48,7 +48,7 @@ namespace MyGame.Core.Tests
 
             // Turno siguiente con el valor acumulado conservado: no se vuelve a pagar
             st.PlayerProfiles[0] = CoreTurnActions.CloneProfile(st.PlayerProfiles[0]);
-            Assert.AreEqual(50, Place(st, 5, 5, 2));
+            Assert.AreEqual(st.ScoringConfig.PointsPerDie, Place(st, 5, 5, 2));
             Assert.AreEqual(accumulated, st.PlayerProfiles[0].AccumulatedStructurePoints);
         }
     }
