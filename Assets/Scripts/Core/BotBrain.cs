@@ -77,6 +77,11 @@ namespace MyGame.Core
         private const int FastTries = 6;
         private const float DeathPenalty = 1500f;
 
+        // Prioridades del bot: los patrones mandan; las filas y columnas cuentan a medias y solo desempatan en la posicion
+        private const float LineWeight = 0.5f;      // fraccion del bono de lineas que el bot se "cree" al valorar
+        private const float PatternWeight = 0.8f;   // fraccion del bono de un patron aun abierto que se acredita por avanzar hacia el
+        private const float LineHint = 12f;         // empujon posicional a rellenar filas/columnas
+
         public static BotDecision Choose(BotSnapshot snap, BotLevel level, int seed, int budgetMs = DefaultBudgetMs)
         {
             var timer = Stopwatch.StartNew();
@@ -87,6 +92,7 @@ namespace MyGame.Core
             // 1) Todas las casillas legales y su valoracion inmediata
             var options = new List<Option>();
             sim.Load(snap);
+            float potentialBefore = sim.PatternPotential();
             for (int r = 0; r < snap.Board.Rows; r++)
             {
                 for (int c = 0; c < snap.Board.Cols; c++)
@@ -94,8 +100,16 @@ namespace MyGame.Core
                     // Una colocacion fallida no modifica el estado; una correcta si, asi que se recarga la copia
                     if (!sim.CanTouch(r, c) || !sim.Place(new GridPos(r, c))) continue;
 
-                    var option = new Option { Cell = new GridPos(r, c), Gain = sim.Profile.Score - snap.Profile.Score };
-                    option.Positional = sim.Heuristic(r, c);
+                    int rawGain = sim.Profile.Score - snap.Profile.Score;
+                    var option = new Option
+                    {
+                        Cell = new GridPos(r, c),
+                        RawGain = rawGain,
+                        Gain = rawGain - (1f - LineWeight) * (sim.Profile.AccumulatedStructurePoints - snap.Profile.AccumulatedStructurePoints)
+                    };
+
+                    // Avanzar (o romper) la forma de los grupos abiertos pesa tanto como los puntos que da ahora
+                    option.Positional = sim.Heuristic(r, c) + (sim.PatternPotential() - potentialBefore);
                     option.Noise = (float)rng.NextDouble();
                     options.Add(option);
                     sim.Load(snap);
@@ -113,8 +127,8 @@ namespace MyGame.Core
 
             if (level == BotLevel.Greedy)
             {
-                options.Sort((a, b) => (b.Gain + b.Noise * 0.01f).CompareTo(a.Gain + a.Noise * 0.01f));
-                return Finish(decision, options[0], options[0].Gain, timer);
+                options.Sort((a, b) => (b.RawGain + b.Noise * 0.01f).CompareTo(a.RawGain + a.Noise * 0.01f));
+                return Finish(decision, options[0], options[0].RawGain, timer);
             }
 
             options.Sort((a, b) => (b.Gain + b.Positional + b.Noise * 0.01f).CompareTo(a.Gain + a.Positional + a.Noise * 0.01f));
@@ -182,16 +196,24 @@ namespace MyGame.Core
             int turns = Math.Min(Horizon, Math.Max(0, snap.MaxDice - sim.Profile.PlacedDice));
             for (int t = 0; t < turns; t++)
             {
-                if (!sim.PlayFastTurn(rng)) return sim.Profile.Score - snap.Profile.Score - DeathPenalty;
+                if (!sim.PlayFastTurn(rng)) return RolloutPoints(sim, snap) - DeathPenalty;
             }
 
-            return sim.Profile.Score - snap.Profile.Score + sim.Heuristic(-1, -1);
+            // Puntos ganados (con las lineas a media ponderacion) + estado del tablero + patrones abiertos que van bien
+            return RolloutPoints(sim, snap) + sim.Heuristic(-1, -1) + sim.PatternPotential();
+        }
+
+        private static float RolloutPoints(Sim sim, BotSnapshot snap)
+        {
+            int structure = sim.Profile.AccumulatedStructurePoints - snap.Profile.AccumulatedStructurePoints;
+            return (sim.Profile.Score - snap.Profile.Score) - (1f - LineWeight) * structure;
         }
 
         private struct Option
         {
             public GridPos Cell;
-            public int Gain;
+            public int RawGain;
+            public float Gain;
             public float Positional;
             public float Noise;
         }
@@ -273,13 +295,40 @@ namespace MyGame.Core
                     int value = State.CurrentDrawnValue.Value;
                     GroupDataDTO group = Profile.ActiveGroups[color];
 
+                    // Si el grupo tiene forma posible, las casillas que la completan van primero; si es nuevo, las que
+                    // admiten mas colocaciones del patron
+                    PatternDefDTO groupPattern = Pattern(group.TargetSize);
+                    PatternPlan plan = null;
+                    int[] perCell = null;
+                    if (groupPattern != null && groupPattern.TargetNumber != 1)
+                    {
+                        if (group.OccupiedCells.Count > 0)
+                        {
+                            plan = CorePatternPlanner.Plan(Board, group.OccupiedCells, color, group.Id, groupPattern);
+                        }
+                        else
+                        {
+                            perCell = new int[Board.Cells.Length];
+                            plan = CorePatternPlanner.Plan(Board, group.OccupiedCells, color, group.Id, groupPattern, perCell);
+                        }
+                    }
+
                     var tries = new List<(float score, GridPos cell)>();
                     for (int r = 0; r < Board.Rows; r++)
                     {
                         for (int c = 0; c < Board.Cols; c++)
                         {
                             if (!CorePlacementRules.PassesContactRules(Board, Profile, r, c, color, group.Id, value, Pattern(value))) continue;
-                            tries.Add((ContactScore(r, c, group.Id) + (float)rng.NextDouble() * 1.5f, new GridPos(r, c)));
+
+                            int index = Board.GetIndex(r, c);
+                            float shape = 0f;
+                            if (plan != null && plan.Feasible)
+                            {
+                                if (plan.TargetCells.Contains(index)) shape += 8f;
+                                if (perCell != null) shape += perCell[index] * 1.2f;
+                            }
+
+                            tries.Add((shape + 0.3f * ContactScore(r, c, group.Id) + (float)rng.NextDouble() * 1.5f, new GridPos(r, c)));
                         }
                     }
 
@@ -314,7 +363,7 @@ namespace MyGame.Core
                     }
                 }
 
-                return score + LineProgress(r, c);
+                return score + 0.2f * LineProgress(r, c);
             }
 
             private float LineProgress(int r, int c)
@@ -333,7 +382,7 @@ namespace MyGame.Core
             /// </summary>
             public float Heuristic(int lastRow, int lastCol)
             {
-                float h = 0.5f * CoreTopologyCalculator.CalculateGapPenalty(Board.Cells, Board.Rows, Board.Cols, out _);
+                float h = 0.5f * CoreTopologyCalculator.CalculateGapPenalty(Board.Cells, Board.Rows, Board.Cols, State.ScoringConfig, out _);
 
                 foreach (var kvp in Profile.ActiveGroups)
                 {
@@ -348,10 +397,37 @@ namespace MyGame.Core
                     for (int k = 0; k < Board.Rows; k++) if (Board.Cells[Board.GetIndex(k, lastCol)].IsOccupied) colFilled++;
                     float rf = rowFilled / (float)Board.Cols;
                     float cf = colFilled / (float)Board.Rows;
-                    h += 40f * rf * rf + 50f * cf * cf;
+                    h += LineHint * (rf * rf + cf * cf);
                 }
 
                 return h;
+            }
+
+            /// <summary>
+            /// Valor "a medias" de los patrones que los grupos abiertos todavia pueden completar: el bono del patron por lo
+            /// avanzado que va el grupo, rebajado si queda una sola forma posible. Un grupo que ya no puede formar su
+            /// patron no aporta nada.
+            /// </summary>
+            public float PatternPotential()
+            {
+                float potential = 0f;
+                foreach (var kvp in Profile.ActiveGroups)
+                {
+                    GroupDataDTO g = kvp.Value;
+                    if (g == null || g.IsClosed || g.OccupiedCells.Count == 0) continue;
+
+                    PatternDefDTO pattern = Pattern(g.TargetSize);
+                    if (pattern == null || pattern.TargetNumber == 1) continue;
+
+                    PatternPlan plan = CorePatternPlanner.Plan(Board, g.OccupiedCells, g.Color, g.Id, pattern);
+                    if (!plan.Feasible) continue;
+
+                    float progress = g.OccupiedCells.Count / (float)pattern.BaseShape.Count;
+                    float robust = Math.Min(1f, 0.55f + 0.15f * Math.Min(plan.Placements, 3));
+                    potential += State.ScoringConfig.GetPatternBonus(g.TargetSize) * progress * robust * PatternWeight;
+                }
+
+                return potential;
             }
         }
     }

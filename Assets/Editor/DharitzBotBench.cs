@@ -6,7 +6,7 @@ using UnityEngine;
 
 /// <summary>
 /// Banco de pruebas del bot: juega partidas completas de un jugador con el nucleo (sin escena) y compara el aleatorio legal con
-/// los tres niveles. "Neto" = puntos + penalizacion por huecos cerrados, que es lo que se cobra al acabar.
+/// los tres niveles, desglosando de donde sale la puntuacion. "Neto" = puntos finales incluida la penalizacion por huecos.
 /// Menu: Tools &gt; Dharitz &gt; Bot &gt; Benchmark.
 /// </summary>
 public static class DharitzBotBench
@@ -14,32 +14,39 @@ public static class DharitzBotBench
     private const int MaxDice = 52;
 
     [MenuItem("Tools/Dharitz/Bot/Benchmark")]
-    public static void RunMenu() => Debug.Log(Run("Normal", 20, 200, true));
+    public static void RunMenu() => Debug.Log(Run("Normal", 20, 200, true, false));
 
-    public static string Run(string variantName, int games, int monteCarloBudgetMs, bool includeMonteCarlo)
+    public static string Run(string variantName, int games, int monteCarloBudgetMs, bool includeMonteCarlo, bool legacyScoring)
     {
         VariantDefDTO variant = LoadVariant(variantName);
         if (variant == null) return "No se encontro la variante " + variantName;
 
-        var sb = new StringBuilder($"Variante {variantName}, {games} partidas de un jugador\n");
+        var sb = new StringBuilder($"Variante {variantName}, {games} partidas de un jugador, puntuacion {(legacyScoring ? "ANTIGUA" : "NUEVA")}\n");
         var contenders = new List<(string name, int level, int budget)> { ("Aleatorio legal", -1, 0), ("Greedy", 0, 0), ("Greedy penalizado", 1, 0) };
         if (includeMonteCarlo) contenders.Add(($"Monte Carlo {monteCarloBudgetMs} ms", 2, monteCarloBudgetMs));
 
         foreach (var (name, level, budget) in contenders)
         {
-            double points = 0, gaps = 0, placed = 0, thinkMs = 0, maxMs = 0;
-            int deaths = 0, decisions = 0, rollouts = 0;
+            var total = new GameResult();
+            double maxMs = 0;
+            int deaths = 0;
 
             for (int g = 1; g <= games; g++)
             {
-                GameResult r = Play(variant, g * 1237, level, budget);
-                points += r.Score; gaps += r.Gaps; placed += r.Placed;
-                thinkMs += r.ThinkMs; decisions += r.Decisions; rollouts += r.Rollouts;
+                GameResult r = Play(variant, g * 1237, level, budget, legacyScoring);
+                total.Score += r.Score; total.Base += r.Base; total.Patterns += r.Patterns; total.Collection += r.Collection;
+                total.Lines += r.Lines; total.Gaps += r.Gaps; total.Placed += r.Placed;
+                total.ClosedGroups += r.ClosedGroups; total.MatchedGroups += r.MatchedGroups;
+                total.Decisions += r.Decisions; total.Rollouts += r.Rollouts; total.ThinkMs += r.ThinkMs;
                 if (r.MaxMs > maxMs) maxMs = r.MaxMs;
                 if (r.Dead) deaths++;
             }
 
-            sb.AppendLine($"{name}: puntos {points / games:F0} | huecos {gaps / games:F0} | NETO {(points + gaps) / games:F0} | dados {placed / games:F1}/{MaxDice} | eliminado {deaths}/{games} | decision media {(decisions > 0 ? thinkMs / decisions : 0):F1} ms, max {maxMs:F0} ms, simulaciones {(decisions > 0 ? (float)rollouts / decisions : 0):F0}");
+            double n = games;
+            double net = (total.Score + total.Gaps) / n;
+            double sumParts = (total.Base + total.Patterns + total.Collection + total.Lines) / n;
+            sb.AppendLine($"{name}: NETO {net:F0} | base {total.Base / n:F0} ({100 * total.Base / n / System.Math.Max(1, sumParts):F0}%) | patrones {total.Patterns / n:F0} ({100 * total.Patterns / n / System.Math.Max(1, sumParts):F0}%) | coleccion {total.Collection / n:F0} | lineas {total.Lines / n:F0} ({100 * total.Lines / n / System.Math.Max(1, sumParts):F0}%) | huecos {total.Gaps / n:F0}");
+            sb.AppendLine($"    grupos cerrados {total.ClosedGroups / n:F1}, con la forma exacta {total.MatchedGroups / n:F1} ({(total.ClosedGroups > 0 ? 100.0 * total.MatchedGroups / total.ClosedGroups : 0):F0}%) | dados {total.Placed / n:F1}/{MaxDice} | eliminado {deaths}/{games} | decision media {(total.Decisions > 0 ? total.ThinkMs / total.Decisions : 0):F1} ms, max {maxMs:F0} ms, simulaciones {(total.Decisions > 0 ? (float)total.Rollouts / total.Decisions : 0):F0}");
         }
 
         return sb.ToString();
@@ -58,14 +65,16 @@ public static class DharitzBotBench
 
     private struct GameResult
     {
-        public int Score, Gaps, Placed, Decisions, Rollouts;
+        public int Score, Base, Patterns, Collection, Lines, Gaps, Placed, Decisions, Rollouts, ClosedGroups, MatchedGroups;
         public bool Dead;
         public double MaxMs, ThinkMs;
     }
 
-    private static GameResult Play(VariantDefDTO variant, int seed, int level, int budgetMs)
+    private static GameResult Play(VariantDefDTO variant, int seed, int level, int budgetMs, bool legacyScoring)
     {
         MatchStateDTO st = CoreMatchSetup.CreateMatch(seed, new List<string> { "Bot" }, 10, 8, variant);
+        if (legacyScoring) st.ScoringConfig = ScoringConfigDTO.Legacy();
+
         var result = new GameResult();
         var rnd = new System.Random(seed);
 
@@ -92,10 +101,16 @@ public static class DharitzBotBench
                     PatternDefDTO pattern = st.VariantConfig.GetPattern(value);
                     ScoringConfigDTO sc = st.ScoringConfig;
                     var cmd = new PlaceDieCommand { PlayerId = 0, TargetCell = d.Cell, Color = color, GroupId = st.PlayerProfiles[0].ActiveGroups[color].Id, Number = value };
-                    if (!CoreMatchProcessor.ProcessPlacementIntent(st, cmd, pattern, pattern, sc.RowCompleteBonus, sc.ColCompleteBonus, sc.IntersectionBonus, sc.RowMultipliers, sc.ColMultipliers))
+                    if (!CoreMatchProcessor.ProcessPlacementIntent(st, cmd, pattern, pattern, sc.RowCompleteBonus, sc.ColCompleteBonus, sc.IntersectionBonus, sc.RowMultipliers, sc.ColMultipliers, out PlacementResult placement))
+                    {
                         result.Dead = true; // el bot propuso algo que el juego rechaza: no deberia pasar nunca
+                    }
                     else
+                    {
+                        if (placement.GroupClosed) result.ClosedGroups++;
+                        if (placement.PatternMatched) result.MatchedGroups++;
                         CoreTurnActions.ConsumeHand(st);
+                    }
                     break;
                 }
 
@@ -115,9 +130,18 @@ public static class DharitzBotBench
         }
 
         PlayerDataDTO p = st.PlayerProfiles[0];
-        result.Score = p.Score;
+        ScoringConfigDTO scoring = st.ScoringConfig;
         result.Placed = p.PlacedDice;
-        result.Gaps = CoreTopologyCalculator.CalculateGapPenalty(st.PlayerBoards[0].Cells, 10, 8, out _);
+        result.Gaps = CoreTopologyCalculator.CalculateGapPenalty(st.PlayerBoards[0].Cells, 10, 8, scoring, out _);
+        result.Score = p.Score;
+        result.Base = p.PlacedDice * scoring.PointsPerDie;
+        result.Lines = p.AccumulatedStructurePoints;
+        for (int size = 1; size <= 6; size++) result.Patterns += p.PatternCounts[size] * scoring.GetPatternBonus(size);
+
+        bool all = true;
+        for (int size = 1; size <= 6; size++) if (p.PatternCounts[size] < 1) all = false;
+        if (all) result.Collection = scoring.CollectionBonus;
+
         return result;
     }
 
