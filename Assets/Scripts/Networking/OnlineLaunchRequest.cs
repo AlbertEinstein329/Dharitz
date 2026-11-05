@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Threading.Tasks;
 using UnityEngine;
 using Unity.Netcode;
 
@@ -10,7 +11,11 @@ namespace MyGame.Networking
         Host,
         Client,
         QuickMatch,
-        DedicatedServer
+        DedicatedServer,
+        /// <summary>Crea una sala privada por Relay y la comparte con un codigo.</summary>
+        PrivateHost,
+        /// <summary>Entra en una sala privada con el codigo que da el anfitrion.</summary>
+        PrivateJoin
     }
 
     /// <summary>
@@ -28,8 +33,11 @@ namespace MyGame.Networking
         public static OnlineRole LastRole { get; private set; } = OnlineRole.None;
         public static MatchMode LastMode { get; private set; } = MatchMode.TwoPlayers;
 
-        /// <summary>IP de esta maquina que debe compartir quien crea una sala por IP (se muestra en el tablero hasta que entra el rival).</summary>
-        public static string HostDisplayIp { get; set; } = string.Empty;
+        /// <summary>Codigo de la sesion de Unity al que hay que unirse (solo en PrivateJoin).</summary>
+        public static string RoomSessionCode { get; private set; } = string.Empty;
+
+        /// <summary>Clave de texto con el motivo por el que se volvio al menu (por ejemplo, codigo inexistente); el menu la muestra una vez.</summary>
+        public static string MenuMessageKey { get; set; } = string.Empty;
 
         public static void Set(OnlineRole role, string ip, ushort port)
         {
@@ -54,6 +62,24 @@ namespace MyGame.Networking
             LastMode = mode;
         }
 
+        public static void SetPrivateHost(MatchMode mode)
+        {
+            Role = OnlineRole.PrivateHost;
+            LastRole = OnlineRole.PrivateHost;
+            Mode = mode;
+            LastMode = mode;
+            RoomSessionCode = string.Empty;
+        }
+
+        public static void SetPrivateJoin(string sessionCode, MatchMode mode)
+        {
+            Role = OnlineRole.PrivateJoin;
+            LastRole = OnlineRole.PrivateJoin;
+            Mode = mode;
+            LastMode = mode;
+            RoomSessionCode = sessionCode ?? string.Empty;
+        }
+
         public static void Clear() => Role = OnlineRole.None;
     }
 
@@ -74,6 +100,7 @@ namespace MyGame.Networking
             MatchMode mode = OnlineLaunchRequest.Mode;
             string ip = OnlineLaunchRequest.Ip;
             ushort port = OnlineLaunchRequest.Port;
+            string roomSessionCode = OnlineLaunchRequest.RoomSessionCode;
             OnlineLaunchRequest.Clear();
 
             NetworkManager net = NetworkManager.Singleton;
@@ -95,6 +122,30 @@ namespace MyGame.Networking
                 }
 
                 _ = MultiplayerMatchmaker.Instance.StartMatchmakingAsync(mode);
+                yield break;
+            }
+
+            // Salas privadas por codigo: Relay, sin IP ni puertos
+            if (role == OnlineRole.PrivateHost || role == OnlineRole.PrivateJoin)
+            {
+                if (MultiplayerMatchmaker.Instance == null)
+                {
+                    Debug.LogError("[OnlineAutoConnect] Falta MultiplayerMatchmaker en la escena.");
+                    yield break;
+                }
+
+                MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
+                Task attempt = role == OnlineRole.PrivateHost ? mm.CreatePrivateRoomAsync(mode) : mm.JoinPrivateRoomAsync(roomSessionCode);
+                while (!attempt.IsCompleted) yield return null;
+
+                // Codigo inexistente, sala llena, sin red...: se ensena el motivo un momento y se vuelve al menu con el mensaje
+                if (!string.IsNullOrEmpty(mm.LastFailureKey) && mm.LastFailureKey != "mm_cancelled")
+                {
+                    OnlineLaunchRequest.MenuMessageKey = mm.LastFailureKey;
+                    yield return new WaitForSecondsRealtime(2.5f);
+                    OnlineMatchFlow.LeaveToMenu();
+                }
+
                 yield break;
             }
 

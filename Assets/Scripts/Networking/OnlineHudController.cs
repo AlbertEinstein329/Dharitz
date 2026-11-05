@@ -76,7 +76,7 @@ namespace MyGame.Networking
 
             waitingLabel.gameObject.SetActive(!matchEverStarted);
             // La IP de la sala sigue en pantalla mientras falte alguien; el boton de copiar solo aparece entonces
-            copyIpButton.SetActive(!matchEverStarted && ShouldShowHostIp(NetworkManager.Singleton));
+            copyIpButton.SetActive(!matchEverStarted && ShouldShowRoomCode());
             if (!matchEverStarted && refreshText)
             {
                 MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
@@ -194,26 +194,27 @@ namespace MyGame.Networking
             if (!string.Equals(label.text, text)) label.text = text;
         }
 
-        // Sala creada por IP en esta maquina: hay que ensenar la IP para que el rival pueda unirse
-        private static bool ShouldShowHostIp(NetworkManager net)
+        // Sala privada creada en esta maquina: hay que ensenar el codigo para que el rival pueda unirse
+        private static bool ShouldShowRoomCode()
         {
-            return net != null && net.IsListening && net.IsServer && OnlineLaunchRequest.LastRole == OnlineRole.Host
-                && !string.IsNullOrEmpty(OnlineLaunchRequest.HostDisplayIp);
+            MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
+            return OnlineLaunchRequest.LastRole == OnlineRole.PrivateHost && mm != null && !string.IsNullOrEmpty(mm.RoomCode);
         }
 
         private static string WaitingForPlayersText(NetworkManager net)
         {
             string text = Loc.T("hud_waiting_players", net.ConnectedClientsIds.Count, GameManager.Instance.numPlayers);
-            if (ShouldShowHostIp(net))
+            if (ShouldShowRoomCode())
             {
-                text += "\n" + Loc.T("hud_share_ip") + "\n<size=76><b>" + OnlineLaunchRequest.HostDisplayIp + "</b></size>\n<size=34>" + Loc.T("hud_port", OnlineLaunchRequest.Port) + "</size>";
+                text += "\n" + Loc.T("hud_share_ip") + "\n<size=76><b>" + MultiplayerMatchmaker.Instance.RoomCode + "</b></size>";
             }
             return text;
         }
 
-        private void CopyHostIp()
+        private void CopyRoomCode()
         {
-            GUIUtility.systemCopyBuffer = OnlineLaunchRequest.HostDisplayIp;
+            if (!ShouldShowRoomCode()) return;
+            GUIUtility.systemCopyBuffer = MultiplayerMatchmaker.Instance.RoomCode;
             ShowBanner(Loc.T("hud_ip_copied"), 2f);
         }
 
@@ -272,7 +273,7 @@ namespace MyGame.Networking
             // Salir de la partida vive solo en el menu de pausa (boton Main Menu), no durante el juego
 
             // Quien crea una sala por IP ve la suya sobre el tablero, grande y con boton de copiar, hasta que entre el rival
-            copyIpButton = CreateButton(OnlineUiKit.ButtonStyle.Neutral, "CopyIp", "COPIAR IP", new Vector2(0.5f, 0.45f), new Vector2(520, 120), CopyHostIp);
+            copyIpButton = CreateButton(OnlineUiKit.ButtonStyle.Neutral, "CopyIp", "COPIAR CÓDIGO", new Vector2(0.5f, 0.45f), new Vector2(520, 120), CopyRoomCode);
             LocalizedText.Bind(copyIpButton.GetComponentInChildren<TMP_Text>(true), "copy_ip");
             copyIpButton.SetActive(false);
 

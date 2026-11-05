@@ -24,6 +24,8 @@ namespace MyGame.Networking
         public static MultiplayerMatchmaker Instance { get; private set; }
 
         private const int QuickJoinTimeoutSeconds = 8;
+        private const int PrivateJoinTimeoutSeconds = 15;
+        private bool cancelledByUser;
         private const string ModePropertyKey = "dharitzMode";
 
         private static string ModeProperty(int players) => $"{players}p";
@@ -31,6 +33,15 @@ namespace MyGame.Networking
         public event Action<string> OnStatusUpdated;
         public event Action<ISession> OnMatchFound;
         public event Action<string> OnMatchFailed;
+
+        /// <summary>Se dispara cuando una sala privada esta creada y ya hay codigo que compartir.</summary>
+        public event Action<string> OnRoomCodeReady;
+
+        /// <summary>Codigo de la sala privada para compartir (por ejemplo K7M2QX-2); vacio si no hay.</summary>
+        public string RoomCode { get; private set; } = string.Empty;
+
+        /// <summary>Clave de texto del ultimo fallo al crear o unirse a una sala privada.</summary>
+        public string LastFailureKey { get; private set; } = string.Empty;
 
         public bool IsSearching { get; private set; }
         private string statusKey;
@@ -131,6 +142,125 @@ namespace MyGame.Networking
             }
         }
 
+
+        // =========================================================
+        // SALAS PRIVADAS POR CODIGO (Relay): sin IP, sin puertos, funcionan entre redes distintas
+        // =========================================================
+
+        /// <summary>Crea una sala privada de <paramref name="mode"/> jugadores y deja su codigo en <see cref="RoomCode"/>.</summary>
+        public async Task CreatePrivateRoomAsync(MatchMode mode)
+        {
+            if (IsSearching)
+            {
+                Debug.LogWarning("[Matchmaker] Ya hay una operacion en curso.");
+                return;
+            }
+
+            IsSearching = true;
+            LastFailureKey = string.Empty;
+            RoomCode = string.Empty;
+            int players = (int)mode;
+            SetStatus("mm_creating_room_code");
+
+            try
+            {
+                await EnsureAuthenticatedAsync();
+
+                var options = new SessionOptions { MaxPlayers = players, IsPrivate = true }.WithRelayNetwork();
+                ActiveSession = await MultiplayerService.Instance.CreateSessionAsync(options);
+
+                LastSessionId = ActiveSession.Id;
+                RoomCode = MyGame.Core.RoomCodes.Format(ActiveSession.Code, players);
+                IsSearching = false;
+                SetStatus("mm_room_created", players);
+                Debug.Log($"[Matchmaker] Sala privada {ActiveSession.Id} creada, codigo {RoomCode}");
+                OnRoomCodeReady?.Invoke(RoomCode);
+                OnMatchFound?.Invoke(ActiveSession);
+            }
+            catch (Exception ex)
+            {
+                IsSearching = false;
+                Debug.LogError($"[Matchmaker] No se pudo crear la sala privada: {ex.Message}");
+                Fail("mm_create_failed", ex.Message);
+            }
+        }
+
+        /// <summary>Entra en la sala privada cuyo codigo de sesion es <paramref name="sessionCode"/> (sin el sufijo de jugadores).</summary>
+        public async Task JoinPrivateRoomAsync(string sessionCode)
+        {
+            if (IsSearching)
+            {
+                Debug.LogWarning("[Matchmaker] Ya hay una operacion en curso.");
+                return;
+            }
+
+            IsSearching = true;
+            LastFailureKey = string.Empty;
+            cancelledByUser = false;
+            searchCts = new CancellationTokenSource();
+            searchCts.CancelAfter(TimeSpan.FromSeconds(PrivateJoinTimeoutSeconds));
+            CancellationToken token = searchCts.Token;
+            SetStatus("mm_joining_code");
+
+            try
+            {
+                await EnsureAuthenticatedAsync();
+
+                ActiveSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(sessionCode, new JoinSessionOptions(), token);
+
+                LastSessionId = ActiveSession.Id;
+                IsSearching = false;
+                SetStatus("mm_match_found");
+                Debug.Log($"[Matchmaker] Unido a la sala privada {ActiveSession.Id}");
+                OnMatchFound?.Invoke(ActiveSession);
+            }
+            catch (OperationCanceledException)
+            {
+                IsSearching = false;
+                // Cancelado por el jugador o por el tiempo de espera: el tiempo agotado se avisa como tal
+                Fail(cancelledByUser ? "mm_cancelled" : "mm_join_timeout", "cancelado");
+            }
+            catch (Exception ex)
+            {
+                IsSearching = false;
+                Debug.LogWarning($"[Matchmaker] No se pudo entrar en la sala: {ex.Message}");
+                Fail(JoinFailureKey(ex), ex.Message);
+            }
+            finally
+            {
+                searchCts?.Dispose();
+                searchCts = null;
+            }
+        }
+
+        private static string JoinFailureKey(Exception ex)
+        {
+            // El SDK valida el alfabeto del codigo antes de salir a la red ("contains an invalid character")
+            if (ex is ArgumentException || ex.Message.IndexOf("invalid character", StringComparison.OrdinalIgnoreCase) >= 0) return "mm_code_invalid";
+            if (ex is SessionException sessionEx && sessionEx.Error == SessionError.SessionNotFound) return "mm_code_not_found";
+            if (ex.Message.IndexOf("full", StringComparison.OrdinalIgnoreCase) >= 0) return "mm_room_full";
+            return "mm_join_failed";
+        }
+
+        private void Fail(string key, string detail)
+        {
+            LastFailureKey = key;
+            SetStatus(key);
+            OnMatchFailed?.Invoke(detail);
+        }
+
+        private static async Task EnsureAuthenticatedAsync()
+        {
+            if (NetworkBootstrap.Instance == null)
+                throw new InvalidOperationException("Falta NetworkBootstrap en la escena.");
+
+            if (!NetworkBootstrap.Instance.IsAuthenticated)
+                await NetworkBootstrap.Instance.InitializeServicesAsync();
+
+            if (!NetworkBootstrap.Instance.IsAuthenticated)
+                throw new InvalidOperationException("No se pudo iniciar sesion en Unity Services.");
+        }
+
         /// <summary>
         /// Vuelve a la ultima sesion tras una desconexion. El servidor reconoce al jugador por su PlayerId
         /// de UGS y le devuelve su slot y un snapshot completo (ver NetworkGameManager.RegisterPlayerServerRpc).
@@ -160,6 +290,7 @@ namespace MyGame.Networking
         public void CancelMatchmaking()
         {
             if (!IsSearching) return;
+            cancelledByUser = true;
             searchCts?.Cancel();
             Debug.Log("[Matchmaker] Busqueda cancelada por el jugador.");
         }
@@ -174,6 +305,7 @@ namespace MyGame.Networking
             ISession session = ActiveSession;
             ActiveSession = null;
             LastSessionId = null;
+            RoomCode = string.Empty;
             if (session == null) return;
 
             try
