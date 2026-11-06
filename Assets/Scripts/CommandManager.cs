@@ -82,8 +82,10 @@ public class CommandManager : MonoBehaviour
         }
 
         // 3. Ejecución del Comando (Se comunicará con la Capa 0, actualizará 'p', y mutará 'currentUndoUses' según el DTO)
-        IGridCommand command = currentStack.Pop();
-        command.Undo();
+        // Solo se saca de la pila si la Capa 0 acepto la reversion: si no, el comando se perderia y el boton quedaria muerto
+        IGridCommand command = currentStack.Peek();
+        // (UndoCommand deja el dado en la mano y eso ya limpia el historial: solo sacamos si sigue ahi)
+        if (command.Undo() && currentStack.Count > 0) currentStack.Pop();
 
         // ELIMINADA LA MUTACIÓN LOCAL: p.currentUndoUses--;
 

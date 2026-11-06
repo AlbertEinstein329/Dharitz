@@ -733,7 +733,7 @@ namespace MyGame.Networking
                 OnPlacementRejected?.Invoke();
                 if (PopUpManager.Instance != null)
                 {
-                    PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, "Movimiento no válido", Color.red);
+                    PopUpManager.Instance.ShowPopUp(Vector3.up * 2f, Loc.T("popup_invalid_move"), Color.red);
                 }
             }
         }

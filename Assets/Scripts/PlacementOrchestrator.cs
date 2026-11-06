@@ -273,7 +273,7 @@ public class PlacementOrchestrator
                 if (gm.reDrawButton != null) gm.reDrawButton.interactable = true;
                 if (PopUpManager.Instance != null)
                 {
-                    PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, "DADO INJUGABLE\n¡Usa un Re-Draw!", UnityEngine.Color.yellow);
+                    PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, Loc.T("popup_unplayable") + "\n" + Loc.T("popup_use_redraw"), UnityEngine.Color.yellow);
                 }
             }
             else
@@ -293,7 +293,7 @@ public class PlacementOrchestrator
                 if (jugadoresVivos == 0)
                 {
                     if (PopUpManager.Instance != null)
-                        PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, "TABLERO MUERTO", UnityEngine.Color.red);
+                        PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, Loc.T("popup_dead_board"), UnityEngine.Color.red);
 
                     gm.EndMatch();
                 }
@@ -305,7 +305,7 @@ public class PlacementOrchestrator
                     }
 
                     if (PopUpManager.Instance != null)
-                        PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, "¡JUGADOR ELIMINADO!", UnityEngine.Color.red);
+                        PopUpManager.Instance.ShowPopUp(UnityEngine.Vector3.up * 2f, Loc.T("popup_player_eliminated"), UnityEngine.Color.red);
 
                     gm.turnManager.EndTurn();
                 }

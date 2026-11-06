@@ -165,7 +165,7 @@ namespace MyGame.Networking
                     if (PopUpManager.Instance != null)
                     {
                         Vector3 movePos = gm.gridManager.GetWorldPosition(action.PlayerIndex, action.Row, action.Col);
-                        PopUpManager.Instance.ShowPopUp(movePos, $"PERFECT! +{action.ScoreDelta}", Color.cyan);
+                        PopUpManager.Instance.ShowPopUp(movePos, Loc.T("popup_perfect", action.ScoreDelta), Color.cyan);
                     }
                     CelebrateCompletedPattern(gm, snap, action);
                 }
