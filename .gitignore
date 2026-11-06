@@ -106,5 +106,12 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
+# Notas internas del proyecto (boveda de Obsidian) y grafo de graphify: contienen informacion interna
+# (informe de seguridad incluido) y el repositorio es publico, asi que no se versionan
+/Dharitz/
+/.obsidian/
+/graphify-out/
+/Assets/graphify-out/
+/Assets/graphify-out.meta
 # Builds locales del servidor dedicado
 /Builds/
