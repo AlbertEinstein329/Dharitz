@@ -86,7 +86,8 @@ namespace MyGame.Core
             player.ActiveGroups[command.Color].OccupiedCells.Add(command.TargetCell);
 
             // 5. Motor de Puntaje y Combos
-            int basePoints = 50;
+            ScoringConfigDTO scoring = state.ScoringConfig ?? ScoringConfigDTO.Shared;
+            int basePoints = scoring.PointsPerDie;
             int comboPoints = CoreScoreCalculator.EvaluateAndApplyCombos(
                 board.Cells, board.Rows, board.Cols, player,
                 rowBonus, colBonus, intersectionBonus, rowMults, colMults
@@ -105,12 +106,7 @@ namespace MyGame.Core
                 // 2. APLICAMOS EL PUENTE DE TIPO .ToList() AL HASHSET
                 if (targetPatternData != null && CorePatternValidator.CheckPattern(currentGroup.OccupiedCells.ToList(), targetPatternData))
                 {
-                    if (command.Number >= 1 && command.Number <= 6)
-                    {
-                        player.PatternCounts[command.Number]++;
-                    }
-
-                    int patternBonus = CalculatePatternBonus(command.Number);
+                    int patternBonus = CoreScoring.AwardPattern(player, command.Number, scoring);
                     player.Score += patternBonus;
 
                     // Solo cuando la forma coincide con el patron hay highlight / sonido / bonus
@@ -121,20 +117,6 @@ namespace MyGame.Core
 
             // El comando fue procesado con éxito
             return true;
-        }
-
-        private static int CalculatePatternBonus(int targetSize)
-        {
-            switch (targetSize)
-            {
-                case 1:
-                case 2: return 100;
-                case 3: return 200;
-                case 4: return 300;
-                case 5: return 400;
-                case 6: return 500;
-                default: return 0;
-            }
         }
     }
 }

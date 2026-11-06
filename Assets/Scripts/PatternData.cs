@@ -25,7 +25,9 @@ public class PatternData : ScriptableObject
             AllowRotation = this.allowRotation,
             AllowMirror = this.allowMirror,
             AllowDiagonalReservation = this.allowDiagonalReservation,
-            BaseShape = this.baseShape.Select(v => new GridPos(v.x, v.y)).ToList()
+            SpecialRule = (int)this.specialRule,
+            // En los assets y en la UI de patrones x es horizontal (columna) e y vertical (fila); el nucleo usa (fila, columna)
+            BaseShape = this.baseShape.Select(v => new GridPos(v.y, v.x)).ToList()
         };
     }
 }

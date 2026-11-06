@@ -5,16 +5,18 @@ public partial class ScoreManager : MonoBehaviour
     public static ScoreManager Instance;
 
     [Header("Constantes de Puntaje Base")]
-    public const int POINTS_PER_DIE = 50; // Aumento de 1 a 50 
+    public static readonly int POINTS_PER_DIE = MyGame.Core.ScoringConfigDTO.Shared.PointsPerDie;
 
     [Header("Bonos de Estructura")]
-    public const int ROW_COMPLETE_BONUS = 120;
-    public const int COL_COMPLETE_BONUS = 170;
-    public const int INTERSECTION_BONUS = 100;
+    public static readonly int ROW_COMPLETE_BONUS = MyGame.Core.ScoringConfigDTO.Shared.RowCompleteBonus;
+    public static readonly int COL_COMPLETE_BONUS = MyGame.Core.ScoringConfigDTO.Shared.ColCompleteBonus;
+    public static readonly int INTERSECTION_BONUS = MyGame.Core.ScoringConfigDTO.Shared.IntersectionBonus;
 
     // Multiplicadores por líneas sucesivas 
-    private readonly float[] rowMultipliers = { 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 4.0f };
-    private readonly float[] colMultipliers = { 1.0f, 2.0f, 3.0f, 3.5f, 5.0f, 6.0f };
+    public static readonly float[] RowMultipliers = MyGame.Core.ScoringConfigDTO.Shared.RowMultipliers;
+    private readonly float[] rowMultipliers = MyGame.Core.ScoringConfigDTO.Shared.RowMultipliers;
+    public static readonly float[] ColMultipliers = MyGame.Core.ScoringConfigDTO.Shared.ColMultipliers;
+    private readonly float[] colMultipliers = MyGame.Core.ScoringConfigDTO.Shared.ColMultipliers;
 
     void Awake()
     {
@@ -24,16 +26,7 @@ public partial class ScoreManager : MonoBehaviour
 
     public int GetPatternBonus(int targetSize)
     {
-        switch (targetSize)
-        {
-            case 1:
-            case 2: return 100;
-            case 3: return 200; 
-            case 4: return 300;
-            case 5: return 400;
-            case 6: return 500;
-            default: return 0;
-        }
+        return MyGame.Core.ScoringConfigDTO.Shared.GetPatternBonus(targetSize);
     }
 
     public float GetConsecutiveRowMultiplier(int linesConsecutive)

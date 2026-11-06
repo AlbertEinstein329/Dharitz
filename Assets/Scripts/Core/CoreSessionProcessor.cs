@@ -34,7 +34,7 @@ namespace MyGame.Core
                 foreach (var kvp in state.PlayerBoards)
                 {
                     int pId = kvp.Key;
-                    int gapPenalty = CoreTopologyCalculator.CalculateGapPenalty(kvp.Value.Cells, kvp.Value.Rows, kvp.Value.Cols, out _);
+                    int gapPenalty = CoreTopologyCalculator.CalculateGapPenalty(kvp.Value.Cells, kvp.Value.Rows, kvp.Value.Cols, state.ScoringConfig ?? ScoringConfigDTO.Shared, out _);
 
                     // Mutación inmutable de la Capa 0
                     state.PlayerProfiles[pId].Score += gapPenalty;
