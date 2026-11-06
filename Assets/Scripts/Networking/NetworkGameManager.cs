@@ -22,6 +22,11 @@ namespace MyGame.Networking
         // Identidad estable del jugador (PlayerId de UGS): sobrevive a los cambios de ClientId al reconectar
         private readonly Dictionary<string, int> playerIdToSlot = new Dictionary<string, int>();
 
+        // Secreto de reconexion de cada jugador (solo servidor). El PlayerId lo declara el cliente y los demas miembros de la
+        // sala pueden verlo, asi que por si solo no basta para recuperar un asiento.
+        private readonly ReconnectTokens reconnectTokens = new ReconnectTokens();
+        private const int MaxTokenLength = 64;
+
         public NetworkVariable<int> NetworkCurrentPlayerIndex = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         public NetworkVariable<int> NetworkMatchPhase = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -88,7 +93,7 @@ namespace MyGame.Networking
             // El slot se asigna al registrarse, no al conectar, para poder reconocer a quien vuelve.
             if (IsClient)
             {
-                RegisterPlayerServerRpc(GetLocalPlayerId());
+                RegisterPlayerServerRpc(GetLocalPlayerId(), OnlineLaunchRequest.ReconnectToken);
             }
 
             OnlineMatchPresenter.ResetPresentation();
@@ -129,30 +134,38 @@ namespace MyGame.Networking
         }
 
         [ServerRpc(RequireOwnership = false)]
-        private void RegisterPlayerServerRpc(string playerId, ServerRpcParams rpcParams = default)
+        private void RegisterPlayerServerRpc(string playerId, string reconnectToken, ServerRpcParams rpcParams = default)
         {
             ulong clientId = rpcParams.Receive.SenderClientId;
             if (!PassesLimiter(registerLimiter, clientId, "RegisterPlayer")) return;
 
-            if (playerId != null && playerId.Length > MaxPlayerIdLength)
+            if ((playerId != null && playerId.Length > MaxPlayerIdLength) || (reconnectToken != null && reconnectToken.Length > MaxTokenLength))
             {
-                Debug.LogWarning($"[NetworkGameManager] PlayerId de {playerId.Length} caracteres rechazado. Expulsando ClientId {clientId}.");
-                NetworkManager.Singleton.DisconnectClient(clientId, "PlayerId invalido");
+                Debug.LogWarning($"[NetworkGameManager] Registro con datos demasiado largos rechazado. Expulsando ClientId {clientId}.");
+                NetworkManager.Singleton.DisconnectClient(clientId, "Registro invalido");
                 return;
             }
 
             if (string.IsNullOrEmpty(playerId)) playerId = "client-" + clientId;
 
-            // Mismo jugador que vuelve (o sigue conectado con otro ClientId): recupera su slot
+            // Mismo jugador que vuelve (o sigue conectado con otro ClientId): recupera su slot, pero solo si demuestra que es el
+            // mismo con el token que recibio al registrarse. Conocer su PlayerId no basta.
             if (playerIdToSlot.TryGetValue(playerId, out int knownSlot))
             {
+                if (!reconnectTokens.Verify(playerId, reconnectToken))
+                {
+                    Debug.LogWarning($"[NetworkGameManager] Reconexion de {LogMask.Id(playerId)} sin token valido. Expulsando ClientId {clientId}.");
+                    NetworkManager.Singleton.DisconnectClient(clientId, "Reconexion no autorizada");
+                    return;
+                }
+
                 RebindPlayer(playerId, knownSlot, clientId);
                 return;
             }
 
             if (matchStarted)
             {
-                Debug.LogWarning($"[NetworkGameManager] {playerId} intento unirse con la partida ya iniciada. Desconectando.");
+                Debug.LogWarning($"[NetworkGameManager] {LogMask.Id(playerId)} intento unirse con la partida ya iniciada. Desconectando.");
                 NetworkManager.Singleton.DisconnectClient(clientId);
                 return;
             }
@@ -170,16 +183,26 @@ namespace MyGame.Networking
             playerIdToSlot[playerId] = slot;
             clientIdToPlayerIndex[clientId] = slot;
             playerIndexToClientId[slot] = clientId;
+
+            // El token solo viaja a este cliente
+            string token = reconnectTokens.Issue(playerId);
+            ReconnectTokenClientRpc(token, new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { clientId } } });
             Debug.Log($"[NetworkGameManager] Jugador registrado. ClientId {clientId} -> Slot {slot} ({playerIdToSlot.Count}/{ExpectedPlayers})");
 
             TryStartMatch();
+        }
+
+        [ClientRpc]
+        private void ReconnectTokenClientRpc(string token, ClientRpcParams clientRpcParams = default)
+        {
+            OnlineLaunchRequest.ReconnectToken = token;
         }
 
         private void RebindPlayer(string playerId, int slot, ulong newClientId)
         {
             if (matchStarted && GameManager.Instance.ServerState.PlayerProfiles.TryGetValue(slot, out PlayerDataDTO profile) && profile.IsEliminated)
             {
-                Debug.LogWarning($"[NetworkGameManager] {playerId} (slot {slot}) estaba eliminado por abandono. No puede volver.");
+                Debug.LogWarning($"[NetworkGameManager] {LogMask.Id(playerId)} (slot {slot}) estaba eliminado por abandono. No puede volver.");
                 NetworkManager.Singleton.DisconnectClient(newClientId);
                 return;
             }
@@ -192,7 +215,7 @@ namespace MyGame.Networking
 
             clientIdToPlayerIndex[newClientId] = slot;
             playerIndexToClientId[slot] = newClientId;
-            Debug.Log($"[NetworkGameManager] Jugador {playerId} reconectado. Slot {slot} -> ClientId {newClientId}");
+            Debug.Log($"[NetworkGameManager] Jugador {LogMask.Id(playerId)} reconectado. Slot {slot} -> ClientId {newClientId}");
 
             if (!matchStarted) return;
 

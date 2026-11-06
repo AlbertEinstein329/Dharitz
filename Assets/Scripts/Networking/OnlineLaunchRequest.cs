@@ -33,6 +33,12 @@ namespace MyGame.Networking
         public static OnlineRole LastRole { get; private set; } = OnlineRole.None;
         public static MatchMode LastMode { get; private set; } = MatchMode.TwoPlayers;
 
+        /// <summary>
+        /// Secreto que el servidor entrego a este cliente al registrarlo; se presenta al reconectar para recuperar el asiento.
+        /// Solo vive en memoria y se borra al salir de la partida o empezar otra.
+        /// </summary>
+        public static string ReconnectToken { get; set; } = string.Empty;
+
         /// <summary>Codigo de la sesion de Unity al que hay que unirse (solo en PrivateJoin).</summary>
         public static string RoomSessionCode { get; private set; } = string.Empty;
 
@@ -41,6 +47,7 @@ namespace MyGame.Networking
 
         public static void Set(OnlineRole role, string ip, ushort port)
         {
+            ReconnectToken = string.Empty;
             Role = role;
             LastRole = role;
             Ip = string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip.Trim();
@@ -56,6 +63,7 @@ namespace MyGame.Networking
 
         public static void SetQuickMatch(MatchMode mode)
         {
+            ReconnectToken = string.Empty;
             Role = OnlineRole.QuickMatch;
             LastRole = OnlineRole.QuickMatch;
             Mode = mode;
@@ -64,6 +72,7 @@ namespace MyGame.Networking
 
         public static void SetPrivateHost(MatchMode mode)
         {
+            ReconnectToken = string.Empty;
             Role = OnlineRole.PrivateHost;
             LastRole = OnlineRole.PrivateHost;
             Mode = mode;
@@ -73,6 +82,7 @@ namespace MyGame.Networking
 
         public static void SetPrivateJoin(string sessionCode, MatchMode mode)
         {
+            ReconnectToken = string.Empty;
             Role = OnlineRole.PrivateJoin;
             LastRole = OnlineRole.PrivateJoin;
             Mode = mode;

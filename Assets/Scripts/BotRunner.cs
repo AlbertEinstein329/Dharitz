@@ -22,7 +22,10 @@ public class BotRunner : MonoBehaviour
         if (instance == null)
         {
             instance = new GameObject("BotRunner").AddComponent<BotRunner>();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Panel y CSV de rendimiento del bot: solo para probar; el juego publicado no los crea
             instance.gameObject.AddComponent<BotPerfOverlay>();
+#endif
         }
 
         instance.gm = gameManager;

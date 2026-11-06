@@ -56,6 +56,8 @@ namespace MyGame.Networking
 
         private static void Disconnect()
         {
+            OnlineLaunchRequest.ReconnectToken = string.Empty;
+
             if (MultiplayerMatchmaker.Instance != null) _ = MultiplayerMatchmaker.Instance.LeaveSessionAsync();
 
             if (NetworkBootstrap.Instance != null) NetworkBootstrap.Instance.Disconnect();

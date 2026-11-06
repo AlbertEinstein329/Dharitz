@@ -48,6 +48,11 @@ namespace MyGame.Core
             if (targetIndex < 0 || targetIndex >= board.Cells.Length) return false; // Fuera de límites
             if (board.Cells[targetIndex].IsOccupied) return false; // Celda ocupada
 
+            // Reglas de contacto (tocar el propio grupo, no pegarse a otro grupo del mismo color, regla del 1): las impone la
+            // Capa 0. Antes solo las comprobaba la capa visual, asi que un cliente alterado podia colocar donde quisiera.
+            if (!CorePlacementRules.PassesContactRules(board, player, command.TargetCell.X, command.TargetCell.Y,
+                    command.Color, command.GroupId, command.Number, newPattern)) return false;
+
             // 2. Motor Topológico Matemático
             bool isSurvivalValid = CoreTopologyCalculator.ValidateSurvival(
                 board,
