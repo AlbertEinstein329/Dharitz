@@ -13,8 +13,9 @@ public class VariantData : ScriptableObject
     public List<PatternData> patterns = new List<PatternData>();
 
     [Header("Bot (partida local)")]
-    [Tooltip("Nivel del bot en esta variante: Greedy (facil), GreedyPenalized (normal), MonteCarlo (dificil)")]
-    public BotLevel botLevel = BotLevel.Greedy;
+    [Tooltip("Dificultad del bot en esta variante: Easy (forma patrones), Normal (patrones y sin huecos), Hard (patrones, lineas y sin huecos)")]
+    [UnityEngine.Serialization.FormerlySerializedAs("botLevel")]
+    public BotDifficulty botDifficulty = BotDifficulty.Easy;
 
     [Header("UI")]
     public Sprite iconSprite;

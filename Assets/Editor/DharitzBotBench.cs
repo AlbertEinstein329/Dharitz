@@ -16,14 +16,41 @@ public static class DharitzBotBench
     [MenuItem("Tools/Dharitz/Bot/Benchmark")]
     public static void RunMenu() => Debug.Log(Run("Normal", 20, 200, true, false));
 
+    [MenuItem("Tools/Dharitz/Bot/Benchmark de dificultades (Easy, Normal, Hard)")]
+    public static void RunProfilesMenu() => Debug.Log(RunProfiles("Normal", 16, 0));
+
+    /// <summary>Compara las tres dificultades del juego (perfiles con Monte Carlo ligero) con el aleatorio legal. budgetOverrideMs 0 = el de cada perfil.</summary>
+    public static string RunProfiles(string variantName, int games, int budgetOverrideMs)
+    {
+        return Run(variantName, games, budgetOverrideMs, false, false, true);
+    }
+
     public static string Run(string variantName, int games, int monteCarloBudgetMs, bool includeMonteCarlo, bool legacyScoring)
+    {
+        return Run(variantName, games, monteCarloBudgetMs, includeMonteCarlo, legacyScoring, false);
+    }
+
+    public static string Run(string variantName, int games, int monteCarloBudgetMs, bool includeMonteCarlo, bool legacyScoring, bool profilesOnly)
     {
         VariantDefDTO variant = LoadVariant(variantName);
         if (variant == null) return "No se encontro la variante " + variantName;
 
         var sb = new StringBuilder($"Variante {variantName}, {games} partidas de un jugador, puntuacion {(legacyScoring ? "ANTIGUA" : "NUEVA")}\n");
-        var contenders = new List<(string name, int level, int budget)> { ("Aleatorio legal", -1, 0), ("Greedy", 0, 0), ("Greedy penalizado", 1, 0) };
-        if (includeMonteCarlo) contenders.Add(($"Monte Carlo {monteCarloBudgetMs} ms", 2, monteCarloBudgetMs));
+        var contenders = new List<(string name, int level, int budget)>();
+        if (profilesOnly)
+        {
+            contenders.Add(("Aleatorio legal", -1, 0));
+            contenders.Add(("Perfil EASY", -2, monteCarloBudgetMs));
+            contenders.Add(("Perfil NORMAL", -3, monteCarloBudgetMs));
+            contenders.Add(("Perfil HARD", -4, monteCarloBudgetMs));
+        }
+        else
+        {
+            contenders.Add(("Aleatorio legal", -1, 0));
+            contenders.Add(("Greedy", 0, 0));
+            contenders.Add(("Greedy penalizado", 1, 0));
+            if (includeMonteCarlo) contenders.Add(($"Monte Carlo {monteCarloBudgetMs} ms", 2, monteCarloBudgetMs));
+        }
 
         foreach (var (name, level, budget) in contenders)
         {
@@ -87,7 +114,10 @@ public static class DharitzBotBench
             while (true)
             {
                 BotSnapshot snap = BotSnapshot.Capture(st, 0, MaxDice);
-                BotDecision d = level < 0 ? RandomLegal(snap, rnd) : BotBrain.Choose(snap, (BotLevel)level, seed * 31 + turn, budgetMs);
+                BotDecision d;
+                if (level == -1) d = RandomLegal(snap, rnd);
+                else if (level <= -2) d = BotBrain.Choose(snap, BotProfile.For((BotDifficulty)(-level - 2)), seed * 31 + turn, budgetMs);
+                else d = BotBrain.Choose(snap, (BotLevel)level, seed * 31 + turn, budgetMs);
 
                 result.Decisions++;
                 result.Rollouts += d.Rollouts;
