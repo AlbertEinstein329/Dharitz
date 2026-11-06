@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.antigravity.ide": "https://github.com/prithvi-bharadwaj/Antigravity-IDE.git",
     "com.unity.ai.assistant": "2.20.0-pre.2",
     "com.unity.device-simulator.devices": "1.0.1",
     "com.unity.feature.2d": "2.0.2",
@@ -14,7 +13,6 @@
     "com.unity.render-pipelines.universal": "17.3.0",
     "com.unity.services.authentication": "3.6.1",
     "com.unity.services.cloudsave": "3.4.0",
-    "com.unity.services.levelplay": "9.4.1",
     "com.unity.services.multiplayer": "2.4.1",
     "com.unity.test-framework": "1.6.0",
     "com.unity.ugui": "2.0.0",
