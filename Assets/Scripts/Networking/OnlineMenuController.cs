@@ -2,16 +2,13 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
-using System.Net;
-using System.Net.Sockets;
 
 namespace MyGame.Networking
 {
     /// <summary>
     /// Panel online del menu principal, construido por codigo (no hay que cablear botones en la escena). Se abre desde el boton ONLINE del menu.
-    /// Permite crear una sala (2 o 4 jugadores) o unirse a una por IP. Despues carga Tablero, donde
-    /// OnlineAutoConnect arranca Host/Client. El matchmaking por cola queda pendiente del paquete
-    /// com.unity.services.multiplayer (ver Plan de trabajo Online.md, fase 3).
+    /// Permite buscar partida rapida, crear una sala privada (2 o 4 jugadores) o unirse a una con su codigo.
+    /// Despues carga Tablero, donde OnlineAutoConnect crea o une la sesion por Relay: no se usa ninguna IP.
     /// </summary>
     public class OnlineMenuController : MonoBehaviour
     {
@@ -23,22 +20,27 @@ namespace MyGame.Networking
 
         private GameObject panel;
         private TMP_Text statusLabel;
-        private TMP_InputField ipField;
+        private TMP_InputField codeField;
 
         private void Start()
         {
             BuildUi();
+
+            // Si la sala anterior fallo (codigo inexistente, sala llena...), se vuelve aqui con el motivo a la vista
+            if (!string.IsNullOrEmpty(OnlineLaunchRequest.MenuMessageKey) && statusLabel != null)
+            {
+                statusLabel.text = Loc.T(OnlineLaunchRequest.MenuMessageKey);
+                OnlineLaunchRequest.MenuMessageKey = string.Empty;
+                if (MainMenuManager.Instance != null) MainMenuManager.Instance.ShowOnlinePanel();
+            }
         }
 
         private void CreateRoom(int players)
         {
-            string ip = GetLocalIp();
             if (!Configure(players)) return;
 
-            OnlineLaunchRequest.HostDisplayIp = ip; // el tablero la muestra hasta que el rival se una
-
-            OnlineLaunchRequest.Set(OnlineRole.Host, "0.0.0.0", 7777);
-            statusLabel.text = Loc.T("menu_creating_room", players, ip);
+            OnlineLaunchRequest.SetPrivateHost(players == 4 ? MatchMode.FourPlayers : MatchMode.TwoPlayers);
+            statusLabel.text = Loc.T("menu_creating_room", players);
             SceneManager.LoadScene(boardSceneIndex);
         }
 
@@ -53,11 +55,17 @@ namespace MyGame.Networking
 
         private void JoinRoom()
         {
-            // El numero de jugadores lo decide el host; el cliente solo necesita saber que es una partida online
-            if (!Configure(2)) return;
+            if (!MyGame.Core.RoomCodes.TryParse(codeField.text, out string sessionCode, out int players))
+            {
+                statusLabel.text = Loc.T("mm_code_invalid");
+                return;
+            }
 
-            OnlineLaunchRequest.Set(OnlineRole.Client, ipField.text, 7777);
-            statusLabel.text = Loc.T("menu_connecting", OnlineLaunchRequest.Ip);
+            // El numero de jugadores va dentro del codigo: el tablero se construye antes de entrar en la sala
+            if (!Configure(players)) return;
+
+            OnlineLaunchRequest.SetPrivateJoin(sessionCode, players == 4 ? MatchMode.FourPlayers : MatchMode.TwoPlayers);
+            statusLabel.text = Loc.T("menu_connecting", MyGame.Core.RoomCodes.Format(sessionCode, players));
             SceneManager.LoadScene(boardSceneIndex);
         }
 
@@ -101,19 +109,6 @@ namespace MyGame.Networking
             return true;
         }
 
-        private static string GetLocalIp()
-        {
-            try
-            {
-                foreach (IPAddress address in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
-                {
-                    if (address.AddressFamily == AddressFamily.InterNetwork) return address.ToString();
-                }
-            }
-            catch { /* sin red: se muestra localhost */ }
-            return "127.0.0.1";
-        }
-
         // =========================================================
         // UI
         // =========================================================
@@ -142,12 +137,18 @@ namespace MyGame.Networking
             kit.CreateButton(p, OnlineUiKit.ButtonStyle.Primary, "PARTIDA RÁPIDA 2 JUGADORES", new Vector2(0.5f, 0.80f), new Vector2(700, 120), () => QuickMatch(MatchMode.TwoPlayers));
             kit.CreateButton(p, OnlineUiKit.ButtonStyle.Primary, "PARTIDA RÁPIDA 4 JUGADORES", new Vector2(0.5f, 0.68f), new Vector2(700, 120), () => QuickMatch(MatchMode.FourPlayers));
 
-            kit.CreateLabel(p, "Red local (sin matchmaking)", new Vector2(0.5f, 0.575f), new Vector2(700, 60), 34, TextAlignmentOptions.Center);
+            kit.CreateLabel(p, "Sala privada con código", new Vector2(0.5f, 0.575f), new Vector2(700, 60), 34, TextAlignmentOptions.Center);
             kit.CreateButton(p, OnlineUiKit.ButtonStyle.Secondary, "CREAR SALA 2J", new Vector2(0.30f, 0.49f), new Vector2(340, 110), () => CreateRoom(2));
             kit.CreateButton(p, OnlineUiKit.ButtonStyle.Secondary, "CREAR SALA 4J", new Vector2(0.70f, 0.49f), new Vector2(340, 110), () => CreateRoom(4));
 
-            ipField = kit.CreateInputField(p, "127.0.0.1", "IP del anfitrión", new Vector2(0.36f, 0.37f), new Vector2(400, 100));
-            kit.CreateButton(p, OnlineUiKit.ButtonStyle.Neutral, "UNIRSE POR IP", new Vector2(0.74f, 0.37f), new Vector2(290, 110), JoinRoom);
+            codeField = kit.CreateInputField(p, string.Empty, "Código de sala (ej. K6M8FG-2)", new Vector2(0.36f, 0.37f), new Vector2(400, 100));
+            codeField.characterLimit = 14;
+            codeField.onValueChanged.AddListener(value =>
+            {
+                string upper = value.ToUpperInvariant();
+                if (upper != value) codeField.text = upper;
+            });
+            kit.CreateButton(p, OnlineUiKit.ButtonStyle.Neutral, "UNIRSE CON CÓDIGO", new Vector2(0.74f, 0.37f), new Vector2(290, 110), JoinRoom);
 
             statusLabel = kit.CreateLabel(p, "Partida rápida: te une a una sala libre o crea una nueva y espera rivales.", new Vector2(0.5f, 0.23f), new Vector2(660, 150), 32, TextAlignmentOptions.Center);
             kit.CreateButton(p, OnlineUiKit.ButtonStyle.Danger, "VOLVER", new Vector2(0.5f, 0.10f), new Vector2(360, 110), Close);
