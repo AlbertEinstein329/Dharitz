@@ -9,7 +9,8 @@ namespace MyGame.Networking
         None,
         Host,
         Client,
-        QuickMatch
+        QuickMatch,
+        DedicatedServer
     }
 
     /// <summary>
@@ -27,6 +28,13 @@ namespace MyGame.Networking
         {
             Role = role;
             Ip = string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip.Trim();
+            Port = port == 0 ? (ushort)7777 : port;
+        }
+
+        public static void SetDedicatedServer(ushort port)
+        {
+            Role = OnlineRole.DedicatedServer;
+            Ip = "0.0.0.0";
             Port = port == 0 ? (ushort)7777 : port;
         }
 
@@ -84,6 +92,15 @@ namespace MyGame.Networking
             if (bootstrap == null)
             {
                 Debug.LogError("[OnlineAutoConnect] Falta NetworkBootstrap en la escena.");
+                yield break;
+            }
+
+            // Servidor dedicado: escucha en todas las interfaces, sin jugador local
+            if (role == OnlineRole.DedicatedServer)
+            {
+                bool started = bootstrap.StartDedicatedServer(port);
+                Debug.Log($"[OnlineAutoConnect] Servidor dedicado en 0.0.0.0:{port} -> {(started ? "escuchando" : "FALLO")}");
+                if (!started) Application.Quit(1);
                 yield break;
             }
 

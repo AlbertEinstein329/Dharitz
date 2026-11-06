@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5666a29c8368ac4fb67f7187d4497cb, type: 3}
+  m_Name: OnlineUiKit
+  m_EditorClassIdentifier: Assembly-CSharp::OnlineUiKit
+  buttonPrimary: {fileID: 7710956803339165190, guid: b54a30a3651b61b4aaa002749e2ff4ea, type: 3}
+  buttonSecondary: {fileID: 5685840460190141038, guid: 3ef28c55198531d44a103fbef93c8d56, type: 3}
+  buttonNeutral: {fileID: 2174240592710037542, guid: 51ce58d6269322e4ea2e7fa02044f659, type: 3}
+  buttonDanger: {fileID: 3790943427503537546, guid: a946ab26f4367fb47b41828d1f383b86, type: 3}
+  buttonClose: {fileID: 5264979765346646143, guid: 7720e6ea8f111164fad34c185e8156d0, type: 3}
+  panel: {fileID: 5350033636506838315, guid: 1271038099e0daf469dbbc49da43c1b2, type: 3}
+  label: {fileID: 1325968791021793170, guid: 53c666d8bf8a0a84e8026ea553d7f6bc, type: 3}
+  inputField: {fileID: 3840037146171487927, guid: f34cc340e6d7dba4692058bdb9fab503, type: 3}
+  slider: {fileID: 6788330093695767941, guid: 7d4d4b56a5a0124408821bcd4efb9106, type: 3}
+  toggle: {fileID: 2831027455961620037, guid: 2a34a526a3016e64cb2f702754db7252, type: 3}
+  settingsPanel: {fileID: 6544548092087563435, guid: 06e8086c7a60f73409fd224051128b79, type: 3}
+  bodyFont: {fileID: 11400000, guid: 85ad871ba565b444cb5ac57df0ce7da8, type: 2}
+  buttonFont: {fileID: 11400000, guid: d522af450d2df40cc9af2bdfa5acf0e8, type: 2}

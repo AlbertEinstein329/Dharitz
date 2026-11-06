@@ -261,7 +261,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
             TMPro.TextMeshProUGUI drawButtonText = drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
             if (drawButtonText != null)
             {
-                drawButtonText.text = "MATCH END"; // Cambiamos el texto
+                drawButtonText.text = Loc.T("match_end"); // Cambiamos el texto
             }
         }
 
@@ -273,7 +273,7 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
         {
             drawButton.interactable = false;
             TMPro.TextMeshProUGUI drawButtonText = drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (drawButtonText != null) drawButtonText.text = "<color=#FFA500>MATCH END</color>";
+            if (drawButtonText != null) drawButtonText.text = "<color=#FFA500>" + Loc.T("match_end") + "</color>";
         }
 
         if (reDrawButton != null) reDrawButton.interactable = false;

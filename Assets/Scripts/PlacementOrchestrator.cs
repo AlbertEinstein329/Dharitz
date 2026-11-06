@@ -111,7 +111,8 @@ public class PlacementOrchestrator
         bool isLegalMove = MyGame.Core.CoreMatchProcessor.ProcessPlacementIntent(
             gm.ServerState, command, variantPattern, variantPattern,
             sc.RowCompleteBonus, sc.ColCompleteBonus, sc.IntersectionBonus,
-            sc.RowMultipliers, sc.ColMultipliers
+            sc.RowMultipliers, sc.ColMultipliers,
+            out MyGame.Core.PlacementResult placementResult
         );
 
         if (!isLegalMove)
@@ -142,7 +143,8 @@ public class PlacementOrchestrator
         UnityEngine.Vector3 posMundo = gm.gridManager.GetWorldPosition(gm.turnManager.CurrentPlayerIndex, r, c);
         PopUpManager.Instance.ShowPopUp(posMundo, $"+{puntosGanados}", UnityEngine.Color.white);
 
-        if (group.isClosed)
+        // Highlight y «Nice» solo si la FORMA coincide con el patron de la variante, no por tener todos los dados
+        if (placementResult.PatternMatched)
         {
             if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX("Nice");
             gm.gridManager.MarkGroupAsCompleted(gm.turnManager.CurrentPlayerIndex, group.occupiedCells);

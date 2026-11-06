@@ -113,3 +113,5 @@ InitTestScene*.unity*
 /graphify-out/
 /Assets/graphify-out/
 /Assets/graphify-out.meta
+# Builds locales del servidor dedicado
+/Builds/

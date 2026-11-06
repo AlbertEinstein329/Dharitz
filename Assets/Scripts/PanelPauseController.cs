@@ -32,17 +32,17 @@ namespace LapKan
             if (pauseButton != null) pauseButton.onClick.AddListener(OpenPauseMenu);
             if (resumeButton != null) resumeButton.onClick.AddListener(ClosePauseMenu);
             if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
+            // Acceso al panel de ajustes unico (idioma, volumenes) desde la pausa
+            OnlineUiKit kit = OnlineUiKit.Instance;
+            if (kit != null)
+            {
+                kit.CreateButton(transform, OnlineUiKit.ButtonStyle.Neutral, "AJUSTES", new Vector2(0.5f, 0.45f), new Vector2(420, 120), () => SettingsPanel.Open(null));
+            }
             if (backToMenuButton != null) backToMenuButton.onClick.AddListener(ReturnToMainMenu);
             if (PlayAgainButton != null) PlayAgainButton.onClick.AddListener(RestartGame);
             if (MainMenuButton != null) MainMenuButton.onClick.AddListener(ReturnToMainMenu);
 
-            // Vinculamos sonido Click genérico a los botones
-            if (pauseButton != null) pauseButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
-            if (resumeButton != null) resumeButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
-            if (restartButton != null) restartButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
-            if (backToMenuButton != null) backToMenuButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
-            if (PlayAgainButton != null) PlayAgainButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
-            if (MainMenuButton != null) MainMenuButton.onClick.AddListener(() => AudioManager.Instance.PlaySFX("Click"));
+            // El sonido «Click» de estos botones lo añade UiButtonSfx (respeta volumen y mute); no se cablea aquí.
 
             // 2. CONFIGURACIÓN REACTIVA DE TOGGLES ANTI-DESINCRONIZACIÓN
             if (AudioManager.Instance != null)

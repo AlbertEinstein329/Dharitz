@@ -2,8 +2,10 @@ using UnityEngine;
 using Unity.Services.Core;
 using Unity.Services.Authentication;
 using System.Threading.Tasks;
+#if UNITY_ANDROID
 using GooglePlayGames;
 using GooglePlayGames.BasicApi;
+#endif
 using UnityEngine.SceneManagement;
 
 public class AuthManager : MonoBehaviour
@@ -28,6 +30,9 @@ public class AuthManager : MonoBehaviour
 
     async void Start()
     {
+        // Un servidor dedicado no es un jugador: no inicia sesion ni descarga progreso de Cloud Save
+        if (MyGame.Networking.DedicatedServerLauncher.IsDedicatedServer) return;
+
         // Al arrancar el juego, intentamos iniciar sesión automáticamente
         await InitializeAndSignInAsync();
     }
@@ -97,6 +102,7 @@ public class AuthManager : MonoBehaviour
     /// </summary>
     public void VincularCuentaGooglePlay()
     {
+#if UNITY_ANDROID
         Debug.Log("Iniciando Google Play Games...");
 
         // 1. Activamos la plataforma de GPGS
@@ -132,6 +138,10 @@ public class AuthManager : MonoBehaviour
                 Debug.LogError($"Fallo al iniciar sesión en Play Games: {status}");
             }
         });
+#else
+        // Google Play Games solo existe en Android (el SDK no compila en Windows, Linux ni en el servidor dedicado)
+        Debug.LogWarning("Google Play Games solo esta disponible en Android.");
+#endif
     }
 
 

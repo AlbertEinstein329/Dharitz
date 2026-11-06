@@ -61,8 +61,8 @@ public class MoveCommand : IGridCommand
 
         if (p.activeGroups.TryGetValue(color, out GroupData group) && group != null)
         {
-            group.occupiedCells.Remove(new Vector2Int(oldC, oldR));
-            group.occupiedCells.Add(new Vector2Int(newC, newR));
+            group.occupiedCells.Remove(new Vector2Int(oldR, oldC));
+            group.occupiedCells.Add(new Vector2Int(newR, newC));
         }
 
         // 4. ANIMACIONES Y UI BASADAS EN EL VEREDICTO DEL SERVIDOR
@@ -81,6 +81,9 @@ public class MoveCommand : IGridCommand
             gm.gridManager.MarkGroupAsCompleted(playerIndex, visualCells);
             UIManager.Instance.UpdateScore(p.score);
         }
+
+        // El movimiento puede romper o formar un patron: el overlay se recalcula desde el estado
+        gm.gridManager.RecomputeCompletionOverlays(playerIndex);
     }
 
     public void Undo()
@@ -107,8 +110,8 @@ public class MoveCommand : IGridCommand
 
         if (p.activeGroups.TryGetValue(color, out GroupData group) && group != null)
         {
-            group.occupiedCells.Remove(new Vector2Int(newC, newR));
-            group.occupiedCells.Add(new Vector2Int(oldC, oldR));
+            group.occupiedCells.Remove(new Vector2Int(newR, newC));
+            group.occupiedCells.Add(new Vector2Int(oldR, oldC));
 
             if (executionResult.PatternCompleted)
             {
@@ -119,5 +122,8 @@ public class MoveCommand : IGridCommand
                 UIManager.Instance.UpdateScore(p.score);
             }
         }
+
+        // Al deshacer el movimiento la forma cambia otra vez: el overlay vuelve a salir del estado
+        gm.gridManager.RecomputeCompletionOverlays(playerIndex);
     }
 }

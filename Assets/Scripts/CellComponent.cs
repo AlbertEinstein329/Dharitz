@@ -111,6 +111,9 @@ public class CellComponent : MonoBehaviour, IPointerClickHandler
     }
 
 
+    // Estado actual del overlay de «patron completado» (lo usan las pruebas y el repintado)
+    public bool IsCompletionOverlayActive => completionSpriteOverlay != null && completionSpriteOverlay.gameObject.activeSelf;
+
     public void ToggleCompletionSprite(bool isActive)
     {
         if (completionSpriteOverlay != null)

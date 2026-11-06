@@ -4,11 +4,32 @@ using System.Linq;
 
 namespace MyGame.Core
 {
+    /// <summary>
+    /// Veredicto detallado de una colocacion. <see cref="GroupClosed"/> solo dice que el grupo ya tiene todos sus dados;
+    /// <see cref="PatternMatched"/> dice ademas que la FORMA coincide con el patron de la variante (la unica condicion
+    /// que debe disparar highlight, sonido «Nice» y bonus de patron).
+    /// </summary>
+    public struct PlacementResult
+    {
+        public bool Success;
+        public bool GroupClosed;
+        public bool PatternMatched;
+        public int PatternBonus;
+    }
+
     public static class CoreMatchProcessor
     {
         // ÚNICO PUNTO DE ENTRADA: El cliente pide colocar un dado, el servidor decide si es legal.
         public static bool ProcessPlacementIntent(MatchStateDTO state, PlaceDieCommand command, PatternDefDTO variantPattern, PatternDefDTO newPattern, int rowBonus, int colBonus, int intersectionBonus, float[] rowMults, float[] colMults)
         {
+            return ProcessPlacementIntent(state, command, variantPattern, newPattern, rowBonus, colBonus, intersectionBonus, rowMults, colMults, out _);
+        }
+
+        // Igual que la anterior pero devuelve ademas si el grupo se cerro y si su forma coincide con el patron.
+        public static bool ProcessPlacementIntent(MatchStateDTO state, PlaceDieCommand command, PatternDefDTO variantPattern, PatternDefDTO newPattern, int rowBonus, int colBonus, int intersectionBonus, float[] rowMults, float[] colMults, out PlacementResult result)
+        {
+            result = default;
+
             // 1. Verificaciones de Autoridad (Anti-Cheat)
             if (state.CurrentPhase != MatchPhase.PlayerTurn) return false;
             if (state.CurrentPlayerIndex != command.PlayerId) return false;
@@ -18,6 +39,10 @@ namespace MyGame.Core
 
             BoardStateDTO board = state.PlayerBoards[command.PlayerId];
             PlayerDataDTO player = state.PlayerProfiles[command.PlayerId];
+
+            // Limites por fila y columna: sin esto una columna fuera de rango (o negativa) cae en otra fila del array 1D
+            if (command.TargetCell.X < 0 || command.TargetCell.X >= board.Rows ||
+                command.TargetCell.Y < 0 || command.TargetCell.Y >= board.Cols) return false;
 
             int targetIndex = board.GetIndex(command.TargetCell.X, command.TargetCell.Y);
             if (targetIndex < 0 || targetIndex >= board.Cells.Length) return false; // Fuera de límites
@@ -71,6 +96,8 @@ namespace MyGame.Core
 
             // 6. Validación de Cierre de Patrón
             GroupDataDTO currentGroup = player.ActiveGroups[command.Color];
+            result.Success = true;
+            result.GroupClosed = currentGroup.IsClosed;
             if (currentGroup.IsClosed)
             {
                 PatternDefDTO targetPatternData = variantPattern ?? newPattern;
@@ -85,6 +112,10 @@ namespace MyGame.Core
 
                     int patternBonus = CalculatePatternBonus(command.Number);
                     player.Score += patternBonus;
+
+                    // Solo cuando la forma coincide con el patron hay highlight / sonido / bonus
+                    result.PatternMatched = true;
+                    result.PatternBonus = patternBonus;
                 }
             }
 

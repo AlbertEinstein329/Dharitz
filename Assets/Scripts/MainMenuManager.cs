@@ -30,7 +30,6 @@ public class MainMenuManager : MonoBehaviour
     [Header("Componentes Ajustes Persistentes")]
     [SerializeField] private Slider bgmSlider;
     [SerializeField] private Slider sfxSlider;
-    [SerializeField] private Toggle leftHandedToggle;
     [SerializeField] private TMP_Dropdown languageDropdown;
 
     private List<GameObject> activeVisualRows = new List<GameObject>();
@@ -56,8 +55,13 @@ public class MainMenuManager : MonoBehaviour
         // Listeners limpios de Ajustes por código
         if (bgmSlider != null) bgmSlider.onValueChanged.AddListener(SetBGMVolume);
         if (sfxSlider != null) sfxSlider.onValueChanged.AddListener(SetSFXVolume);
-        if (leftHandedToggle != null) leftHandedToggle.onValueChanged.AddListener(SetLeftHandedMode);
-        if (languageDropdown != null) languageDropdown.onValueChanged.AddListener(SetLanguage);
+        if (languageDropdown != null)
+        {
+            // Mismo orden que Loc.Codes (0 = es, 1 = en); el desplegable antiguo traia English/Espanol/Portugues
+            languageDropdown.ClearOptions();
+            languageDropdown.AddOptions(new System.Collections.Generic.List<string> { "Español", "English" });
+            languageDropdown.onValueChanged.AddListener(SetLanguage);
+        }
 
         // Listener del botón dinámico (+)
         if (addPlayerButton != null) addPlayerButton.OnClick.AddListener(AddPlayerDynamic);
@@ -70,6 +74,7 @@ public class MainMenuManager : MonoBehaviour
     // ==========================================
     public void ShowMainPanel()
     {
+        SettingsService.Save(); // al volver desde ajustes se guardan en disco
         mainPanel.SetActive(true);
         freePlayPanel.SetActive(false);
         settingsPanel.SetActive(false);
@@ -78,6 +83,9 @@ public class MainMenuManager : MonoBehaviour
 
     public void ShowSettingsPanel()
     {
+        // Panel de ajustes unico (kit de UI); el panel antiguo de la escena queda como respaldo si falta el kit
+        if (SettingsPanel.Open(null) != null) return;
+
         mainPanel.SetActive(false);
         freePlayPanel.SetActive(false);
         settingsPanel.SetActive(true);
@@ -396,17 +404,16 @@ public class MainMenuManager : MonoBehaviour
     // ==========================================
     // --- MODULO SETTINGS (PERSISTENCIA) ---
     // ==========================================
-    private void SetBGMVolume(float value) { PlayerPrefs.SetFloat("Volume_BGM", value); }
-    private void SetSFXVolume(float value) { PlayerPrefs.SetFloat("Volume_SFX", value); }
-    private void SetLeftHandedMode(bool isOn) { PlayerPrefs.SetInt("Setting_LeftHanded", isOn ? 1 : 0); }
-    private void SetLanguage(int index) { PlayerPrefs.SetInt("Setting_Language", index); }
+    // Todo pasa por SettingsService: AudioManager aplica volumen/mute al instante y la pausa ve el mismo estado
+    private void SetBGMVolume(float value) { SettingsService.SetMusicVolume(value); }
+    private void SetSFXVolume(float value) { SettingsService.SetSfxVolume(value); }
+    private void SetLanguage(int index) { SettingsService.SetLanguageIndex(index); }
 
     private void LoadSettings()
     {
-        if (bgmSlider != null) bgmSlider.value = PlayerPrefs.GetFloat("Volume_BGM", 0.75f);
-        if (sfxSlider != null) sfxSlider.value = PlayerPrefs.GetFloat("Volume_SFX", 0.80f);
-        if (leftHandedToggle != null) leftHandedToggle.isOn = PlayerPrefs.GetInt("Setting_LeftHanded", 0) == 1;
-        if (languageDropdown != null) languageDropdown.value = PlayerPrefs.GetInt("Setting_Language", 0);
+        if (bgmSlider != null) bgmSlider.SetValueWithoutNotify(SettingsService.MusicVolume);
+        if (sfxSlider != null) sfxSlider.SetValueWithoutNotify(SettingsService.SfxVolume);
+        if (languageDropdown != null) languageDropdown.SetValueWithoutNotify(SettingsService.LanguageIndex);
     }
 
     public void StartFreePlay()

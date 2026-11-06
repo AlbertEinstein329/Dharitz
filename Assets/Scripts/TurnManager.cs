@@ -96,7 +96,7 @@ public class TurnManager
             {
                 gm.drawButton.interactable = false;
                 TMPro.TextMeshProUGUI drawButtonText = gm.drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-                if (drawButtonText != null) drawButtonText.text = "Match End";
+                if (drawButtonText != null) drawButtonText.text = Loc.T("match_end");
             }
         }
         else
@@ -106,7 +106,7 @@ public class TurnManager
             {
                 gm.drawButton.interactable = true;
                 TMPro.TextMeshProUGUI drawButtonText = gm.drawButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-                if (drawButtonText != null) drawButtonText.text = "EXTRACT DICE";
+                if (drawButtonText != null) drawButtonText.text = Loc.T("extract_dice");
             }
         }
 

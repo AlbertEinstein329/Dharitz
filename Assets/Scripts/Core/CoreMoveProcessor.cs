@@ -32,8 +32,9 @@ namespace MyGame.Core
             int targetIndex = board.GetIndex(targetY, targetX);
 
             var movingDie = board.Cells[originIndex];
-            var originPos = new GridPos(originX, originY);
-            var targetPos = new GridPos(targetX, targetY);
+            // OccupiedCells se guarda como (fila, columna), igual que en CoreMatchProcessor
+            var originPos = new GridPos(originY, originX);
+            var targetPos = new GridPos(targetY, targetX);
 
             // 2. Mutación del Estado Puro (Zero MonoBehaviour Dependency)
             board.Cells[originIndex] = new CellStateDTO { IsOccupied = false };
@@ -47,7 +48,15 @@ namespace MyGame.Core
                 group.OccupiedCells.Remove(originPos);
                 group.OccupiedCells.Add(targetPos);
 
-                if (group.OccupiedCells.Count == group.TargetSize)
+                // Solo cuenta (puntos, highlight, contador) si el grupo esta lleno Y su forma coincide con el patron de la
+                // variante. Antes bastaba con tener los dados, asi que mover dentro de un grupo completo repetia el +100.
+                bool shapeMatches = false;
+                if (group.OccupiedCells.Count == group.TargetSize && variantPattern != null)
+                {
+                    shapeMatches = CorePatternValidator.CheckPattern(new System.Collections.Generic.List<GridPos>(group.OccupiedCells), variantPattern);
+                }
+
+                if (shapeMatches)
                 {
                     // La topología ya fue garantizada por el CoreMoveValidator
                     result.PatternCompleted = true;
@@ -81,8 +90,8 @@ namespace MyGame.Core
 
             // El dado actualmente reside en el targetIndex
             var movingDie = board.Cells[targetIndex];
-            var originPos = new GridPos(originX, originY);
-            var targetPos = new GridPos(targetX, targetY);
+            var originPos = new GridPos(originY, originX);
+            var targetPos = new GridPos(targetY, targetX);
 
             // 2. MUTACIÓN INVERSA DEL ESTADO PURO
             board.Cells[originIndex] = movingDie;

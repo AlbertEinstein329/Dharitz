@@ -11,7 +11,10 @@ namespace MyGame.Networking
         MatchStarted,
         Drew,
         Placed,
-        TurnForced
+        TurnForced,
+        Moved,
+        Undone,
+        TurnConfirmed
     }
 
     /// <summary>
@@ -25,6 +28,7 @@ namespace MyGame.Networking
         public int Col;
         public int ScoreDelta;
         public bool ClosedGroup;
+        public bool PatternCompleted; // la forma coincide con el patron de la variante: unica condicion para el highlight
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -34,6 +38,7 @@ namespace MyGame.Networking
             serializer.SerializeValue(ref Col);
             serializer.SerializeValue(ref ScoreDelta);
             serializer.SerializeValue(ref ClosedGroup);
+            serializer.SerializeValue(ref PatternCompleted);
         }
     }
 
@@ -65,6 +70,7 @@ namespace MyGame.Networking
         public int[] PatternCounts;
         public NetworkBoardState Board;
         public NetworkGroupSnapshot[] Groups;
+        public short[] MatchedCells; // celdas (fila * columnas + columna) de patrones completados, segun el servidor
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -78,6 +84,7 @@ namespace MyGame.Networking
             serializer.SerializeValue(ref IsEliminated);
             NetworkMatchSnapshot.SerializeArray(serializer, ref PatternCounts);
             Board.NetworkSerialize(serializer);
+            NetworkMatchSnapshot.SerializeArray(serializer, ref MatchedCells);
 
             int groupCount = serializer.IsWriter ? (Groups?.Length ?? 0) : 0;
             serializer.SerializeValue(ref groupCount);
@@ -104,6 +111,10 @@ namespace MyGame.Networking
         public NetworkPlayerSnapshot[] Players;
         public NetworkActionSnapshot LastAction;
 
+        // Fase de confirmar: el dado ya se coloco pero el turno sigue abierto (Undo/Move/Confirmar)
+        public bool TurnPlaced;
+        public byte CheckpointCount; // acciones reversibles del turno actual
+
         public int BagTotal
         {
             get
@@ -114,7 +125,7 @@ namespace MyGame.Networking
             }
         }
 
-        public static NetworkMatchSnapshot FromState(MatchStateDTO state, ulong[] slotClientIds, NetworkActionSnapshot lastAction)
+        public static NetworkMatchSnapshot FromState(MatchStateDTO state, ulong[] slotClientIds, NetworkActionSnapshot lastAction, bool turnPlaced = false, int checkpointCount = 0)
         {
             var snap = new NetworkMatchSnapshot
             {
@@ -127,7 +138,9 @@ namespace MyGame.Networking
                 BagCountsByColor = new int[4],
                 SlotClientIds = slotClientIds,
                 Players = new NetworkPlayerSnapshot[state.PlayerProfiles.Count],
-                LastAction = lastAction
+                LastAction = lastAction,
+                TurnPlaced = turnPlaced,
+                CheckpointCount = (byte)checkpointCount
             };
 
             if (state.DiceBag != null)
@@ -170,11 +183,19 @@ namespace MyGame.Networking
                     IsEliminated = profile.IsEliminated,
                     PatternCounts = (int[])profile.PatternCounts.Clone(),
                     Board = new NetworkBoardState(i, board),
-                    Groups = groups.ToArray()
+                    Groups = groups.ToArray(),
+                    MatchedCells = ToShortArray(CoreCompletion.FindMatchedCells(board, state.VariantConfig))
                 };
             }
 
             return snap;
+        }
+
+        private static short[] ToShortArray(List<int> indices)
+        {
+            var result = new short[indices.Count];
+            for (int i = 0; i < result.Length; i++) result[i] = (short)indices[i];
+            return result;
         }
 
         /// <summary>
@@ -246,6 +267,8 @@ namespace MyGame.Networking
             for (int i = 0; i < playerCount; i++) Players[i].NetworkSerialize(serializer);
 
             LastAction.NetworkSerialize(serializer);
+            serializer.SerializeValue(ref TurnPlaced);
+            serializer.SerializeValue(ref CheckpointCount);
         }
 
         // Arrays con prefijo de longitud; un array nulo viaja como vacío

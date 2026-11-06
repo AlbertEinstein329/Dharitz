@@ -22,6 +22,16 @@ public class GridInteractionManager : MonoBehaviour
     private Vector2Int currentSelectedDieCoordinate = new Vector2Int(-1, -1);
     public bool IsMoveModeActive => currentState != InteractionState.Normal;
 
+    // Online, el servidor lleva la cuenta de usos de Move y la presentacion nos dice si el boton esta disponible
+    private bool onlineMoveAvailable;
+
+    public void SetOnlineMoveAvailable(bool available)
+    {
+        onlineMoveAvailable = available;
+        if (moveActionButton != null) moveActionButton.SetInteractable(available);
+        if (!available) ResetMoveMode();
+    }
+
     [Header("Gestión de Comodines Multijugador")]
     [SerializeField] private int maxMoveUses = 1;
 
@@ -58,10 +68,21 @@ public class GridInteractionManager : MonoBehaviour
 
     public void ToggleMoveMode(bool isActive)
     {
-        // Online, Move todavia no pasa por el servidor: se deshabilita para no desincronizar
-        if (isActive && GameManager.Instance != null && GameManager.Instance.IsOnlineMatch) return;
+        bool online = GameManager.Instance != null && GameManager.Instance.IsOnlineMatch;
 
-        if (isActive)
+        // Online, el boton Move solo vale si el servidor dice que queda un uso en el turno propio
+        if (isActive && online && !onlineMoveAvailable)
+        {
+            ResetMoveMode();
+            return;
+        }
+
+        if (isActive && online)
+        {
+            currentState = InteractionState.MoveMode_WaitingForDie;
+            ClearSelection();
+        }
+        else if (isActive)
         {
             int pIndex = GameManager.Instance.turnManager.CurrentPlayerIndex;
             if (!playerMoveUses.ContainsKey(pIndex)) playerMoveUses[pIndex] = 0;
@@ -228,6 +249,15 @@ public class GridInteractionManager : MonoBehaviour
             int oldC = currentSelectedDieCoordinate.x;
             int newR = targetCoordinate.y;
             int newC = targetCoordinate.x;
+
+            // Online: la validacion visual de arriba es solo UX; el servidor decide y responde con un snapshot
+            if (gm.IsOnlineMatch)
+            {
+                if (MyGame.Networking.NetworkGameManager.Instance != null)
+                    MyGame.Networking.NetworkGameManager.Instance.RequestMoveServerRpc(oldR, oldC, newR, newC);
+                ResetMoveMode();
+                return;
+            }
 
             IGridCommand moveCommand = new MoveCommand(gm, pIndex, oldR, oldC, newR, newC);
             commandManager.ExecuteCommand(moveCommand);
