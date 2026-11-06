@@ -14,7 +14,7 @@ public class UndoCommand : IGridCommand
         this.dtoCommand = new UndoDieCommand
         {
             PlayerId = playerIndex,
-            TargetCell = new GridPos(c, r), // Manteniendo tu mapeo visual X=c, Y=r
+            TargetCell = new GridPos(r, c), // Mismo convenio que la colocacion y el nucleo: X=fila, Y=columna
             Color = (MyGame.Core.DieColor)(int)color,
             GroupId = groupId,
             Number = targetSize
@@ -26,11 +26,11 @@ public class UndoCommand : IGridCommand
         // El orquestador ya aplicó la jugada visualmente. El comando solo se encola.
     }
 
-    public void Undo()
+    public bool Undo()
     {
         // 1. ENVIAR INTENCIÓN A LA AUTORIDAD (Usando el estado real del servidor persistente)
-        float[] rowMults = { 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 4.0f };
-        float[] colMults = { 1.0f, 2.0f, 3.0f, 3.5f, 5.0f, 6.0f };
+        float[] rowMults = ScoreManager.RowMultipliers;
+        float[] colMults = ScoreManager.ColMultipliers;
 
         // FIREWALL: El cliente no crea estados, usa la verdad absoluta (gm.ServerState)
         bool isLegalUndo = CoreUndoProcessor.ProcessUndoIntent(
@@ -47,7 +47,7 @@ public class UndoCommand : IGridCommand
         if (!isLegalUndo)
         {
             Debug.LogError("[Security] CoreUndoProcessor rechazó la reversión. Desincronización detectada.");
-            return;
+            return false;
         }
 
         // 2. SINCRONIZACIÓN VISUAL ESTRICTA (El servidor aceptó y ya mutó el gm.ServerState)
@@ -57,6 +57,8 @@ public class UndoCommand : IGridCommand
         p.score = updatedProfile.Score;
         p.placedDice = updatedProfile.PlacedDice;
         p.accumulatedStructurePoints = updatedProfile.AccumulatedStructurePoints;
+        p.accumulatedOnesPenalty = updatedProfile.AccumulatedOnesPenalty;
+        System.Array.Copy(updatedProfile.PatternCounts, p.patternCounts, p.patternCounts.Length);
         p.currentUndoUses = updatedProfile.CurrentUndoUses;
 
         DieColor visualColor = (DieColor)(int)dtoCommand.Color;
@@ -68,7 +70,7 @@ public class UndoCommand : IGridCommand
         }
 
         // Mapeo inverso a la matriz visual (Y = row, X = col)
-        gm.gridManager.RemoveDie(dtoCommand.PlayerId, dtoCommand.TargetCell.Y, dtoCommand.TargetCell.X);
+        gm.gridManager.RemoveDie(dtoCommand.PlayerId, dtoCommand.TargetCell.X, dtoCommand.TargetCell.Y);
 
         // Si el dado retirado completaba un patron, su resaltado debe desaparecer
         gm.gridManager.RecomputeCompletionOverlays(dtoCommand.PlayerId);
@@ -83,6 +85,10 @@ public class UndoCommand : IGridCommand
 
         UIManager.Instance.RestoreDieToHand(visualColor, dtoCommand.Number);
         gm.turnManager.CurrentDrawnColor = visualColor;
+        gm.turnManager.CurrentDrawnValue = dtoCommand.Number;
+        // El nucleo tambien debe saber que el dado esta en la mano (Re-draw y colocar lo leen de aqui)
+        gm.ServerState.CurrentDrawnColor = dtoCommand.Color;
+        gm.ServerState.CurrentDrawnValue = dtoCommand.Number;
         gm.turnManager.HasDrawn = true;
 
         if (UIManager.Instance != null)
@@ -94,5 +100,12 @@ public class UndoCommand : IGridCommand
         {
             AudioManager.Instance.PlaySFX("Undo");
         }
+
+        // La mano vuelve a tener dado: iluminar casillas, apagar Extraer y reactivar Re-draw
+        gm.placementOrchestrator.RefreshPlacementHighlights();
+        if (gm.drawButton != null) gm.drawButton.interactable = false;
+        if (gm.reDrawButton != null) gm.reDrawButton.interactable = p.reDraws > 0;
+        if (gm.reDrawText != null) gm.reDrawText.text = $"{p.reDraws}";
+        return true;
     }
 }

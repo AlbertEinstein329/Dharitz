@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using TMPro;
 using DG.Tweening;
+using UnityEngine.UI;
 
 public class PopUpManager : MonoBehaviour
 {
@@ -29,8 +30,17 @@ public class PopUpManager : MonoBehaviour
         // ==========================================
         if (GameManager.Instance != null && GameManager.Instance.isTrainingMode) return;
 
-        if (popUpPrefab == null || canvasParaPopUps == null) return;
+        if (popUpPrefab == null) return;
         if (mainCam == null) mainCam = Camera.main;
+
+        // Camino normal: el canvas unico de la escena (capa Toasts); el canvas world-space antiguo ya no existe
+        if (UiRoot.Instance != null)
+        {
+            ShowOnToasts(worldPosition, mensaje, colorTexto);
+            return;
+        }
+
+        if (canvasParaPopUps == null) return;
 
         // 1. Posición cruda inicial
         Vector3 rawSpawnPos = worldPosition + new Vector3(0, 0.5f, -1f);
@@ -67,6 +77,50 @@ public class PopUpManager : MonoBehaviour
             {
                 if (popUp != null) Destroy(popUp);
             });
+    }
+
+    // Texto flotante en el canvas unico: la posicion del mundo se convierte a coordenadas del canvas
+    private void ShowOnToasts(Vector3 worldPosition, string mensaje, Color colorTexto)
+    {
+        RectTransform toasts = UiRoot.Instance.Toasts;
+        Vector3 spawnWorld = worldPosition + new Vector3(0f, 0.5f, 0f);
+
+        Vector2 spawnLocal = WorldToToastLocal(toasts, spawnWorld);
+        float riseLocal = WorldToToastLocal(toasts, spawnWorld + Vector3.up).y - spawnLocal.y; // 1 unidad de mundo hacia arriba
+
+        GameObject popUp = Instantiate(popUpPrefab, toasts, false);
+        var rect = (RectTransform)popUp.transform;
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.localScale = Vector3.one;
+
+        foreach (Graphic graphic in popUp.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
+
+        TextMeshProUGUI textoUI = popUp.GetComponentInChildren<TextMeshProUGUI>();
+        if (textoUI != null)
+        {
+            textoUI.text = mensaje;
+            textoUI.color = colorTexto;
+            textoUI.ForceMeshUpdate();
+        }
+
+        // Que el texto no se salga por los lados (margen en pixeles de pantalla convertido a unidades del canvas)
+        float pixelsToCanvas = toasts.rect.width / Mathf.Max(1f, Screen.width);
+        float halfWidth = rect.rect.width * rect.localScale.x * 0.5f;
+        float limit = toasts.rect.width * 0.5f - paddingInPixels * pixelsToCanvas - halfWidth;
+        spawnLocal.x = Mathf.Clamp(spawnLocal.x, -limit, limit);
+
+        rect.anchoredPosition = spawnLocal;
+        rect.DOAnchorPosY(spawnLocal.y + riseLocal, 1.5f)
+            .SetEase(Ease.OutCubic)
+            .SetLink(popUp)
+            .OnComplete(() => { if (popUp != null) Destroy(popUp); });
+    }
+
+    private Vector2 WorldToToastLocal(RectTransform toasts, Vector3 world)
+    {
+        Vector2 screen = mainCam.WorldToScreenPoint(world);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(toasts, screen, null, out Vector2 local); // canvas Overlay: sin camara
+        return local;
     }
 
     /// <summary>

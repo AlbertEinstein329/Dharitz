@@ -12,6 +12,11 @@ public class VariantData : ScriptableObject
     [Header("Patterns for this Variant")]
     public List<PatternData> patterns = new List<PatternData>();
 
+    [Header("Bot (partida local)")]
+    [Tooltip("Dificultad del bot en esta variante: Easy (forma patrones), Normal (patrones y sin huecos), Hard (patrones, lineas y sin huecos)")]
+    [UnityEngine.Serialization.FormerlySerializedAs("botLevel")]
+    public BotDifficulty botDifficulty = BotDifficulty.Easy;
+
     [Header("UI")]
     public Sprite iconSprite;
     public Color highlightColor = Color.white;

@@ -2,7 +2,7 @@ key,es,en,aliases
 # Comunes
 back,VOLVER,BACK,VOLVER|Back
 leave,SALIR,LEAVE,SALIR
-online,ONLINE,ONLINE,ONLINE
+online,ONLINE,ONLINE,ONLINE|Online (WIP)
 start,JUGAR,START,Start
 settings,AJUSTES,SETTINGS,AJUSTES|Settings
 options,OPCIONES,OPTIONS,Opcions|Options
@@ -15,7 +15,6 @@ profile,PERFIL Y CUENTA,PROFILE AND ACCOUNT,PROFILE AND ACCOUNT
 language,Idioma,Language,Lenguage
 vibrations,Vibraciones,Vibrations,Vibrations
 classic_mode,Modo clásico,Classic mode,Classic Mode
-online_wip,Online (en desarrollo),Online (WIP),Online (WIP)
 main_menu,MENÚ PRINCIPAL,MAIN MENU,Main Menu|MAIN MENU
 restart,REINICIAR,RESTART,RESTART
 play_again,JUGAR DE NUEVO,PLAY AGAIN,Play Again
@@ -27,20 +26,20 @@ extract_dice,EXTRAER DADO,EXTRACT DICE,
 online_title,JUGAR ONLINE,PLAY ONLINE,JUGAR ONLINE
 quick2,PARTIDA RÁPIDA 2 JUGADORES,QUICK MATCH 2 PLAYERS,PARTIDA RÁPIDA 2 JUGADORES
 quick4,PARTIDA RÁPIDA 4 JUGADORES,QUICK MATCH 4 PLAYERS,PARTIDA RÁPIDA 4 JUGADORES
-lan_label,Red local (sin matchmaking),Local network (no matchmaking),Red local (sin matchmaking)
+lan_label,Sala privada con código,Private room with a code,Sala privada con código
 create2,CREAR SALA 2J,CREATE ROOM 2P,CREAR SALA 2J
 create4,CREAR SALA 4J,CREATE ROOM 4P,CREAR SALA 4J
-ip_placeholder,IP del anfitrión,Host IP,IP del anfitrión
-join_ip,UNIRSE POR IP,JOIN BY IP,UNIRSE POR IP
-menu_status_hint,"Partida rápida: te une a una sala libre o crea una nueva y espera rivales.","Quick match: joins a free room or creates a new one and waits for opponents.","Partida rápida: te une a una sala libre o crea una nueva y espera rivales."
-menu_creating_room,"Creando sala de {0} jugadores...\nIP para unirse: {1}","Creating a {0}-player room...\nIP to join: {1}",
+ip_placeholder,Código de sala (ej. K6M8FG-2),Room code (e.g. K6M8FG-2),Código de sala (ej. K6M8FG-2)
+join_ip,UNIRSE CON CÓDIGO,JOIN WITH CODE,UNIRSE CON CÓDIGO
+menu_status_hint,Partida rápida: te une a una sala libre o crea una nueva y espera rivales.,Quick match: joins a free room or creates a new one and waits for opponents.,Partida rápida: te une a una sala libre o crea una nueva y espera rivales.
+menu_creating_room,Creando sala de {0} jugadores...,Creating a {0}-player room...,
 menu_searching,Buscando partida de {0} jugadores...,Searching for a {0}-player match...,
-menu_connecting,Conectando a {0}...,Connecting to {0}...,
+menu_connecting,Entrando en la sala {0}...,Joining room {0}...,
 menu_missing_config,Falta asignar SessionConfig en OnlineMenuController.,SessionConfig is not assigned in OnlineMenuController.,
 # HUD online
 confirm_turn,CONFIRMAR TURNO,CONFIRM TURN,CONFIRMAR TURNO
 reconnect,RECONECTAR,RECONNECT,RECONECTAR
-hud_no_connection,"Sin conexión.\nInicia Host / Client desde el panel de pruebas.","No connection.\nStart Host / Client from the test panel.",
+hud_no_connection,Sin conexión.\nInicia Host / Client desde el panel de pruebas.,No connection.\nStart Host / Client from the test panel.,
 hud_waiting_players,Esperando jugadores ({0}/{1})...,Waiting for players ({0}/{1})...,
 hud_connected_waiting,Conectado. Esperando al inicio de la partida...,Connected. Waiting for the match to start...,
 hud_match_over,Partida terminada,Match over,
@@ -64,3 +63,35 @@ mm_reconnected,Reconectado.,Reconnected.,
 mm_reconnect_failed,No se pudo reconectar a la partida.,Could not reconnect to the match.,
 mm_room_created,Sala creada. Esperando rivales (1/{0})...,Room created. Waiting for opponents (1/{0})...,
 mm_match_found,Partida encontrada. Conectando...,Match found. Connecting...,
+# Login
+login_google,ENTRAR CON GOOGLE PLAY,SIGN IN WITH GOOGLE PLAY,
+login_dev,ENTRAR (DESARROLLO),SIGN IN (DEV),
+login_retry,REINTENTAR,RETRY,
+login_connecting,Conectando...,Connecting...,
+login_entering,Entrando...,Signing in...,
+login_google_working,Abriendo Google Play Games...,Opening Google Play Games...,
+login_error_offline,No hay conexión a internet.\nComprueba tu red e inténtalo de nuevo.,No internet connection.\nCheck your network and try again.,
+login_error_generic,No se pudo iniciar sesión.\nInténtalo de nuevo.,Could not sign in.\nPlease try again.,
+login_version,Versión {0},Version {0},
+back_again_to_exit,Pulsa otra vez para salir,Press again to exit,
+# Revancha y sala por IP
+rematch_votes,JUGAR DE NUEVO ({0}/{1}),PLAY AGAIN ({0}/{1}),
+rematch_waiting,ESPERANDO AL RIVAL ({0}/{1}),WAITING FOR OPPONENT ({0}/{1}),
+hud_share_ip,Pasa este código a tu rival:,Share this code with your opponent:,
+hud_ip_copied,Código copiado al portapapeles,Code copied to clipboard,
+copy_ip,COPIAR CÓDIGO,COPY CODE,
+mm_creating_room_code,Creando sala privada...,Creating a private room...,
+mm_joining_code,Entrando en la sala...,Joining the room...,
+mm_code_invalid,Código no válido. Ejemplo: K6M8FG-2,Invalid code. Example: K6M8FG-2,
+mm_code_not_found,No existe ninguna sala con ese código.,No room exists with that code.,
+mm_room_full,La sala ya está llena.,The room is already full.,
+mm_join_failed,No se pudo entrar en la sala. Inténtalo de nuevo.,Could not join the room. Please try again.,
+mm_join_timeout,Tiempo de espera agotado. Revisa tu conexión.,Timed out. Check your connection.,
+mm_create_failed,No se pudo crear la sala. Revisa tu conexión.,Could not create the room. Check your connection.,
+# Popups de partida
+popup_unplayable,DADO INJUGABLE,UNPLAYABLE DIE,
+popup_use_redraw,¡Usa un Re-Draw!,Use a Re-Draw!,
+popup_dead_board,TABLERO MUERTO,DEAD BOARD,
+popup_player_eliminated,¡JUGADOR ELIMINADO!,PLAYER ELIMINATED!,
+popup_invalid_move,Movimiento no válido,Invalid move,
+popup_perfect,¡PERFECTO! +{0},PERFECT! +{0},

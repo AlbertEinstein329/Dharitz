@@ -27,6 +27,9 @@ namespace MyGame.Core
             PlayerDataDTO player = state.PlayerProfiles[command.PlayerId];
             DieColor color = state.CurrentDrawnColor.Value;
 
+            // Los grupos que ya no se pueden completar se abandonan antes de asignar el del dado robado
+            CoreTopologyCalculator.AbandonDoomedGroups(state, command.PlayerId);
+
             // 2. Lógica de asignación de Grupos y Valores
             if (!player.ActiveGroups.ContainsKey(color))
             {

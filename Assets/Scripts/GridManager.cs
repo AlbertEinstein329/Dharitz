@@ -21,13 +21,6 @@ public class GridManager : MonoBehaviour, IGridValidator
     public int cols = 10;
     public float cellSize = 1.1f;
 
-    [Header("Dynamic Grid Settings")]
-    public float screenPadding = 0.5f; // Padding en unidades del mundo
-    public float bottomUIOffset = 1.5f; // Espacio que reservamos abajo para los botones
-
-    [Header("Responsive Grid Positioning")]
-    [SerializeField] private float bottomVerticalOffset = 1.5f;
-
     [Header("Prefabs y Referencias")]
     public GameObject cellPrefab;
     public GameObject redPrefab, bluePrefab, whitePrefab, blackPrefab;
@@ -58,6 +51,10 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     public float dragScaleMultiplier = 1.15f;
     //private bool isDraggingDie = false;
+
+    // BoardLogic se buscaba en cada colocacion o resaltado: se encuentra una vez
+    private BoardLogic cachedBoardLogic;
+    private BoardLogic BoardLogicRef => cachedBoardLogic != null ? cachedBoardLogic : (cachedBoardLogic = FindFirstObjectByType<BoardLogic>());
 
     private float startX;
     private float startY;
@@ -105,35 +102,12 @@ public class GridManager : MonoBehaviour, IGridValidator
 
     private void CalculateDynamicGridSize()
     {
-        // =========================================================
-        // 🛡️ ESCUDO ML-AGENTS: Tablero Estático y Centrado
-        // =========================================================
-        if (GameManager.Instance != null && GameManager.Instance.isTrainingMode)
-        {
-            cellSize = 1.1f; // Forzamos el valor exacto del Grid Sensor
-
-            // Centramos el tablero matemáticamente en el origen (0,0)
-            // Esto garantiza que encaje pixel por pixel con el Grid Sensor.
-            startX = -((cols - 1) * cellSize) / 2f;
-            startY = -((rows - 1) * cellSize) / 2f;
-            return;
-        }
-
-        Camera mainCamera = Camera.main;
-        if (mainCamera == null)
-        {
-            Debug.LogError("Main Camera not found! Cannot calculate dynamic grid size.");
-            return;
-        }
-
-        float screenHeight = mainCamera.orthographicSize * 2f;
-        float screenWidth = screenHeight * mainCamera.aspect;
-
-        float availableWidth = screenWidth - (screenPadding * 2f);
-        cellSize = availableWidth / cols;
-
-        startX = (-screenWidth / 2f) + screenPadding + (cellSize / 2f);
-        startY = -mainCamera.orthographicSize + bottomVerticalOffset + (cellSize / 2f);
+        // La geometria del tablero es fija (celdas de 1,1 centradas en el origen): asi coincide pixel a pixel con el Grid
+        // Sensor de la IA y no cambia entre entrenar y jugar. Lo que se adapta a cada pantalla es la camara
+        // (BoardCameraFitter), que encuadra el tablero entre el HUD superior y el inferior.
+        cellSize = 1.1f;
+        startX = -((cols - 1) * cellSize) / 2f;
+        startY = -((rows - 1) * cellSize) / 2f;
     }
 
     void GenerateGridForPlayer(int playerIndex)
@@ -243,7 +217,7 @@ public void NextBoard()
         if (!PlacementValidator.CanBotPlaceHere(allBoardsLogic[pIndex], rows, cols, r, c, color, groupId, number, GameManager.Instance.players[pIndex], GameManager.Instance.currentVariant))
             return false;
 
-        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        BoardLogic boardLogic = BoardLogicRef;
         if (boardLogic != null)
         {
             boardLogic.occupiedCells.Add(new Vector2Int(c, r));
@@ -403,7 +377,7 @@ public void NextBoard()
         InstantiateDieVisual(pIndex, r, c, color, number);
 
 
-        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        BoardLogic boardLogic = BoardLogicRef;
         if (boardLogic != null)
         {
             boardLogic.occupiedCells.Add(new Vector2Int(c, r));
@@ -428,7 +402,7 @@ public void NextBoard()
         // 1. Limpieza lógica
         allBoardsLogic[pIndex][r, c] = null;
 
-        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        BoardLogic boardLogic = BoardLogicRef;
         if (boardLogic != null)
         {
             boardLogic.occupiedCells.Remove(new Vector2Int(c, r));
@@ -782,7 +756,7 @@ public void NextBoard()
     public void ResetGrid()
     {
         // 1. Limpiar el historial lógico global para evitar "fantasmas"
-        BoardLogic boardLogic = FindFirstObjectByType<BoardLogic>();
+        BoardLogic boardLogic = BoardLogicRef;
         if (boardLogic != null)
         {
             boardLogic.occupiedCells.Clear();

@@ -112,14 +112,14 @@ namespace MyGame.Core
             return row >= 0 && row < board.Rows && col >= 0 && col < board.Cols;
         }
 
-        private static BoardStateDTO CloneBoard(BoardStateDTO source)
+        public static BoardStateDTO CloneBoard(BoardStateDTO source)
         {
             var clone = new BoardStateDTO(source.Rows, source.Cols);
             System.Array.Copy(source.Cells, clone.Cells, source.Cells.Length);
             return clone;
         }
 
-        private static PlayerDataDTO CloneProfile(PlayerDataDTO source)
+        public static PlayerDataDTO CloneProfile(PlayerDataDTO source)
         {
             var clone = new PlayerDataDTO(source.Id, source.Name)
             {

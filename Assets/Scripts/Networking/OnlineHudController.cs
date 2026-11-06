@@ -27,6 +27,11 @@ namespace MyGame.Networking
         private TextMeshProUGUI timerLabel;
         private TextMeshProUGUI bannerLabel;
         private GameObject reconnectButton;
+        private GameObject copyIpButton;
+
+        private const float TextRefreshInterval = 0.25f;
+        private float nextTextRefresh;
+        private int lastTimerSeconds = -1;
         private GameObject confirmButton;
         private Animate_Shake_Free bannerShake;
         private float bannerHideTime;
@@ -65,14 +70,21 @@ namespace MyGame.Networking
             bool started = connected && game != null && (game.LocalPlayerIndex >= 0 || game.IsMatchStarted);
             if (started) matchEverStarted = true;
 
+            // Los textos se recalculan 4 veces por segundo y solo se asignan si cambian: asignar un TMP regenera su malla
+            bool refreshText = Time.unscaledTime >= nextTextRefresh;
+            if (refreshText) nextTextRefresh = Time.unscaledTime + TextRefreshInterval;
+
             waitingLabel.gameObject.SetActive(!matchEverStarted);
-            if (!matchEverStarted)
+            // La IP de la sala sigue en pantalla mientras falte alguien; el boton de copiar solo aparece entonces
+            copyIpButton.SetActive(!matchEverStarted && ShouldShowRoomCode());
+            if (!matchEverStarted && refreshText)
             {
                 MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
-                if (!connected && mm != null && !string.IsNullOrEmpty(mm.LastStatus)) waitingLabel.text = mm.LastStatus;
-                else if (!connected) waitingLabel.text = Loc.T("hud_no_connection");
-                else if (net.IsServer) waitingLabel.text = Loc.T("hud_waiting_players", net.ConnectedClientsIds.Count, GameManager.Instance.numPlayers);
-                else waitingLabel.text = Loc.T("hud_connected_waiting");
+                string status = mm != null && !connected ? mm.LastStatus : null;
+                if (!connected && !string.IsNullOrEmpty(status)) SetText(waitingLabel, status);
+                else if (!connected) SetText(waitingLabel, Loc.T("hud_no_connection"));
+                else if (net.IsServer) SetText(waitingLabel, WaitingForPlayersText(net));
+                else SetText(waitingLabel, Loc.T("hud_connected_waiting"));
             }
 
             bool inPlay = matchEverStarted && game != null;
@@ -83,17 +95,27 @@ namespace MyGame.Networking
             {
                 int current = game.NetworkCurrentPlayerIndex.Value;
                 bool gameOver = game.NetworkMatchPhase.Value == (int)Core.MatchPhase.GameOver;
-                if (gameOver) turnLabel.text = Loc.T("hud_match_over");
-                else turnLabel.text = current == game.LocalPlayerIndex ? "<color=#7CFC00>" + Loc.T("hud_your_turn") + "</color>" : Loc.T("hud_player_turn", current + 1);
+                if (refreshText)
+                {
+                    if (gameOver) SetText(turnLabel, Loc.T("hud_match_over"));
+                    else SetText(turnLabel, current == game.LocalPlayerIndex ? "<color=#7CFC00>" + Loc.T("hud_your_turn") + "</color>" : Loc.T("hud_player_turn", current + 1));
+                }
 
                 if (NetworkTurnManager.Instance != null && !gameOver)
                 {
                     float t = Mathf.Max(0f, NetworkTurnManager.Instance.NetworkTimeRemaining.Value);
-                    timerLabel.text = Mathf.CeilToInt(t).ToString();
-                    timerLabel.color = t <= 10f ? Color.red : OnlineLabelColor;
+                    int seconds = Mathf.CeilToInt(t);
+                    if (seconds != lastTimerSeconds)
+                    {
+                        // Solo cuando cambia el segundo: sin string nuevo ni malla nueva el resto de fotogramas
+                        lastTimerSeconds = seconds;
+                        timerLabel.text = seconds.ToString();
+                        timerLabel.color = t <= 10f ? Color.red : OnlineLabelColor;
+                    }
                 }
-                else
+                else if (lastTimerSeconds != -1)
                 {
+                    lastTimerSeconds = -1;
                     timerLabel.text = string.Empty;
                 }
             }
@@ -166,14 +188,34 @@ namespace MyGame.Networking
         // ACCIONES DE UI
         // =========================================================
 
-        private void LeaveMatch()
+        // Asigna el texto solo si cambia (TMP regenera la malla en cada asignacion, aunque sea el mismo valor)
+        private static void SetText(TMP_Text label, string text)
         {
-            if (MultiplayerMatchmaker.Instance != null) _ = MultiplayerMatchmaker.Instance.LeaveSessionAsync();
+            if (!string.Equals(label.text, text)) label.text = text;
+        }
 
-            if (NetworkBootstrap.Instance != null) NetworkBootstrap.Instance.Disconnect();
-            else if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) NetworkManager.Singleton.Shutdown();
+        // Sala privada creada en esta maquina: hay que ensenar el codigo para que el rival pueda unirse
+        private static bool ShouldShowRoomCode()
+        {
+            MultiplayerMatchmaker mm = MultiplayerMatchmaker.Instance;
+            return OnlineLaunchRequest.LastRole == OnlineRole.PrivateHost && mm != null && !string.IsNullOrEmpty(mm.RoomCode);
+        }
 
-            SceneManager.LoadScene(menuSceneIndex);
+        private static string WaitingForPlayersText(NetworkManager net)
+        {
+            string text = Loc.T("hud_waiting_players", net.ConnectedClientsIds.Count, GameManager.Instance.numPlayers);
+            if (ShouldShowRoomCode())
+            {
+                text += "\n" + Loc.T("hud_share_ip") + "\n<size=76><b>" + MultiplayerMatchmaker.Instance.RoomCode + "</b></size>";
+            }
+            return text;
+        }
+
+        private void CopyRoomCode()
+        {
+            if (!ShouldShowRoomCode()) return;
+            GUIUtility.systemCopyBuffer = MultiplayerMatchmaker.Instance.RoomCode;
+            ShowBanner(Loc.T("hud_ip_copied"), 2f);
         }
 
         private void ConfirmTurn()
@@ -200,19 +242,18 @@ namespace MyGame.Networking
 
         private void BuildUi()
         {
-            root = new GameObject("OnlineHudCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            root.transform.SetParent(transform, false);
+            // El HUD online cuelga del canvas unico del tablero, por debajo de pausa y fin de partida
+            Transform parent = UiRoot.GetScreensParent("OnlineHudCanvas");
+            root = new GameObject("OnlineHud", typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            var rootRect = (RectTransform)root.transform;
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = rootRect.offsetMax = Vector2.zero;
+            PlaceBelowModals(rootRect);
+            root.AddComponent<SafeAreaFitter>(); // botones y textos dentro del area segura (notch, barra de gestos)
 
-            var canvas = root.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 50;
-
-            var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
-
-            waitingLabel = CreateLabel("Waiting", new Vector2(0.5f, 0.55f), new Vector2(900, 200), 48, TextAlignmentOptions.Center);
+            waitingLabel = CreateLabel("Waiting", new Vector2(0.5f, 0.6f), new Vector2(980, 420), 48, TextAlignmentOptions.Center);
             turnLabel = CreateLabel("Turn", new Vector2(0.5f, 0.965f), new Vector2(700, 70), 44, TextAlignmentOptions.Center);
             timerLabel = CreateLabel("Timer", new Vector2(0.9f, 0.965f), new Vector2(160, 70), 54, TextAlignmentOptions.Center);
             bannerLabel = CreateLabel("Banner", new Vector2(0.5f, 0.9f), new Vector2(980, 90), 36, TextAlignmentOptions.Center);
@@ -229,13 +270,40 @@ namespace MyGame.Networking
             reconnectButton = CreateButton(OnlineUiKit.ButtonStyle.Secondary, "Reconnect", "RECONECTAR", new Vector2(0.5f, 0.55f), new Vector2(520, 130), Reconnect);
             reconnectButton.SetActive(false);
 
-            CreateButton(OnlineUiKit.ButtonStyle.Danger, "Leave", "SALIR", new Vector2(0.14f, 0.115f), new Vector2(200, 90), LeaveMatch);
+            // Salir de la partida vive solo en el menu de pausa (boton Main Menu), no durante el juego
+
+            // Quien crea una sala por IP ve la suya sobre el tablero, grande y con boton de copiar, hasta que entre el rival
+            copyIpButton = CreateButton(OnlineUiKit.ButtonStyle.Neutral, "CopyIp", "COPIAR CÓDIGO", new Vector2(0.5f, 0.45f), new Vector2(520, 120), CopyRoomCode);
+            LocalizedText.Bind(copyIpButton.GetComponentInChildren<TMP_Text>(true), "copy_ip");
+            copyIpButton.SetActive(false);
 
             for (int i = 0; i < EmojiLabels.Length; i++)
             {
                 int id = i;
                 CreateButton(OnlineUiKit.ButtonStyle.Neutral, "Emoji" + i, EmojiLabels[i], new Vector2(0.075f + i * 0.125f, 0.035f), new Vector2(125, 90), () => SendEmoji(id));
             }
+        }
+
+        // Pausa y fin de partida deben quedar por encima del HUD online (orden de hermanos = orden de dibujo)
+        private static void PlaceBelowModals(RectTransform hud)
+        {
+            Transform canvasRoot = hud.parent;
+            int index = hud.GetSiblingIndex();
+
+            // El panel de pausa es un hijo directo del canvas llamado PauseMenu (PanelPauseController vive en otro objeto)
+            Transform pauseMenu = canvasRoot.Find("PauseMenu");
+            if (pauseMenu != null) index = Mathf.Min(index, pauseMenu.GetSiblingIndex());
+
+            UIManager ui = FindFirstObjectByType<UIManager>();
+            if (ui != null && ui.panelGameOver != null) index = Mathf.Min(index, ChildIndexUnder(canvasRoot, ui.panelGameOver.transform));
+
+            hud.SetSiblingIndex(index);
+        }
+
+        private static int ChildIndexUnder(Transform canvasRoot, Transform descendant)
+        {
+            while (descendant != null && descendant.parent != canvasRoot) descendant = descendant.parent;
+            return descendant != null ? descendant.GetSiblingIndex() : int.MaxValue;
         }
 
         private TextMeshProUGUI CreateLabel(string name, Vector2 anchor, Vector2 size, float fontSize, TextAlignmentOptions alignment)

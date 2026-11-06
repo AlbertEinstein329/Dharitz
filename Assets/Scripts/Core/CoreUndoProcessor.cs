@@ -31,6 +31,19 @@ namespace MyGame.Core
             // Descuento autoritativo en la Capa 0
             player.CurrentUndoUses--;
 
+            ScoringConfigDTO scoring = state.ScoringConfig ?? ScoringConfigDTO.Shared;
+
+            // Si este dado cerro un grupo con la forma del patron, se le quita tambien su bono (y el de coleccion)
+            if (player.ActiveGroups.TryGetValue(command.Color, out GroupDataDTO closing) && closing != null && closing.Id == command.GroupId &&
+                closing.IsClosed && closing.OccupiedCells.Contains(command.TargetCell))
+            {
+                PatternDefDTO pattern = state.VariantConfig?.GetPattern(closing.TargetSize);
+                if (pattern != null && CorePatternValidator.CheckPattern(new System.Collections.Generic.List<GridPos>(closing.OccupiedCells), pattern))
+                {
+                    player.Score -= CoreScoring.RevokePattern(player, closing.TargetSize, scoring);
+                }
+            }
+
             // 1. Limpieza Topológica
             board.Cells[targetIndex] = new CellStateDTO { IsOccupied = false };
             player.PlacedDice--;
@@ -42,13 +55,16 @@ namespace MyGame.Core
             }
 
             // 3. Reconstrucción Matemática de Combos
+            int previousStructure = player.AccumulatedStructurePoints;
             player.AccumulatedStructurePoints = 0;
-            player.Score -= 50;
+            player.Score -= scoring.PointsPerDie;
 
-            CoreScoreCalculator.EvaluateAndApplyCombos(
+            // El calculo devuelve el total de estructura que queda sin el dado; la diferencia con lo cobrado se descuenta
+            int remainingStructure = CoreScoreCalculator.EvaluateAndApplyCombos(
                 board.Cells, board.Rows, board.Cols, player,
                 rowBonus, colBonus, intersectionBonus, rowMults, colMults
             );
+            player.Score -= previousStructure - remainingStructure;
 
             return true;
         }

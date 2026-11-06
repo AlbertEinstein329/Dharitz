@@ -72,7 +72,7 @@ public class MoveCommand : IGridCommand
             p.patternCounts[group.targetSize]++;
 
             Vector3 posMundo = gm.gridManager.GetWorldPosition(playerIndex, newR, newC);
-            PopUpManager.Instance.ShowPopUp(posMundo + Vector3.down * 1f, $"PERFECT! +{executionResult.PointsAwarded}", Color.cyan);
+            PopUpManager.Instance.ShowPopUp(posMundo + Vector3.down * 1f, Loc.T("popup_perfect", executionResult.PointsAwarded), Color.cyan);
 
             List<Vector2Int> visualCells = new List<Vector2Int>();
             foreach (var cell in executionResult.CompletedCells)
@@ -86,13 +86,13 @@ public class MoveCommand : IGridCommand
         gm.gridManager.RecomputeCompletionOverlays(playerIndex);
     }
 
-    public void Undo()
+    public bool Undo()
     {
         // Si el movimiento original nunca fue válido, no hay nada que revertir
-        if (!executionResult.IsValid) return;
+        if (!executionResult.IsValid) return false;
 
         GridManager.DieData logicDie = gm.gridManager.allBoardsLogic[playerIndex][newR, newC];
-        if (logicDie == null) return;
+        if (logicDie == null) return false;
 
         DieColor color = logicDie.color;
         int groupId = logicDie.groupId;
@@ -125,5 +125,6 @@ public class MoveCommand : IGridCommand
 
         // Al deshacer el movimiento la forma cambia otra vez: el overlay vuelve a salir del estado
         gm.gridManager.RecomputeCompletionOverlays(playerIndex);
+        return true;
     }
 }
