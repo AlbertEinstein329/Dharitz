@@ -35,7 +35,7 @@ public static class BotPerf
         if (decision.ElapsedMs > MaxMs) MaxMs = decision.ElapsedMs;
 
         string line = string.Format(CultureInfo.InvariantCulture, "{0:o},{1},{2},{3},{4},{5},{6:F1},{7:F1},{8}",
-            DateTime.UtcNow, SystemInfo.deviceModel.Replace(',', ' '), decision.Level, decision.LegalCells, decision.Finalists,
+            DateTime.UtcNow, SystemInfo.deviceModel.Replace(',', ' '), decision.ProfileName ?? decision.Level.ToString(), decision.LegalCells, decision.Finalists,
             decision.Rollouts, decision.ElapsedMs, slowestFrameMs, decision.HasMove);
 
         Debug.Log("[BotPerf] " + line);
@@ -100,9 +100,9 @@ public class BotPerfOverlay : MonoBehaviour
         }
         else
         {
-            sb.AppendLine($"Nivel: {d.Level}   Decisiones: {BotPerf.Decisions}");
+            sb.AppendLine($"Dificultad: {d.ProfileName ?? d.Level.ToString()}   Decisiones: {BotPerf.Decisions}");
             sb.AppendLine($"Ultima: {d.ElapsedMs:F0} ms  | casillas legales {d.LegalCells}");
-            if (d.Level == BotLevel.MonteCarlo)
+            if (d.Rollouts > 0)
                 sb.AppendLine($"Monte Carlo: {d.Finalists} finalistas, {d.Rollouts} simulaciones ({(d.Rollouts > 0 ? d.ElapsedMs / d.Rollouts : 0):F1} ms c/u)");
             sb.AppendLine($"Media(ult. {BotPerf.KeepLast}): {BotPerf.RecentAverage():F0} ms   Max: {BotPerf.MaxMs:F0} ms");
             sb.Append($"Peor fotograma mientras pensaba: {BotPerf.LastSlowestFrameMs:F0} ms");

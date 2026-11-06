@@ -13,7 +13,6 @@ public class BotRunner : MonoBehaviour
 {
     private const float ThinkPause = 0.8f;    // para que se vea que el bot "piensa"
     private const float HandAnimPause = 0.7f; // deja terminar la animacion del dado en la mano
-    private const int MonteCarloBudgetMs = BotBrain.DefaultBudgetMs;
 
     private static BotRunner instance;
     private GameManager gm;
@@ -34,10 +33,11 @@ public class BotRunner : MonoBehaviour
     private bool TurnStillValid(int playerIndex) =>
         gm != null && !gm.isGameOver && gm.turnManager.CurrentPlayerIndex == playerIndex && !gm.players[playerIndex].isEliminated;
 
-    private BotLevel CurrentLevel()
+    // La dificultad sale de la variante elegida: Easy, Normal o Hard
+    private BotProfile CurrentProfile()
     {
         VariantData variant = gm.currentVariant;
-        return variant != null ? variant.botLevel : BotLevel.Greedy;
+        return BotProfile.For(variant != null ? variant.botDifficulty : BotDifficulty.Easy);
     }
 
     private IEnumerator PlayTurn()
@@ -62,7 +62,7 @@ public class BotRunner : MonoBehaviour
             DieColor color = gm.turnManager.CurrentDrawnColor;
             if (!bot.activeGroups.TryGetValue(color, out GroupData group) || group == null) yield break;
 
-            BotLevel level = CurrentLevel();
+            BotProfile profile = CurrentProfile();
             BotDecision decision = null;
             BotSnapshot snapshot = BotSnapshot.Capture(gm.ServerState, pi, gm.maxDicePerPlayer);
 
@@ -71,29 +71,22 @@ public class BotRunner : MonoBehaviour
                 int seed = Environment.TickCount ^ (pi * 7919);
                 float slowestFrame = 0f;
 
-                if (level == BotLevel.MonteCarlo)
+                // El calculo va en otro hilo: la partida sigue fluida mientras el bot piensa
+                Task<BotDecision> task = Task.Run(() => BotBrain.Choose(snapshot, profile, seed));
+                while (!task.IsCompleted)
                 {
-                    // El calculo pesado va en otro hilo: la partida sigue fluida mientras el bot piensa
-                    Task<BotDecision> task = Task.Run(() => BotBrain.Choose(snapshot, level, seed, MonteCarloBudgetMs));
-                    while (!task.IsCompleted)
-                    {
-                        slowestFrame = Mathf.Max(slowestFrame, Time.unscaledDeltaTime);
-                        yield return null;
-                    }
+                    slowestFrame = Mathf.Max(slowestFrame, Time.unscaledDeltaTime);
+                    yield return null;
+                }
 
-                    if (task.IsFaulted)
-                    {
-                        Debug.LogError("[Bot] Monte Carlo fallo, se usa Greedy penalizado: " + task.Exception?.GetBaseException());
-                        decision = BotBrain.Choose(snapshot, BotLevel.GreedyPenalized, seed);
-                    }
-                    else
-                    {
-                        decision = task.Result;
-                    }
+                if (task.IsFaulted)
+                {
+                    Debug.LogError("[Bot] Monte Carlo fallo, se usa Greedy penalizado: " + task.Exception?.GetBaseException());
+                    decision = BotBrain.Choose(snapshot, BotLevel.GreedyPenalized, seed);
                 }
                 else
                 {
-                    decision = BotBrain.Choose(snapshot, level, seed);
+                    decision = task.Result;
                 }
 
                 BotPerf.Record(decision, slowestFrame * 1000f);

@@ -56,6 +56,9 @@ namespace MyGame.Core
         public bool HasMove;
         public GridPos Cell;
         public BotLevel Level;
+
+        /// <summary>Nombre del perfil de dificultad usado (Easy, Normal, Hard); nulo con los niveles antiguos.</summary>
+        public string ProfileName;
         public int LegalCells;
         public int Finalists;
         public int Rollouts;
@@ -71,23 +74,26 @@ namespace MyGame.Core
     {
         public const int DefaultBudgetMs = 600;
 
-        private const int Finalists = 8;
-        private const int MaxRounds = 40;
-        private const int Horizon = 8;
         private const int FastTries = 6;
         private const float DeathPenalty = 1500f;
 
-        // Prioridades del bot: los patrones mandan; las filas y columnas cuentan a medias y solo desempatan en la posicion
-        private const float LineWeight = 0.5f;      // fraccion del bono de lineas que el bot se "cree" al valorar
-        private const float PatternWeight = 0.8f;   // fraccion del bono de un patron aun abierto que se acredita por avanzar hacia el
-        private const float LineHint = 12f;         // empujon posicional a rellenar filas/columnas
-
+        /// <summary>Niveles de la primera version (Greedy, Penalizado, Monte Carlo con los pesos antiguos): para comparar.</summary>
         public static BotDecision Choose(BotSnapshot snap, BotLevel level, int seed, int budgetMs = DefaultBudgetMs)
+            => ChooseCore(snap, level, BotProfile.Legacy(), seed, budgetMs);
+
+        /// <summary>
+        /// Decision de una dificultad del juego: siempre Monte Carlo ligero, con el objetivo y el margen de error del perfil.
+        /// <paramref name="budgetOverrideMs"/> &gt; 0 sustituye el presupuesto de tiempo del perfil (tests y benchmark).
+        /// </summary>
+        public static BotDecision Choose(BotSnapshot snap, BotProfile profile, int seed, int budgetOverrideMs = 0)
+            => ChooseCore(snap, BotLevel.MonteCarlo, profile, seed, budgetOverrideMs > 0 ? budgetOverrideMs : profile.BudgetMs);
+
+        private static BotDecision ChooseCore(BotSnapshot snap, BotLevel level, BotProfile profile, int seed, int budgetMs)
         {
             var timer = Stopwatch.StartNew();
-            var decision = new BotDecision { Level = level };
+            var decision = new BotDecision { Level = level, ProfileName = level == BotLevel.MonteCarlo ? profile.Name : null };
             var rng = new Random(seed);
-            var sim = new Sim(snap, rng.Next());
+            var sim = new Sim(snap, rng.Next(), profile);
 
             // 1) Todas las casillas legales y su valoracion inmediata
             var options = new List<Option>();
@@ -105,7 +111,7 @@ namespace MyGame.Core
                     {
                         Cell = new GridPos(r, c),
                         RawGain = rawGain,
-                        Gain = rawGain - (1f - LineWeight) * (sim.Profile.AccumulatedStructurePoints - snap.Profile.AccumulatedStructurePoints)
+                        Gain = rawGain - (1f - profile.LineWeight) * (sim.Profile.AccumulatedStructurePoints - snap.Profile.AccumulatedStructurePoints)
                     };
 
                     // Avanzar (o romper) la forma de los grupos abiertos pesa tanto como los puntos que da ahora
@@ -137,12 +143,12 @@ namespace MyGame.Core
                 return Finish(decision, options[0], options[0].Gain + options[0].Positional, timer);
 
             // 2) Monte Carlo sobre los mejores candidatos, repartiendo el tiempo por rondas
-            int finalists = Math.Min(Finalists, options.Count);
+            int finalists = Math.Min(profile.Finalists, options.Count);
             decision.Finalists = finalists;
             var sums = new double[finalists];
             var counts = new int[finalists];
 
-            for (int round = 0; round < MaxRounds; round++)
+            for (int round = 0; round < profile.MaxRounds; round++)
             {
                 // Mismos dados y mismo "azar" para todos los finalistas de la ronda: la comparacion entre ellos es mas limpia
                 int roundSeed = rng.Next();
@@ -165,7 +171,18 @@ namespace MyGame.Core
                 if (mean > bestMean) { bestMean = mean; best = i; }
             }
 
-            return Finish(decision, options[best], (float)bestMean, timer);
+            // Un bot flojo no siempre ve la mejor jugada: a veces elige otra de las 3 mejores
+            int pick = best;
+            if (profile.MistakeChance > 0f && finalists > 1 && rng.NextDouble() < profile.MistakeChance)
+            {
+                var ranked = new List<int>();
+                for (int i = 0; i < finalists; i++) if (counts[i] > 0 && i != best) ranked.Add(i);
+                ranked.Sort((a, b) => (sums[b] / counts[b]).CompareTo(sums[a] / counts[a]));
+                int span = Math.Min(2, ranked.Count);
+                if (span > 0) pick = ranked[rng.Next(span)];
+            }
+
+            return Finish(decision, options[pick], (float)bestMean, timer);
         }
 
         private static BotDecision Finish(BotDecision decision, Option option, float value, Stopwatch timer)
@@ -193,7 +210,7 @@ namespace MyGame.Core
                 DieColor tmp = bag[i]; bag[i] = bag[j]; bag[j] = tmp;
             }
 
-            int turns = Math.Min(Horizon, Math.Max(0, snap.MaxDice - sim.Profile.PlacedDice));
+            int turns = Math.Min(sim.P.Horizon, Math.Max(0, snap.MaxDice - sim.Profile.PlacedDice));
             for (int t = 0; t < turns; t++)
             {
                 if (!sim.PlayFastTurn(rng)) return RolloutPoints(sim, snap) - DeathPenalty;
@@ -206,7 +223,7 @@ namespace MyGame.Core
         private static float RolloutPoints(Sim sim, BotSnapshot snap)
         {
             int structure = sim.Profile.AccumulatedStructurePoints - snap.Profile.AccumulatedStructurePoints;
-            return (sim.Profile.Score - snap.Profile.Score) - (1f - LineWeight) * structure;
+            return (sim.Profile.Score - snap.Profile.Score) - (1f - sim.P.LineWeight) * structure;
         }
 
         private struct Option
@@ -225,10 +242,12 @@ namespace MyGame.Core
             public BoardStateDTO Board;
             public PlayerDataDTO Profile;
             private readonly BotSnapshot snap;
+            public readonly BotProfile P;
 
-            public Sim(BotSnapshot snapshot, int seed)
+            public Sim(BotSnapshot snapshot, int seed, BotProfile profile)
             {
                 snap = snapshot;
+                P = profile;
                 State.CurrentPhase = MatchPhase.PlayerTurn;
                 State.CurrentPlayerIndex = 0;
                 State.VariantConfig = snapshot.Variant;
@@ -382,12 +401,16 @@ namespace MyGame.Core
             /// </summary>
             public float Heuristic(int lastRow, int lastCol)
             {
-                float h = 0.5f * CoreTopologyCalculator.CalculateGapPenalty(Board.Cells, Board.Rows, Board.Cols, State.ScoringConfig, out _);
+                // Huecos: cada casilla encerrada cuesta lo que cuesta al acabar (sin el tope), multiplicado por el peso del perfil
+                var gaps = CoreTopologyCalculator.FindEnclosedGaps(Board.Cells, Board.Rows, Board.Cols);
+                int gapCells = 0;
+                foreach (var gap in gaps) gapCells += gap.Count;
+                float h = P.GapWeight * gapCells * State.ScoringConfig.GapPenaltyFor(1);
 
                 foreach (var kvp in Profile.ActiveGroups)
                 {
                     GroupDataDTO g = kvp.Value;
-                    if (g != null && CoreTopologyCalculator.IsGroupDoomed(Board, g, Pattern(g.TargetSize))) h -= 150f;
+                    if (g != null && CoreTopologyCalculator.IsGroupDoomed(Board, g, Pattern(g.TargetSize))) h -= P.DoomedPenalty;
                 }
 
                 if (lastRow >= 0)
@@ -397,7 +420,7 @@ namespace MyGame.Core
                     for (int k = 0; k < Board.Rows; k++) if (Board.Cells[Board.GetIndex(k, lastCol)].IsOccupied) colFilled++;
                     float rf = rowFilled / (float)Board.Cols;
                     float cf = colFilled / (float)Board.Rows;
-                    h += LineHint * (rf * rf + cf * cf);
+                    h += P.LineHint * (rf * rf + cf * cf);
                 }
 
                 return h;
@@ -424,7 +447,7 @@ namespace MyGame.Core
 
                     float progress = g.OccupiedCells.Count / (float)pattern.BaseShape.Count;
                     float robust = Math.Min(1f, 0.55f + 0.15f * Math.Min(plan.Placements, 3));
-                    potential += State.ScoringConfig.GetPatternBonus(g.TargetSize) * progress * robust * PatternWeight;
+                    potential += State.ScoringConfig.GetPatternBonus(g.TargetSize) * progress * robust * P.PatternWeight;
                 }
 
                 return potential;
