@@ -6,12 +6,12 @@ namespace MyGame.Core.Tests
     /// <summary>El bono de una fila o columna completa se cobra una sola vez, no con cada dado posterior.</summary>
     public class LineBonusTests
     {
-        private static int Place(MatchStateDTO st, int row, int col, int groupId)
+        private static int Place(MatchStateDTO st, int row, int col, int groupId, DieColor color = DieColor.Blue)
         {
             PlayerDataDTO p = st.PlayerProfiles[0];
             int before = p.Score;
             ScoringConfigDTO sc = st.ScoringConfig;
-            var cmd = new PlaceDieCommand { PlayerId = 0, TargetCell = new GridPos(row, col), Color = DieColor.Blue, GroupId = groupId, Number = 1 };
+            var cmd = new PlaceDieCommand { PlayerId = 0, TargetCell = new GridPos(row, col), Color = color, GroupId = groupId, Number = 1 };
             Assert.IsTrue(CoreMatchProcessor.ProcessPlacementIntent(st, cmd, null, null, sc.RowCompleteBonus, sc.ColCompleteBonus, sc.IntersectionBonus, sc.RowMultipliers, sc.ColMultipliers));
             return p.Score - before;
         }
@@ -25,8 +25,9 @@ namespace MyGame.Core.Tests
                 board.Cells[board.GetIndex(0, c)] = new CellStateDTO { IsOccupied = true, Color = DieColor.White, GroupId = 500 + c, Value = 1 };
 
             int closing = Place(st, 0, 7, 1);   // cierra la fila 0
-            int next = Place(st, 5, 5, 2);      // un dado cualquiera despues
-            int another = Place(st, 5, 6, 2);
+            // Dados siguientes: tienen que tocar algun dado (el servidor ya exige el contacto) y no pegarse a otro grupo de su color
+            int next = Place(st, 1, 7, 2, DieColor.Red);
+            int another = Place(st, 1, 6, 3, DieColor.Black);
 
             Assert.AreEqual(st.ScoringConfig.PointsPerDie + st.ScoringConfig.RowCompleteBonus, closing);
             Assert.AreEqual(st.ScoringConfig.PointsPerDie, next);
@@ -48,7 +49,7 @@ namespace MyGame.Core.Tests
 
             // Turno siguiente con el valor acumulado conservado: no se vuelve a pagar
             st.PlayerProfiles[0] = CoreTurnActions.CloneProfile(st.PlayerProfiles[0]);
-            Assert.AreEqual(st.ScoringConfig.PointsPerDie, Place(st, 5, 5, 2));
+            Assert.AreEqual(st.ScoringConfig.PointsPerDie, Place(st, 1, 7, 2, DieColor.Red));
             Assert.AreEqual(accumulated, st.PlayerProfiles[0].AccumulatedStructurePoints);
         }
     }
