@@ -660,6 +660,7 @@ public void NextBoard()
             Vector3 targetScale = originalScale * highlightZoomMultiplier;
 
             Sequence popSequence = DOTween.Sequence();
+            popSequence.SetLink(dieTransform.gameObject); // si el dado se destruye (Undo, fin de escena) la animacion se cancela sola
 
             // Fase de salida
             popSequence.Append(dieTransform.DOMoveZ(-4f, 0.6f).SetEase(Ease.OutQuad));

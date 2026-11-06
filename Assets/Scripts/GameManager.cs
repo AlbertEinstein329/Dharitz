@@ -135,6 +135,12 @@ public class GameManager : MonoBehaviour, ITurnProvider, IPlacementExecutor
 
         SyncServerStateFromPlayers();
         diceManager.InitializeBag();
+        if (currentSession != null && currentSession.isTutorial)
+        {
+            // Tutorial: dados fijos del guion y panel guiado (sin bots, sin monedas ni progreso)
+            ServerState.TutorialDraws = MyGame.Core.TutorialScript.CreateDraws();
+            TutorialManager.Begin(this);
+        }
         turnManager.StartTurn();
     }
 

@@ -19,9 +19,22 @@ namespace MyGame.Core
             if (state.HasDrawn) return false; // Ya tiene un dado en mano
             if (state.DiceBag.Count == 0) return false; // Bolsa vacía
 
-            // 1. Extracción determinista
-            state.CurrentDrawnColor = state.DiceBag[0];
-            state.DiceBag.RemoveAt(0);
+            // 1. Extracción determinista (en el tutorial manda el guion; si no, el primer dado de la bolsa)
+            int? scriptedValue = null;
+            if (state.TutorialDraws != null && state.TutorialDraws.Count > 0)
+            {
+                ScriptedDraw scripted = state.TutorialDraws[0];
+                state.TutorialDraws.RemoveAt(0);
+                int bagIndex = state.DiceBag.IndexOf(scripted.Color);
+                state.DiceBag.RemoveAt(bagIndex >= 0 ? bagIndex : 0);
+                state.CurrentDrawnColor = scripted.Color;
+                scriptedValue = scripted.Value;
+            }
+            else
+            {
+                state.CurrentDrawnColor = state.DiceBag[0];
+                state.DiceBag.RemoveAt(0);
+            }
             state.HasDrawn = true;
 
             PlayerDataDTO player = state.PlayerProfiles[command.PlayerId];
@@ -33,7 +46,7 @@ namespace MyGame.Core
             // 2. Lógica de asignación de Grupos y Valores
             if (!player.ActiveGroups.ContainsKey(color))
             {
-                int randomValue = rng.Next(1, 7);
+                int randomValue = scriptedValue ?? rng.Next(1, 7);
                 int randomId = rng.Next(10000, 99999);
                 player.ActiveGroups[color] = new GroupDataDTO(randomId, color, randomValue);
                 state.CurrentDrawnValue = randomValue;
@@ -43,7 +56,7 @@ namespace MyGame.Core
                 GroupDataDTO group = player.ActiveGroups[color];
                 if (group.IsClosed)
                 {
-                    int randomValue = rng.Next(1, 7);
+                    int randomValue = scriptedValue ?? rng.Next(1, 7);
                     int randomId = rng.Next(10000, 99999);
                     player.ActiveGroups[color] = new GroupDataDTO(randomId, color, randomValue);
                     state.CurrentDrawnValue = randomValue;

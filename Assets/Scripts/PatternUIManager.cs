@@ -35,6 +35,14 @@ public class PatternUIManager : MonoBehaviour
         }
     }
 
+    public bool IsExpanded => isExpanded;
+
+    /// <summary>Abre o cierra el panel sin invertir su estado actual (lo usa el tutorial).</summary>
+    public void SetExpanded(bool expanded)
+    {
+        if (isExpanded != expanded) TogglePanel();
+    }
+
     // Llama a esta función desde el botón de "Abrir/Cerrar"
     public void TogglePanel()
     {

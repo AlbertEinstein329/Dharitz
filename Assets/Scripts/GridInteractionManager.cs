@@ -338,6 +338,9 @@ public class GridInteractionManager : MonoBehaviour
 
         int playerIndex = gm.turnManager.CurrentPlayerIndex;
 
+        // Al arrancar la partida los tableros aun no existen (GridManager.Start corre despues): no hay nada que limpiar
+        if (gm.gridManager.allCellsVisual.Count == 0) return;
+
         // 2. Validación de Índice: Verificamos si el playerIndex existe en la lista
         // Esto evita el ArgumentOutOfRangeException
         if (playerIndex < 0 || playerIndex >= gm.gridManager.allCellsVisual.Count)

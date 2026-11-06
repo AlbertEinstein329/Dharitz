@@ -12,8 +12,12 @@ public class PlacementOrchestrator
         this.gm = gm;
     }
 
+    /// <summary>Filtro de casillas del tutorial (null en partidas normales): si devuelve false, el toque se ignora.</summary>
+    public static System.Func<int, int, bool> TutorialGuard;
+
     public void BeginPlacement(int row, int col)
     {
+        if (TutorialGuard != null && !TutorialGuard(row, col)) return;
         ConfirmAndProcessScore(row, col);
         UIManager.Instance.ClearDieUI();
     }

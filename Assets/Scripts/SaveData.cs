@@ -22,6 +22,7 @@ public class PlayerProfile
 {
     public int totalCoins;
     public int maxLevelReached;
+    public bool tutorialDone;
     public List<LevelProgress> levels;
 
     public PlayerProfile()
