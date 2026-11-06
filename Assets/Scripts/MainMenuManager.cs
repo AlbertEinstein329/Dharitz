@@ -73,6 +73,54 @@ public class MainMenuManager : MonoBehaviour
         if (addPlayerButton != null) addPlayerButton.OnClick.AddListener(AddPlayerDynamic);
 
         ShowMainPanel();
+        BuildTutorialButton();
+        if (SaveManager.Instance != null && SaveManager.Instance.CurrentProfile != null && !TutorialManager.IsDone) ShowTutorialPrompt();
+    }
+
+    // ==========================================
+    // --- TUTORIAL ---
+    // ==========================================
+    private void BuildTutorialButton()
+    {
+        OnlineUiKit kit = OnlineUiKit.Instance;
+        if (kit == null || mainPanel == null) return;
+        kit.CreateButton(mainPanel.transform, OnlineUiKit.ButtonStyle.Secondary, Loc.T("tut_menu_button"),
+            new Vector2(0.5f, 0.07f), new Vector2(460f, 100f), StartTutorial);
+        UiButtonSfx.AttachToAll();
+    }
+
+    /// <summary>Pregunta una sola vez, a los jugadores nuevos, si quieren hacer el tutorial. «Ahora no» tambien lo da por visto.</summary>
+    private void ShowTutorialPrompt()
+    {
+        OnlineUiKit kit = OnlineUiKit.Instance;
+        if (kit == null) return;
+
+        RectTransform parent = UiRoot.GetOverlayParent("[TutorialPromptCanvas]", 460);
+        RectTransform box = kit.CreatePanel(parent, new Vector2(900f, 520f), Loc.T("tut_prompt_title"));
+        var text = kit.CreateLabel(box, Loc.T("tut_prompt_body"), new Vector2(0.5f, 0.5f), new Vector2(780f, 220f), 36f, TextAlignmentOptions.Center);
+        text.rectTransform.anchoredPosition = new Vector2(0f, 40f);
+        text.textWrappingMode = TextWrappingModes.Normal;
+
+        GameObject root = box.gameObject;
+        kit.CreateButton(box, OnlineUiKit.ButtonStyle.Primary, Loc.T("tut_prompt_yes"), new Vector2(0.72f, 0f), new Vector2(340f, 100f),
+            () => { Destroy(root); StartTutorial(); }).GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, 80f);
+        kit.CreateButton(box, OnlineUiKit.ButtonStyle.Neutral, Loc.T("tut_prompt_no"), new Vector2(0.28f, 0f), new Vector2(340f, 100f),
+            () => { TutorialManager.MarkDone(); Destroy(root); }).GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, 80f);
+        UiButtonSfx.AttachToAll();
+    }
+
+    /// <summary>Lanza el tutorial: una partida de un jugador con los dados del guion. Se puede repetir las veces que se quiera.</summary>
+    public void StartTutorial()
+    {
+        if (sessionConfig == null) return;
+        sessionConfig.ResetSession();
+        sessionConfig.isTutorial = true;
+        sessionConfig.isCampaignMode = false;
+        sessionConfig.playerCount = 1;
+        sessionConfig.players.Clear();
+        sessionConfig.players.Add(new PlayerSetup { playerName = Loc.T("tut_title"), isBot = false, botDifficulty = 0, avatarId = 0 });
+        if (availableVariants.Count > 0) sessionConfig.selectedVariant = availableVariants[0];
+        SceneManager.LoadScene(2);
     }
 
     // ==========================================

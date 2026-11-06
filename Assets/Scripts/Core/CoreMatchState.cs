@@ -38,6 +38,9 @@ namespace MyGame.Core
         public int? CurrentDrawnValue { get; set; }
         public List<DieColor> DiceBag { get; set; }
 
+        /// <summary>Dados fijos del tutorial (null en partidas normales). Se consumen en orden al robar.</summary>
+        public List<ScriptedDraw> TutorialDraws { get; set; }
+
         // El estado de los tableros de todos los jugadores
         public Dictionary<int, BoardStateDTO> PlayerBoards { get; set; }
 

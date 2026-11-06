@@ -9,6 +9,8 @@ public class SessionConfig : ScriptableObject
     public bool isCampaignMode = false;
     [Tooltip("Partida en red: el servidor reparte y valida; playerCount debe ser el numero de jugadores online")]
     public bool isOnlineMatch = false;
+    [Tooltip("Partida guiada: un jugador, dados del guion, sin bots, sin monedas ni progreso")]
+    public bool isTutorial = false;
 
     [Header("Selected Rules")]
     public VariantData selectedVariant;
@@ -26,6 +28,7 @@ public class SessionConfig : ScriptableObject
     {
         isCampaignMode = false;
         isOnlineMatch = false;
+        isTutorial = false;
         playerCount = 1;
         baseUndoUses = 2;
         baseMoveUses = 1;
