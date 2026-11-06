@@ -39,6 +39,7 @@ public static class BotPerf
             decision.Rollouts, decision.ElapsedMs, slowestFrameMs, decision.HasMove);
 
         Debug.Log("[BotPerf] " + line);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         try
         {
             if (!File.Exists(CsvPath)) File.AppendAllText(CsvPath, "utc,device,level,legalCells,finalists,rollouts,decisionMs,slowestFrameMs,hasMove\n");
@@ -48,6 +49,7 @@ public static class BotPerf
         {
             Debug.LogWarning("[BotPerf] No se pudo escribir el CSV: " + e.Message);
         }
+#endif
     }
 
     public static double RecentAverage()

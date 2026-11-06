@@ -73,8 +73,13 @@ namespace MyGame.Networking
                 // Un servidor dedicado no es un jugador: no necesita (ni debe) iniciar sesion anonima
                 if (!DedicatedServerLauncher.IsDedicatedServer && !AuthenticationService.Instance.IsSignedIn)
                 {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    // Solo para probar: el juego publicado entra con Google Play (LoginController) y no crea cuentas anonimas aqui
                     await AuthenticationService.Instance.SignInAnonymouslyAsync();
-                    Debug.Log($"[NetworkBootstrap] Autenticado en UGS con Player ID: {AuthenticationService.Instance.PlayerId}");
+                    Debug.Log($"[NetworkBootstrap] Autenticado en UGS (desarrollo) con Player ID: {LogMask.Id(AuthenticationService.Instance.PlayerId)}");
+#else
+                    throw new InvalidOperationException("Sesion no iniciada: hay que entrar con Google Play antes de jugar online.");
+#endif
                 }
 
                 IsServicesInitialized = true;
